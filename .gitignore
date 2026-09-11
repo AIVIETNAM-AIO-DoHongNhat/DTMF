@@ -1,0 +1,8 @@
+*.asv
+*.autosave
+slprj/
+results/tmp/
+*.pdf.bak
+.DS_Store
+Thumbs.db
+docs

@@ -1,0 +1,6 @@
+*.mlapp binary -diff -merge
+*.mlx   binary -diff -merge
+*.fig   binary
+*.mat   binary
+*.wav   binary
+*.pdf   binary
