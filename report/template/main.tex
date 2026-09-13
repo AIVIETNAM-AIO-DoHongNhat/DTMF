@@ -1,0 +1,619 @@
+% =========================================================
+% BÁO CÁO KỸ THUẬT — BÀI TẬP LỚN XỬ LÝ TÍN HIỆU SỐ
+% Chủ đề 4: Hệ thống tự động phát và giải mã tín hiệu DTMF
+%
+% Biên dịch:  pdflatex main  ->  biber main  ->  pdflatex main x2
+% Hoặc:       latexmk -pdf main.tex
+%
+% QUY TẮC: mỗi người chỉ sửa file chương của mình trong thư mục Chapters/.
+% Không ai sửa dtmf_report.cls và phần preamble dưới đây.
+% =========================================================
+\documentclass{dtmf_report}
+
+\addbibresource{references.bib}
+
+% ---- Thông tin trang bìa: sửa cho đúng trường, lớp, giảng viên ----
+\settruong{HỌC VIỆN AN NINH NHÂN DÂN}
+\setkhoa{KHOA AN NINH MẠNG VÀ PHÒNG, CHỐNG TỘI PHẠM SỬ DỤNG CÔNG NGHỆ CAO}
+\sethocphan{XỬ LÝ TÍN HIỆU SỐ}
+\setdetai{Xây dựng hệ thống tự động phát và giải mã\\ tín hiệu điện thoại DTMF}
+\setnhom{Nhóm 4}
+\setgiangvien{TS. Nguyễn Văn A}
+\setdiadiem{Hà Nội}
+\setthoigian{9/2026}
+\setthanhvien{
+  \renewcommand{\arraystretch}{1.12}%
+  \begin{tabular}{@{}r@{~}l l @{\hspace{13pt}} r@{~}l l@{}}
+    1. & Đỗ Hồng Nhất      & B9D55  & 10. & Nguyễn Tiến Mạnh        & B9D55 \\
+    2. & Nguyễn Thu Hà     & B8D55  & 11. & Nguyễn Huy Hoàng        & B9D55 \\
+    3. & Lê Tuấn Anh       & B9D55  & 12. & Nguyễn Cửu An Phú       & B9D55 \\
+    4. & Nguyễn Quốc Đăng  & B9D55  & 13. & Đinh Minh Trí           & B9D55 \\
+    5. & Lê Đức Anh        & B9D55  & 14. & Đặng Nguyễn Lâm         & B9D55 \\
+    6. & Nguyễn Minh Hiếu  & B9D55  & 15. & Huỳnh Nguyễn Bảo Khương & B9D55 \\
+    7. & Hồ Văn Hoàng Quân & B10D55 & 16. & Nguyễn Duy Tiến         & B9D55 \\
+    8. & Nguyễn Trí Dũng   & B9D55  & 17. & Cao Tiến Thành          & B9D55 \\
+    9. & Trương Minh Tân   & B9D55  & 18. & Nguyễn Sỹ Long          & B9D55 \\
+  \end{tabular}
+}
+
+\begin{document}
+
+% =========================================================
+% PHẦN ĐẦU
+% =========================================================
+\trangbia
+
+\pagenumbering{roman}
+
+\tableofcontents
+\clearpage
+
+\listoffigures
+\clearpage
+
+\listoftables
+\clearpage
+
+\unsection{DANH MỤC TỪ VIẾT TẮT VÀ KÝ HIỆU}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{l l}
+\toprule
+\textbf{Ký hiệu} & \textbf{Ý nghĩa} \\
+\midrule
+DTMF   & Dual-Tone Multi-Frequency — âm đa tần kép \\
+DFT    & Discrete Fourier Transform — biến đổi Fourier rời rạc \\
+FFT    & Fast Fourier Transform — biến đổi Fourier nhanh \\
+FIR    & Finite Impulse Response — đáp ứng xung hữu hạn \\
+IIR    & Infinite Impulse Response — đáp ứng xung vô hạn \\
+BIBO   & Bounded Input Bounded Output — vào giới hạn, ra giới hạn \\
+SNR    & Signal-to-Noise Ratio — tỷ số tín hiệu trên nhiễu \\
+ITU-T  & International Telecommunication Union — Telecom Standardization \\
+\midrule
+$\fs$        & Tần số lấy mẫu \\
+$N$          & Độ dài khung phân tích (số mẫu) \\
+$k$          & Chỉ số bin tần số trong DFT \\
+$\dfres$     & Độ phân giải tần số, $\dfres = \fs/N$ \\
+$\wzero$     & Tần số cộng hưởng chuẩn hoá \\
+$r$          & Bán kính điểm cực của bộ lọc cộng hưởng \\
+$\Qfac$      & Hệ số phẩm chất của bộ lọc \\
+$\Htf$       & Hàm truyền của hệ thống trong miền $z$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+\clearpage
+
+% =========================================================
+% NỘI DUNG CHÍNH
+% =========================================================
+\pagenumbering{arabic}
+
+% ---------------------------------------------------------
+% MỞ ĐẦU  (không đánh số chương)
+% ---------------------------------------------------------
+\unsection{MỞ ĐẦU}
+
+\unsubsection{1. Đặt vấn đề}
+% Vai trò của báo hiệu đa tần trong mạng điện thoại. Bài toán: từ một đoạn
+% âm thanh chứa các phím bấm, tự động khôi phục chuỗi ký tự đã bấm.
+% Ứng dụng: tổng đài tự động, hệ thống IVR, điều khiển thiết bị qua đường thoại.
+[Nội dung mục 1 viết tại đây.]
+
+\unsubsection{2. Mục tiêu đề tài}
+% Bốn mục tiêu, phát biểu ngắn gọn.
+\begin{enumerate}[leftmargin=*]
+  \item Bộ phát tín hiệu DTMF đúng chuẩn ITU-T, có mô phỏng nhiễu.
+  \item Ba bộ giải mã độc lập: DFT/FFT, Goertzel, ngân hàng bộ lọc.
+  \item So sánh định lượng ba phương pháp về độ chính xác, độ bền nhiễu và chi phí tính toán.
+  \item Phần mềm mô phỏng có giao diện trực quan.
+\end{enumerate}
+
+\unsubsection{3. Phạm vi, giới hạn và phương pháp thực hiện}
+% 12 phím chuẩn, không xử lý cột 1633 Hz; fs = 8 kHz cố định; xử lý theo khối;
+% dữ liệu tổng hợp có nhãn làm chính, ghi âm thực tế để kiểm chứng bổ sung.
+[Nội dung mục 3 viết tại đây.]
+
+\clearpage
+
+% ---------------------------------------------------------
+% I. CƠ SỞ LÝ THUYẾT
+% ---------------------------------------------------------
+\section{CƠ SỞ LÝ THUYẾT}
+
+\subsection{Tín hiệu DTMF}
+
+\subsubsection{Nguyên lý âm kép và bảng tần số chuẩn}
+% Mỗi phím phát đồng thời một tần số nhóm thấp (hàng) và một tần số nhóm cao (cột);
+% ma trận 4 x 3 tạo 12 tổ hợp.
+[Nội dung viết tại đây.]
+
+\begin{table}[H]
+\centering
+\caption{Bảng tần số chuẩn DTMF theo khuyến nghị ITU-T Q.23}
+\label{tab:tanso}
+\begin{tabular}{l c c c}
+\toprule
+& \textbf{1209 Hz} & \textbf{1336 Hz} & \textbf{1477 Hz} \\
+\midrule
+\textbf{697 Hz} & 1 & 2 & 3 \\
+\textbf{770 Hz} & 4 & 5 & 6 \\
+\textbf{852 Hz} & 7 & 8 & 9 \\
+\textbf{941 Hz} & * & 0 & \# \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Cơ sở lựa chọn bộ bảy tần số}
+% MỤC PHÂN TÍCH - VIẾT KỸ. Ba tiêu chí:
+%  (a) không tần số nào là bội số nguyên của tần số khác;
+%  (b) hai nhóm tách biệt đủ xa để lọc riêng;
+%  (c) toàn dải nằm trong băng thoại 300-3400 Hz.
+[Nội dung viết tại đây.]
+
+\subsubsection{Mô hình toán học và tham số chuẩn}
+% Biểu thức tín hiệu liên tục và rời rạc; tham số ITU-T Q.23/Q.24.
+Tín hiệu DTMF ứng với một phím là tổng của hai dao động hình sin:
+\begin{equation}\label{eq:dtmf-lien-tuc}
+  x(t) = A_{1}\sin(2\pi f_{1} t) + A_{2}\sin(2\pi f_{2} t)
+\end{equation}
+Sau khi lấy mẫu ở tần số $\fs$, tín hiệu rời rạc có dạng
+\begin{equation}\label{eq:dtmf-roi-rac}
+  x[n] = A_{1}\sin\!\left(\frac{2\pi f_{1} n}{\fs}\right)
+       + A_{2}\sin\!\left(\frac{2\pi f_{2} n}{\fs}\right)
+\end{equation}
+
+\subsection{Lấy mẫu và hiện tượng chồng phổ}
+% Định lý Nyquist-Shannon; kiểm chứng cho fmax = 1477 Hz với fs = 8 kHz;
+% cơ chế chồng phổ kèm mô phỏng minh hoạ.
+[Nội dung viết tại đây.]
+
+\chohinh{minh hoạ hiện tượng chồng phổ}
+
+\subsection{Phổ tần số của tín hiệu DTMF}
+% Phổ biên độ của một phím - hai đỉnh rõ rệt. Đặc điểm then chốt: DTMF lý tưởng
+% gần như không có hài bậc cao, khác hẳn tiếng nói -> cơ sở cho kiểm tra
+% chống talk-off ở mục 2.2.4. Ảnh hưởng của ba loại nhiễu lên phổ.
+[Nội dung viết tại đây.]
+
+\clearpage
+
+% ---------------------------------------------------------
+% II. CÁC PHƯƠNG PHÁP GIẢI MÃ
+% ---------------------------------------------------------
+\section{CÁC PHƯƠNG PHÁP GIẢI MÃ}
+
+\subsection{Phương pháp DFT/FFT}
+
+\subsubsection{Biến đổi Fourier rời rạc}
+% Công thức DFT, ý nghĩa X[k], quan hệ f_k = k*fs/N, phổ công suất,
+% tính đối xứng với tín hiệu thực; độ phức tạp O(N^2) so với O(N log N).
+Với một khung $N$ mẫu, hệ số DFT tại bin thứ $k$ được tính bằng
+\begin{equation}\label{eq:dft}
+  X[k] = \sum_{n=0}^{N-1} x[n]\, e^{-j 2\pi k n / N},
+  \qquad k = 0, 1, \dots, N-1
+\end{equation}
+Bin thứ $k$ tương ứng với tần số thực $f_{k} = k\,\fs / N$.
+
+\subsubsection{Độ phân giải tần số và đánh đổi thời gian--tần số}
+% MỤC BIỆN MINH THIẾT KẾ - VIẾT KỸ.
+% Delta f = fs/N; khoảng cách nhỏ nhất cần phân biệt là 73 Hz (697 và 770 Hz);
+% vì sao không chọn N lớn hơn -> kết luận chọn khung 256 điểm.
+Độ phân giải tần số của phép biến đổi là
+\begin{equation}\label{eq:do-phan-giai}
+  \dfres = \frac{\fs}{N}
+\end{equation}
+[Nội dung viết tại đây.]
+
+\subsubsection{Rò rỉ phổ và hàm cửa sổ}
+% Nguyên nhân rò rỉ; búp chính và búp phụ; bảng so sánh bốn hàm cửa sổ;
+% lập luận chọn Hamming.
+[Nội dung viết tại đây.]
+
+\begin{table}[H]
+\centering
+\caption{So sánh các hàm cửa sổ}
+\label{tab:cua-so}
+\begin{tabular}{l c c l}
+\toprule
+\textbf{Hàm cửa sổ} & \textbf{Độ rộng búp chính} & \textbf{Mức búp phụ} & \textbf{Nhận xét} \\
+\midrule
+Chữ nhật &  &  &  \\
+Hamming  &  &  &  \\
+Hanning  &  &  &  \\
+Blackman &  &  &  \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Áp dụng vào giải mã DTMF}
+% Phân khung 256 điểm, bước nhảy 128, chồng lấp 50%; ánh xạ 7 tần số chuẩn
+% sang chỉ số bin; thuật toán dò đỉnh trong hai nhóm.
+[Nội dung viết tại đây.]
+
+\chohinh{phổ FFT của phím "5" có đánh dấu 8 bin chuẩn}
+
+\subsection{Phương pháp thuật toán Goertzel}
+
+\subsubsection{Đặt vấn đề}
+% Bài toán chỉ cần năng lượng tại 8 tần số xác định trước;
+% chi phí lãng phí khi tính đủ 256 bin nhưng chỉ dùng 8.
+[Nội dung viết tại đây.]
+
+\subsubsection{Dẫn giải công thức từ DFT}
+% SÁU BƯỚC, KHÔNG NHẢY BƯỚC. Đây là phần toán trọng tâm của cả báo cáo.
+\begin{enumerate}[label=\textbf{Bước \arabic*.}, leftmargin=*,
+                  labelsep=0.5em, itemsep=8pt, topsep=8pt, parsep=4pt]
+
+  \item Viết DFT dưới dạng tích luỹ đệ quy. Đặt $W = e^{j2\pi k/N}$ và định nghĩa
+        chuỗi trung gian
+        \begin{equation}\label{eq:goertzel-b1}
+          y[n] = x[n] + W\, y[n-1], \qquad y[-1] = 0
+        \end{equation}
+
+  \item {}[Chứng minh $y[N-1]$ cho ra đúng $\Xk$ sau $N$ bước lặp.]
+
+  \item {}[Nhận xét bộ lọc bậc một này có hệ số phức, chi phí tính toán cao.]
+
+  \item {}[Ghép hàm truyền với liên hợp phức của chính nó để khử phần ảo.]
+
+  \item Phương trình sai phân bậc hai hệ số thực thu được:
+        \begin{equation}\label{eq:goertzel-b5}
+          s[n] = x[n] + 2\cos\!\left(\frac{2\pi k}{N}\right) s[n-1] - s[n-2]
+        \end{equation}
+
+  \item Công suất tại bin $k$ sau $N$ mẫu:
+        \begin{equation}\label{eq:goertzel-b6}
+          P = s[N-1]^{2} + s[N-2]^{2}
+              - 2\cos\!\left(\frac{2\pi k}{N}\right) s[N-1]\, s[N-2]
+        \end{equation}
+\end{enumerate}
+
+\subsubsection{Goertzel dưới góc nhìn bộ lọc số}
+% Hàm truyền H(z) của bộ cộng hưởng bậc hai; sơ đồ khối dạng trực tiếp II;
+% vị trí cặp cực trên đường tròn đơn vị; vì sao không mất ổn định.
+% Nhận xét cốt lõi: mỗi mẫu chỉ cần một phép nhân thực.
+[Nội dung viết tại đây.]
+
+\chohinh{sơ đồ khối bộ lọc Goertzel bậc hai}
+
+\subsubsection{Lựa chọn tham số và luật quyết định}
+% Tiêu chí chọn N; bảng bin k với N = 205 kèm % sai lệch;
+% luật quyết định bốn tầng; cơ chế gộp khung liên tiếp.
+[Nội dung viết tại đây.]
+
+\begin{table}[H]
+\centering
+\caption{Chỉ số bin $k$ và sai lệch tần số với $N = 205$, $\fs = 8000$ Hz}
+\label{tab:bin-k}
+\begin{tabular}{c c c c}
+\toprule
+\textbf{$f$ chuẩn (Hz)} & \textbf{$k$} & \textbf{$f$ của bin (Hz)} & \textbf{Sai lệch} \\
+\midrule
+697  & 18 & 702{,}44  & $+0{,}78\%$ \\
+770  & 20 & 780{,}49  & $+1{,}36\%$ \\
+852  & 22 & 858{,}54  & $+0{,}77\%$ \\
+941  & 24 & 936{,}59  & $-0{,}47\%$ \\
+1209 & 31 & 1209{,}76 & $+0{,}06\%$ \\
+1336 & 34 & 1326{,}83 & $-0{,}69\%$ \\
+1477 & 38 & 1482{,}93 & $+0{,}40\%$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{notebox}[Luật quyết định bốn tầng]
+\begin{enumerate}[leftmargin=*,nosep]
+  \item \textbf{Ngưỡng đỉnh} — đỉnh mạnh nhất mỗi nhóm vượt đỉnh thứ nhì cùng nhóm ít nhất $6\dB$.
+  \item \textbf{Tỷ lệ năng lượng} — tổng năng lượng 8 bin chuẩn chiếm $\geq 70\%$ năng lượng khung.
+  \item \textbf{Kiểm tra twist} — chênh lệch biên độ hai nhóm nằm trong giới hạn cho phép.
+  \item \textbf{Kiểm tra hài bậc hai} — năng lượng tại $2f_{\text{hàng}}$ và $2f_{\text{cột}}$ phải thấp.
+\end{enumerate}
+\end{notebox}
+
+\subsubsection{Phân tích chi phí tính toán}
+% Goertzel 8x205 ~ 1640; FFT 256 radix-2 ~ 4096; ngân hàng 8 IIR ~ 3280.
+% Ghi rõ TỪNG CON SỐ RA TỪ ĐÂU. Phân tích ngưỡng hoà vốn.
+[Nội dung viết tại đây.]
+
+\subsubsection{Kiểm chứng thuật toán}
+% Ví dụ N = 16, k = 3, x[n] = cos(2*pi*3n/16) -> P = 64,000000.
+% Đối chiếu lý thuyết X[3] = N/2 = 8 nên |X[3]|^2 = 64.
+% Đối chiếu thêm với hàm goertzel() của MATLAB.
+[Nội dung viết tại đây.]
+
+\begin{matlabbox}[Kiểm chứng \texttt{goertzel\_power.m}]
+n = 0:15;
+x = cos(2*pi*3*n/16);
+P = goertzel_power(x, 3, 16);   % ky vong: P = 64.000000
+\end{matlabbox}
+
+\subsection{Phương pháp ngân hàng bộ lọc thông dải}
+
+\subsubsection{Nguyên lý và lựa chọn họ bộ lọc}
+% Tín hiệu qua song song 8 bộ lọc cộng hưởng, tách đường bao, so ngưỡng.
+% Bảng so sánh FIR/IIR; lập luận chọn IIR.
+[Nội dung viết tại đây.]
+
+\begin{table}[H]
+\centering
+\caption{So sánh bộ lọc FIR và IIR}
+\label{tab:fir-iir}
+\begin{tabular}{l p{5cm} p{5cm}}
+\toprule
+& \textbf{FIR} & \textbf{IIR} \\
+\midrule
+Hồi tiếp     & Không & Có \\
+Tính ổn định & Luôn ổn định & Cần kiểm tra vị trí điểm cực \\
+Số hệ số     & Nhiều hơn & Ít hơn \\
+Đặc tính pha & Có thể tuyến tính tuyệt đối & Thường không tuyến tính \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Thiết kế bằng biến đổi song tuyến}
+% Nguyên mẫu Butterworth; công thức biến đổi; chứng minh ánh xạ bảo toàn ổn định;
+% méo tần số và tiền méo.
+Phép biến đổi song tuyến ánh xạ mặt phẳng $s$ sang mặt phẳng $z$ theo
+\begin{equation}\label{eq:song-tuyen}
+  s = \frac{2}{T}\cdot\frac{1 - z^{-1}}{1 + z^{-1}}
+\end{equation}
+kéo theo quan hệ méo tần số
+\begin{equation}\label{eq:pre-warp}
+  \Omega = \frac{2}{T}\tan\!\left(\frac{\omega}{2}\right)
+\end{equation}
+Phương án cộng hưởng trực tiếp cho mỗi tần số chuẩn:
+\begin{equation}\label{eq:cong-huong}
+  \Htf = G\cdot\frac{1 - z^{-2}}
+                    {1 - 2r\cos(\wzero) z^{-1} + r^{2} z^{-2}}
+\end{equation}
+
+\subsubsection{Điểm cực, điểm không và ổn định BIBO}
+% Điều kiện |pole| < 1; giản đồ cực-không của 8 bộ lọc;
+% chứng minh hệ ổn định với r = 0,99.
+[Nội dung viết tại đây.]
+
+\chohinh{giản đồ cực--không của 8 bộ lọc thông dải}
+
+\subsubsection{Băng thông và hệ số phẩm chất Q}
+% BW ~ (1-r)*fs/pi; Q = f0/BW; bảng Q cho 8 bộ lọc;
+% vì sao Q tăng theo tần số; đánh đổi ba chiều.
+Với $r$ tiến gần 1, băng thông và hệ số phẩm chất xấp xỉ bằng
+\begin{equation}\label{eq:bw-q}
+  \mathrm{BW} \approx \frac{(1-r)\,\fs}{\pi},
+  \qquad
+  \Qfac = \frac{f_{0}}{\mathrm{BW}}
+\end{equation}
+
+\subsubsection{Ảnh hưởng của lượng tử hoá hệ số}
+% Dấu phẩy động 64-bit so với dấu phẩy cố định 16-bit;
+% cơ chế dịch chuyển điểm cực; vì sao bộ lọc Q cao nhạy cảm hơn;
+% nguy cơ cực bị đẩy ra ngoài đường tròn đơn vị.
+[Nội dung viết tại đây.]
+
+\subsection{So sánh ba phương pháp về mặt lý thuyết}
+% Bảng đối chiếu cơ sở toán học, độ phân giải, chi phí, độ trễ,
+% độ phức tạp cài đặt. Nhận xét sơ bộ trước khi kiểm chứng ở Chương IV.
+[Nội dung viết tại đây.]
+
+\clearpage
+
+% ---------------------------------------------------------
+% III. THIẾT KẾ VÀ XÂY DỰNG PHẦN MỀM
+% ---------------------------------------------------------
+\section{THIẾT KẾ VÀ XÂY DỰNG PHẦN MỀM}
+
+\subsection{Kiến trúc hệ thống}
+% Sơ đồ phân lớp: Giao diện -> Điều phối -> ba bộ giải mã -> Tiện ích -> Dữ liệu.
+% Nguyên tắc tách bạch trách nhiệm. Lưu đồ một lượt xử lý đầy đủ.
+[Nội dung viết tại đây.]
+
+\chohinh{sơ đồ kiến trúc phần mềm theo mô-đun}
+
+\chohinh{lưu đồ luồng xử lý một lần bấm phím}
+
+\subsection{Tổ chức mã nguồn và chuẩn giao tiếp}
+% Cấu trúc thư mục; bảng danh sách hàm chính;
+% ba bộ giải mã dùng chung một chữ ký hàm.
+[Nội dung viết tại đây.]
+
+\dirtree{%
+.1 DMTF/.
+.2 src/.
+.3 gen/ \qquad \textit{sinh tín hiệu và nhiễu}.
+.3 decode/ \qquad \textit{ba bộ giải mã}.
+.3 util/ \qquad \textit{phân khung, quyết định, đánh giá}.
+.2 app/ \qquad \textit{giao diện App Designer}.
+.2 tests/ \qquad \textit{kiểm thử tự động}.
+.2 data/ \qquad \textit{dữ liệu và hệ số bộ lọc}.
+.2 results/ \qquad \textit{hình và số liệu benchmark}.
+}
+
+\begin{table}[H]
+\centering
+\caption{Danh sách các hàm chính}
+\label{tab:ham-chinh}
+\small
+\begin{tabular}{@{}l p{2.7cm} p{2.7cm} p{3.4cm}@{}}
+\toprule
+\textbf{Hàm} & \textbf{Đầu vào} & \textbf{Đầu ra} & \textbf{Chức năng} \\
+\midrule
+\texttt{dtmf\_generate}   & & & \\
+\texttt{dtmf\_addnoise}   & & & \\
+\texttt{dtmf\_segment}    & & & \\
+\texttt{dtmf\_decode\_fft}& & & \\
+\texttt{goertzel\_power}  & & & \\
+\texttt{design\_bpf\_bank}& & & \\
+\texttt{dtmf\_decide}     & & & \\
+\texttt{dtmf\_metrics}    & & & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Giao diện người dùng}
+% Ba tab: Giải mã, Bộ lọc, Đánh giá. Bảng điều khiển.
+% Lý giải thiết kế biểu đồ 8 thanh năng lượng.
+[Nội dung viết tại đây.]
+
+\chohinh{ảnh chụp ba tab giao diện}
+
+\clearpage
+
+% ---------------------------------------------------------
+% IV. KẾT QUẢ THỰC NGHIỆM VÀ ĐÁNH GIÁ
+% ---------------------------------------------------------
+\section{KẾT QUẢ THỰC NGHIỆM VÀ ĐÁNH GIÁ}
+
+\subsection{Thiết lập thí nghiệm và tiêu chí đánh giá}
+% Môi trường; bộ dữ liệu kiểm thử; mức SNR từ -10 đến 30 dB; ba loại nhiễu.
+% Tiêu chí: độ chính xác, khoảng cách Levenshtein, ma trận nhầm lẫn, SNR, thời gian.
+Tỷ số tín hiệu trên nhiễu được tính theo
+\begin{equation}\label{eq:snr}
+  \SNRdB = 10\log_{10}\!
+  \left(\frac{\sum_{n} x^{2}[n]}{\sum_{n}\big(y[n]-x[n]\big)^{2}}\right)
+\end{equation}
+
+\subsection{Kết quả trên dữ liệu sạch}
+% Độ chính xác cả ba phương pháp; phân tích sai sót còn lại.
+[Nội dung viết tại đây.]
+
+\subsection{Độ bền với nhiễu}
+% Đường accuracy-SNR của ba phương pháp trên cùng hệ trục;
+% ngưỡng SNR tối thiểu; ảnh hưởng riêng từng loại nhiễu.
+[Nội dung viết tại đây.]
+
+\chohinh{độ chính xác theo SNR của ba phương pháp}
+
+\subsection{Phân tích lỗi}
+% Ma trận nhầm lẫn và cách đọc. NHẬN XÉT TRỌNG TÂM: các cặp phím nhầm nhiều nhất
+% là cặp cùng hàng hoặc cùng cột. Thống kê khung bị từ chối theo lý do.
+% Đánh giá cơ chế chống talk-off.
+[Nội dung viết tại đây.]
+
+\subsection{So sánh chi phí tính toán}
+% Đối chiếu số phép nhân lý thuyết ở mục 2.2.5 với thời gian chạy đo được;
+% giải thích chênh lệch.
+[Nội dung viết tại đây.]
+
+\subsection{Nhận xét tổng hợp}
+% Bảng so sánh ba phương pháp trên bốn tiêu chí;
+% khuyến nghị lựa chọn theo bối cảnh ứng dụng.
+[Nội dung viết tại đây.]
+
+\begin{table}[H]
+\centering
+\caption{So sánh tổng hợp ba phương pháp giải mã}
+\label{tab:tong-hop}
+\small
+\begin{tabular}{l >{\centering\arraybackslash}p{2.3cm} >{\centering\arraybackslash}p{2.3cm} >{\centering\arraybackslash}p{2.3cm} >{\centering\arraybackslash}p{2.4cm}}
+\toprule
+\thd{Phương pháp} & \thd{Độ chính xác} & \thd{Độ bền nhiễu}
+& \thd{Chi phí tính toán} & \thd{Độ phức tạp cài đặt} \\
+\midrule
+DFT/FFT        & & & & \\
+Goertzel       & & & & \\
+Ngân hàng lọc  & & & & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\clearpage
+
+% ---------------------------------------------------------
+% V. KẾT LUẬN VÀ HƯỚNG PHÁT TRIỂN
+% ---------------------------------------------------------
+\section{KẾT LUẬN VÀ HƯỚNG PHÁT TRIỂN}
+
+\subsection{Kết quả đạt được}
+% Đối chiếu trực tiếp với từng mục tiêu ở Mở đầu, kèm số liệu định lượng.
+[Nội dung viết tại đây.]
+
+\subsection{Hạn chế}
+% Chưa thời gian thực cứng; chưa kiểm chứng trên đường truyền thật;
+% dữ liệu chủ yếu tổng hợp; tính năng đã cân nhắc nhưng chưa thực hiện.
+[Nội dung viết tại đây.]
+
+\subsection{Hướng phát triển}
+% Mở rộng cột 1633 Hz; Goertzel số nguyên trên vi điều khiển;
+% chống talk-off nâng cao; tự thích nghi ngưỡng theo nhiễu nền.
+[Nội dung viết tại đây.]
+
+\clearpage
+
+% ---------------------------------------------------------
+% TÀI LIỆU THAM KHẢO
+% ---------------------------------------------------------
+\unsection{TÀI LIỆU THAM KHẢO}
+\printbibliography[heading=none]
+
+\clearpage
+
+% ---------------------------------------------------------
+% PHỤ LỤC
+% ---------------------------------------------------------
+\begin{appendices}
+% Nới ô số trong mục lục để chứa được chữ "PHỤ LỤC n"
+\addtocontents{toc}{\protect\addtolength{\protect\cftsecnumwidth}{4.4em}}
+\renewcommand{\thesection}{PHỤ LỤC \arabic{section}}
+% Hình và bảng trong phụ lục đánh số riêng (PL1.1, PL3.1...) để không
+% trùng với hình/bảng của các chương chính.
+\renewcommand{\thefigure}{PL\arabic{section}.\arabic{figure}}
+\renewcommand{\thetable}{PL\arabic{section}.\arabic{table}}
+\setcounter{section}{0}
+
+\section{Mã nguồn các hàm chính}
+% dtmf_generate, goertzel_power, dtmf_decode_goertzel,
+% design_bpf_bank, dtmf_decide. Dùng lstlisting có đánh số dòng.
+\begin{matlabbox}[\texttt{goertzel\_power.m}]
+function P = goertzel_power(x, k, N)
+%GOERTZEL_POWER Cong suat tai bin k bang thuat toan Goertzel.
+    c  = 2*cos(2*pi*k/N);
+    s1 = 0; s2 = 0;
+    for n = 1:N
+        s  = x(n) + c*s1 - s2;
+        s2 = s1;
+        s1 = s;
+    end
+    P = s1^2 + s2^2 - c*s1*s2;
+end
+\end{matlabbox}
+
+\section{Bảng số liệu chi tiết}
+% Kết quả đầy đủ theo từng mức SNR, bảng hệ số bộ lọc, bảng chỉ số bin.
+[Nội dung viết tại đây.]
+
+\section{Bảng đóng góp của các thành viên}
+\begin{table}[H]
+\centering
+\small
+\caption{Đóng góp của từng thành viên}
+\label{tab:dong-gop}
+\begin{tabular}{@{}c @{\hspace{6pt}}l @{\hspace{6pt}}l p{4.3cm}@{}}
+\toprule
+\textbf{STT} & \textbf{Họ và tên} & \textbf{Vai trò} & \textbf{Đầu việc cụ thể đã thực hiện} \\
+\midrule
+1  & Đỗ Hồng Nhất            & Trưởng nhóm, lập trình & \\
+2  & Nguyễn Thu Hà           & Điều phối              & \\
+3  & Lê Tuấn Anh             & Giao diện              & \\
+4  & Nguyễn Quốc Đăng        & Giao diện, đặc tả      & \\
+5  & Lê Đức Anh              & Kiểm thử               & \\
+6  & Nguyễn Minh Hiếu        & Đặc tả                 & \\
+7  & Hồ Văn Hoàng Quân       & Đặc tả                 & \\
+8  & Nguyễn Trí Dũng         & Nghiên cứu             & \\
+9  & Trương Minh Tân         & Nghiên cứu             & \\
+10 & Nguyễn Tiến Mạnh        & Nghiên cứu             & \\
+11 & Nguyễn Huy Hoàng        & Nghiên cứu             & \\
+12 & Nguyễn Cửu An Phú       & Nghiên cứu             & \\
+13 & Đinh Minh Trí           & Nghiên cứu             & \\
+14 & Đặng Nguyễn Lâm         & Báo cáo                & \\
+15 & Huỳnh Nguyễn Bảo Khương & Báo cáo                & \\
+16 & Nguyễn Duy Tiến         & Slide                  & \\
+17 & Cao Tiến Thành          & Thuyết trình           & \\
+18 & Nguyễn Sỹ Long          & Chưa phân công         & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\end{appendices}
+
+\end{document}
