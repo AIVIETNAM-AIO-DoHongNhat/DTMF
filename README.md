@@ -61,9 +61,15 @@ docs/         Báo cáo, slide, tài liệu tham khảo
 
 ## Yêu cầu
 
-- MATLAB **R2021b** trở lên.
-- Signal Processing Toolbox (`goertzel`, `hamming`, `spectrogram`).
-- Communications Toolbox - *tùy chọn*, chỉ cần khi dùng `awgn`.
+- MATLAB **R2021b** trở lên (môi trường phát triển hiện tại: R2026a).
+- **Signal Processing Toolbox** - bắt buộc, dùng `hamming`, `tukeywin`, `spectrogram`, `freqz`, `zplane`.
+- Communications Toolbox - **không cần**. Hàm `dtmf_addnoise` tự tính nhiễu theo công suất
+  mục tiêu thay vì gọi `awgn`, nhờ vậy SNR chính xác và tái lập được với `rng` cố định.
+
+> **Nguyên tắc dùng toolbox:** tự cài đặt phần được chấm, dùng thư viện cho phần phụ trợ.
+> Cụ thể, `goertzel_power` và ngân hàng bộ lọc cộng hưởng **phải tự viết** (đây là nội dung
+> chính của đề tài); `goertzel` của toolbox chỉ được dùng trong `tests/test_goertzel.m` với
+> vai trò phép đối chứng độc lập. Cửa sổ, vẽ phổ và kiểm tra đáp ứng tần số thì dùng toolbox.
 
 ## Sử dụng
 
@@ -85,4 +91,5 @@ run_all_tests
 
 - Chữ ký hàm, thông số đã chốt và quy ước chú thích xem trong [CONTRACTS.md](CONTRACTS.md).
 - Hàm trong `src/` **không** được gọi `figure`, `plot`, `disp`, `sound`, `input`. Việc vẽ và phát âm thanh chỉ nằm trong `app/ui/` hoặc `scripts/dev_harness.m`.
-- Làm việc trên nhánh `dev`; chỉ merge khi `run_all_tests` pass hết.
+- Làm việc trực tiếp trên nhánh `main`; chỉ commit khi `run_all_tests` pass hết.
+- Kế hoạch triển khai và tiến độ: [docs/study/KE_HOACH.md](docs/study/KE_HOACH.md).

@@ -1,6 +1,18 @@
+# File nhi phan - khong diff/merge duoc
 *.mlapp binary -diff -merge
 *.mlx   binary -diff -merge
 *.fig   binary
 *.mat   binary
 *.wav   binary
 *.pdf   binary
+
+# File van ban - bat buoc UTF-8.
+# LUU Y: comment trong .m viet tieng Viet co dau. Neu mot cong cu ghi file
+# bang ANSI hoac UTF-16 (vi du redirect cua PowerShell), git se bao loi ngay
+# luc commit thay vi de mojibake lot vao repo.
+*.m    text working-tree-encoding=UTF-8
+*.md   text working-tree-encoding=UTF-8
+*.tex  text working-tree-encoding=UTF-8
+*.bib  text working-tree-encoding=UTF-8
+*.cls  text working-tree-encoding=UTF-8
+*.sty  text working-tree-encoding=UTF-8

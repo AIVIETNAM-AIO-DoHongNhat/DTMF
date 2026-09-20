@@ -1,7 +1,25 @@
+# MATLAB
 *.asv
 *.autosave
 slprj/
 results/tmp/
+
+# LaTeX - san pham bien dich, khong commit
+report/template/*.aux
+report/template/*.bbl
+report/template/*.bcf
+report/template/*.blg
+report/template/*.fdb_latexmk
+report/template/*.fls
+report/template/*.lof
+report/template/*.log
+report/template/*.lot
+report/template/*.out
+report/template/*.run.xml
+report/template/*.toc
+report/template/*.xdv
 *.pdf.bak
+
+# He dieu hanh
 .DS_Store
 Thumbs.db
