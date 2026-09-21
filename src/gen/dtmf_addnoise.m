@@ -1,40 +1,23 @@
 function y = dtmf_addnoise(x, opt)
-%DTMF_ADDNOISE Cộng nhiễu vào tín hiệu DTMF theo SNR cho trước.
-%   Y = DTMF_ADDNOISE(X) cộng nhiễu trắng Gauss (AWGN) với SNR = 10 dB.
+%DTMF_ADDNOISE Cộng nhiễu vào tín hiệu DTMF theo SNR cho trước
+% Làm bẩn tín hiệu sạch để thử độ bền của bộ giải mã
+%   Y = DTMF_ADDNOISE(X) cộng nhiễu trắng Gauss với SNR = 10 dB.
 %
-%   Y = DTMF_ADDNOISE(X, Name, Value) chọn loại nhiễu và SNR qua các cặp
-%   tên–giá trị. Dùng để kiểm thử độ bền của các bộ giải mã.
-%
-%   Đầu vào:
-%       x - 1×N double, tín hiệu gốc (sạch).
+%   Nhiễu thô v0 được nhân một hệ số để đạt đúng SNR mục tiêu:
+%       v = v0 * sqrt(mean(x.^2) / (mean(v0.^2) * 10^(snrDb/10)))
 %
 %   Tham số tên–giá trị (mặc định trong ngoặc):
-%       'snrDb' - tỉ số tín hiệu trên nhiễu mong muốn [dB] (10).
-%       'type'  - loại nhiễu ('awgn'):
-%                 'awgn'   - nhiễu trắng Gauss cộng tính;
-%                 'hum50'  - nhiễu điện lưới, sin 50 Hz;
-%                 'speech' - tín hiệu thoại mẫu (data/wav/speech_*.wav).
-%       'fs'    - tần số lấy mẫu [Hz] (8000); cần cho 'hum50' và 'speech'.
+%       'snrDb': tỉ số tín hiệu trên nhiễu [dB] (10).
+%       'type': 'awgn' (Gauss trắng) | 'hum50' (sin 50 Hz) | 'speech'.
+%       'fs': tần số lấy mẫu [Hz] (8000); cần cho 'hum50' và 'speech'.
 %
-%   Đầu ra:
-%       y - 1×N double, tín hiệu đã cộng nhiễu, y = x + v.
+%   Đầu vào:  x - 1×N double, tín hiệu sạch.
+%   Đầu ra:   y - 1×N double, y = x + v.
 %
-%   Cơ sở lý thuyết:
-%       SNR được định nghĩa theo công suất trung bình:
-%           SNR_dB = 10*log10(Px / Pv),  Px = mean(x.^2),  Pv = mean(v.^2).
-%       Để đạt SNR mục tiêu, nhiễu thô v0 được chuẩn hóa:
-%           v = v0 * sqrt(Px / (mean(v0.^2) * 10^(snrDb/10))).
+%   Nhánh 'speech' đọc data/wav/speech_*.wav; thiếu file thì báo lỗi, KHÔNG
+%   tự chuyển sang 'awgn'. Muốn tái lập nhiễu 'awgn', gọi rng(seed) trước.
 %
-%   Ghi chú triển khai:
-%       'awgn'   : dùng awgn(x, snrDb, 'measured') (cần Communications
-%                  Toolbox) hoặc tự sinh randn rồi chuẩn hóa như trên.
-%       'hum50'  : cộng sin(2*pi*50*t) đã chuẩn hóa theo SNR mục tiêu.
-%       'speech' : cộng tín hiệu thoại mẫu đã chuẩn hóa theo SNR mục tiêu.
-%
-%   Tham khảo:
-%       [1] Gói đặc tả #1 (tổ S1).
-%
-%   See also dtmf_generate, awgn.
+%   See also dtmf_generate, dtmf_decode_goertzel.
 
 arguments
     x (1,:) double
@@ -43,11 +26,70 @@ arguments
     opt.fs (1,1) double = 8000
 end
 
-% TODO(C): cài đặt theo từng nhánh của opt.type (xem ghi chú triển khai).
-% Kiểm chứng: SNR đo trên y phải khớp opt.snrDb với sai số ±0.5 dB,
-% SNR_đo = 10*log10(sum(x.^2) / sum((y - x).^2)) - xem tests/test_generate.m.
+N = numel(x);
+if N == 0
+    y = x;
+    return
+end
 
-y = x; %#ok<NASGU>
-error('dtmf_addnoise:notImplemented', 'TODO: cai dat dtmf_addnoise (xem Goi dac ta #1).');
+%% 1. Sinh nhiễu thô - chỉ quan tâm dạng sóng, chưa quan tâm biên độ
+switch opt.type
+    case 'awgn'
+        v0 = randn(1, N);               % mỗi mẫu độc lập, phổ phẳng
+
+    case 'hum50'
+        t  = (0:N-1) / opt.fs;
+        v0 = sin(2*pi*50*t);            % ù điện lưới 50 Hz
+
+    case 'speech'
+        v0 = local_loadSpeech(N, opt.fs);
+end
+
+%% 2. Chuẩn hóa nhiễu về đúng SNR mục tiêu
+% Từ SNR_dB = 10*log10(Px/Pv) suy ra Pv = Px / 10^(snrDb/10). Nhân v0 với
+% căn của tỉ số công suất là ép được Pv về đúng giá trị đó.
+Px  = mean(x.^2);
+Pv0 = mean(v0.^2);
+
+if Pv0 <= 0
+    error('dtmf_addnoise:zeroNoise', ...
+        'Nhiễu thô có công suất bằng 0, không chuẩn hóa theo SNR được.');
+end
+
+v = v0 * sqrt(Px / (Pv0 * 10^(opt.snrDb / 10)));
+y = x + v;
+
+end
+
+
+function v0 = local_loadSpeech(N, fs)
+%LOCAL_LOADSPEECH Đọc mẫu tiếng nói trong data/wav, lặp/cắt cho đủ N mẫu.
+
+% Từ src/gen/dtmf_addnoise.m lùi 3 cấp về gốc repo.
+root = fileparts(fileparts(fileparts(mfilename('fullpath'))));
+d = dir(fullfile(root, 'data', 'wav', 'speech_*.wav'));
+
+if isempty(d)
+    error('dtmf_addnoise:missingSpeech', ...
+        ['Không tìm thấy data/wav/speech_*.wav. Hãy đặt file mẫu vào đó; ' ...
+         'hàm KHÔNG tự chuyển sang nhiễu awgn.']);
+end
+
+[s, fsFile] = audioread(fullfile(d(1).folder, d(1).name));
+s = s(:, 1).';                          % lấy kênh 1, đưa về vector hàng
+
+if fsFile ~= fs
+    error('dtmf_addnoise:speechFsMismatch', ...
+        'File %s có fs = %g Hz, không khớp fs = %g Hz.', ...
+        d(1).name, fsFile, fs);
+end
+if isempty(s)
+    error('dtmf_addnoise:emptySpeech', ...
+        'File %s không có mẫu nào.', d(1).name);
+end
+
+% Mẫu thoại thường ngắn hơn tín hiệu DTMF nên lặp lại cho đủ rồi cắt.
+s  = repmat(s, 1, ceil(N / numel(s)));
+v0 = s(1:N);
 
 end

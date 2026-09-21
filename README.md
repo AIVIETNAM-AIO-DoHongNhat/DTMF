@@ -73,8 +73,13 @@ docs/         Báo cáo, slide, tài liệu tham khảo
 
 ## Sử dụng
 
+Mở MATLAB, đặt Current Folder là thư mục gốc repo rồi nạp path một lần cho mỗi phiên:
+
 ```matlab
-addpath(genpath('src'));
+dtmf_setup
+```
+
+```matlab
 [x, t, meta]    = dtmf_generate('0912345');          % fs = 8000 Hz, tone 100 ms / nghỉ 50 ms
 y               = dtmf_addnoise(x, 'snrDb', 15);     % AWGN, SNR = 15 dB
 [keysHat, info] = dtmf_decode_goertzel(y);

@@ -19,6 +19,7 @@ report/template/*.run.xml
 report/template/*.toc
 report/template/*.xdv
 *.pdf.bak
+*.listing
 
 # He dieu hanh
 .DS_Store
