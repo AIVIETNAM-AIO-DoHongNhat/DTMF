@@ -7,14 +7,16 @@ function [rowIdx, colIdx, conf, reject] = dtmf_decide(E, opt)
 %   [...] = DTMF_DECIDE(E, Name, Value) đổi ngưỡng qua các cặp tên–giá trị.
 %
 %   E là CÔNG SUẤT nên mọi tỉ số tính bằng 10*log10(...). Năm điều kiện xét
-%   theo đúng thứ tự dưới đây, trượt cái nào thì dừng ngay ở cái đó:
-%       1  10*log10(rowPeak/rowPeak2) >= peakDb              -> 'level'
-%       2  10*log10(colPeak/colPeak2) >= peakDb              -> 'level'
-%       3  10*log10(colPeak/rowPeak) trong [-twistBwdDb, twistFwdDb] -> 'twist'
-%       4  sum(E(1:7)) >= energyRatio                        -> 'level'
-%       5  E(8) <= 0.5*min(rowPeak, colPeak)                 -> 'harmonic'
-%   Qua hết năm điều kiện thì reject = 'none' và
-%       conf = min(1, sum(E(1:7))) * min(1, min(dRow, dCol)/(2*peakDb))
+%   theo đúng thứ tự, trượt cái nào thì dừng ngay ở cái đó và lấy nhãn của nó.
+%
+%   Các bước hoạt động:
+%       1. 10*log10(rowPeak/rowPeak2) >= peakDb              -> 'level'
+%       2. 10*log10(colPeak/colPeak2) >= peakDb              -> 'level'
+%       3. 10*log10(colPeak/rowPeak) trong [-twistBwdDb, twistFwdDb] -> 'twist'
+%       4. sum(E(1:7)) >= energyRatio                        -> 'level'
+%       5. E(8) <= 0.5*min(rowPeak, colPeak)                 -> 'harmonic'
+%       6. Qua hết: reject = 'none', rowIdx/colIdx là vị trí hai đỉnh, và
+%          conf = min(1, sum(E(1:7))) * min(1, min(dRow, dCol)/(2*peakDb)).
 %   Điều kiện 4 đòi E ĐÃ CHUẨN HÓA theo năng lượng khung (CONTRACTS.md, quyết
 %   định (a)); đó cũng là điều kiện duy nhất phụ thuộc thang đo, bốn cái còn
 %   lại đều là tỉ số nên nhân E với hằng số bất kỳ vẫn cho cùng một phím.

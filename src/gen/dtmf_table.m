@@ -5,8 +5,11 @@ function T = dtmf_table()
 %   nghị ITU-T Q.23.
 %
 %   Mỗi phím nằm ở giao của một tần số hàng (nhóm thấp) và một tần số cột
-%   (nhóm cao); phím key ứng với cặp (T.rowHz(r), T.colHz(c)) trong đó
-%   [r, c] = T.map(key). Đơn vị trong sơ đồ là Hz:
+%   (nhóm cao).
+%
+%   Các bước hoạt động:
+%       1. [r, c] = T.map(key) - tra ký tự phím ra chỉ số hàng và cột.
+%       2. Cặp tần số của phím là (T.rowHz(r), T.colHz(c)), đơn vị Hz:
 %
 %                1209  1336  1477
 %         697      1     2     3

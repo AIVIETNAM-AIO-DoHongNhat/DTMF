@@ -5,13 +5,16 @@ function P = goertzel_power(x, k, N)
 %   N điểm của khung X.
 %
 %   Không tính cả phổ rồi lấy ra một vạch, mà cho khung chạy qua một bộ lọc
-%   IIR bậc 2 cộng hưởng đúng tại tần số cần đo (n tính từ 0, x[n] ứng với
-%   x(n+1) trong MATLAB):
-%       c    = 2*cos(2*pi*k/N)
-%       s[n] = x[n] + c*s[n-1] - s[n-2],   n = 0..N-1,   s[-1] = s[-2] = 0
-%       P    = s[N-1]^2 + s[N-2]^2 - c*s[N-1]*s[N-2]
-%   Mỗi mẫu chỉ tốn một phép nhân thực, toàn bộ phép tính không dùng số
-%   phức - rẻ hơn FFT khi chỉ cần vài bin (ở đây 8 bin trên tổng số 205).
+%   IIR bậc 2 cộng hưởng đúng tại tần số cần đo. Dưới đây n tính từ 0, x[n]
+%   ứng với x(n+1) trong MATLAB.
+%
+%   Các bước hoạt động:
+%       1. Hệ số duy nhất, tính một lần: c = 2*cos(2*pi*k/N).
+%       2. Khởi tạo s[-1] = s[-2] = 0.
+%       3. Lặp n = 0..N-1: s[n] = x[n] + c*s[n-1] - s[n-2].
+%       4. P = s[N-1]^2 + s[N-2]^2 - c*s[N-1]*s[N-2].
+%   Mỗi mẫu chỉ tốn một phép nhân thực và không dùng số phức - rẻ hơn FFT khi
+%   chỉ cần vài bin (ở đây 8 bin trên tổng số 205).
 %
 %   Input:
 %       x: 1×M double, một khung tín hiệu; chỉ dùng N mẫu đầu, M >= N.

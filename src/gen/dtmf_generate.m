@@ -4,11 +4,18 @@ function [x, t, meta] = dtmf_generate(keys, opt)
 %   [X, T, META] = DTMF_GENERATE(KEYS) sinh tín hiệu cho chuỗi phím KEYS.
 %   Thêm các cặp tên–giá trị bên dưới để đổi tham số mặc định.
 %
-%   Mỗi phím phát đồng thời hai sin - một tần số hàng, một tần số cột:
-%       x_i(t) = sin(2*pi*fRow*t) + g*sin(2*pi*fCol*t),  g = 10^(twistDb/20)
-%   Các tone nối tiếp nhau, xen giữa là khoảng lặng; không có khoảng lặng
-%   trước tone đầu tiên. Tone 100 ms / nghỉ 50 ms là mức chốt của dự án,
-%   thỏa thời lượng tối thiểu của ITU-T Q.24 (xem CONTRACTS.md).
+%   Mỗi phím phát đồng thời hai sin - một tần số hàng, một tần số cột.
+%
+%   Các bước hoạt động:
+%       1. Tra dtmf_table lấy cặp (fRow, fCol) của từng phím.
+%       2. Sinh tone: x_i(t) = sin(2*pi*fRow*t) + g*sin(2*pi*fCol*t) với
+%          g = 10^(twistDb/20); mỗi tone khởi pha 0 dù nằm ở đâu trong chuỗi.
+%       3. Nhân cửa sổ Tukey côn 5% để tone vào/ra mượt, hết tiếng "click".
+%       4. Ghép các tone nối tiếp, xen khoảng lặng; KHÔNG có khoảng lặng
+%          trước tone đầu tiên.
+%       5. Chuẩn hóa biên độ để max(abs(x)) đúng bằng ampl.
+%   Tone 100 ms / nghỉ 50 ms là mức chốt của dự án, thỏa thời lượng tối thiểu
+%   của ITU-T Q.24 (xem CONTRACTS.md).
 %
 %   Input:
 %       keys: char 1×K, chuỗi phím, ví dụ '0912345678*#'.

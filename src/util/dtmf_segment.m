@@ -4,13 +4,14 @@ function seg = dtmf_segment(y, opt)
 %   SEG = DTMF_SEGMENT(Y) chia Y thành các khung không chồng lấp dài 205
 %   mẫu. Thêm các cặp tên–giá trị bên dưới để đổi cách chia khung.
 %
-%   Khung thứ i lấy các mẫu y(i1:i2); mốc thời gian theo quy ước THỜI LƯỢNG,
-%   tức tEnd - tStart = frameN/fs (xem CONTRACTS.md, quyết định (d)):
-%       nFrame = floor((N - frameN)/hop) + 1,   N = numel(y) >= frameN
-%       i1 = (i-1)*hop + 1
-%       i2 = i1 + frameN - 1
-%       tStart = (i1 - 1)/fs
-%       tEnd =  i2/fs
+%   Mốc thời gian theo quy ước THỜI LƯỢNG, tức tEnd - tStart = frameN/fs
+%   (xem CONTRACTS.md, quyết định (d)).
+%
+%   Các bước hoạt động:
+%       1. nFrame = floor((N - frameN)/hop) + 1, với N = numel(y).
+%       2. Khung thứ i lấy các mẫu y(i1:i2), trong đó i1 = (i-1)*hop + 1 và
+%          i2 = i1 + frameN - 1.
+%       3. tStart = (i1 - 1)/fs, tEnd = i2/fs; t = 0 tại y(1).
 %   Khung cuối không đủ frameN mẫu thì bỏ, KHÔNG chèn 0: đệm 0 làm loãng
 %   năng lượng khung, khiến dtmf_decide loại nhầm khung đó với nhãn 'level'.
 %   Cả 3 bộ giải mã dùng CHUNG hàm này để bảo đảm cùng một cách chia khung -

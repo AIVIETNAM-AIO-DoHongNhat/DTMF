@@ -319,9 +319,12 @@ git log --oneline -1 -- docs/study/DTMF_LyThuyet.m
 - [ ] Tính bin hài `k_harm = min(2*k_peak, floor(205/2))` → `E(8)`
 - [ ] **Chuẩn hóa** `E(:,i) = E_raw / (frameN * sum(frame.^2) / 2)` theo (a); chặn `sum(frame.^2) == 0`
 - [ ] Gọi `dtmf_decide` từng khung → `rowIdx/colIdx/conf/reject`
+- [ ] `info.tFrame(i) = (seg(i).tStart + seg(i).tEnd)/2` — **TÂM khung**, quyết định (e). Cả ba bộ giải mã lấy giống nhau; dùng `tStart` sẽ đẩy đường FFT lệch trái 3,1875 ms (25,5 mẫu) so với Goertzel trên biểu đồ chồng ở Buổi 10.
 - [ ] **Debounce**: mã hóa run-length `keyIdx(i)` (0 = bị loại), mỗi dải liên tiếp khác 0 sinh **một** ký tự
 - [ ] `tests/test_decode_goertzel.m`: sạch `'0912345'` đúng; `size(info.E)==[8 nFrame]`; `reject` là cellstr đủ `nFrame` phần tử; `tFrame` tăng ngặt; `conf ∈ [0,1]`; `zeros(1,4000)` → `''` và toàn `'level'`
 - [ ] `tests/test_pipeline.m`: ca **`'12345699'` phải ra đủ 8 ký tự**
+- [ ] Chốt hình dạng `info` khi `nFrame = 0` (`numel(y) < frameN`): `info.E` là `8×0`, các trường `1×nFrame` là `1×0`, `info.reject` là cell `1×0`, `keys = ''`. Stub đang khởi tạo `[]` tức `0×0` - sai hợp đồng, cùng họ với chuyện `1×0` vs `0×0` của `dtmf_segment`. Buổi 8 GUI sẽ gọi với tín hiệu ngắn nên ca này xảy ra thật; ghim bằng test.
+- [x] **Đo lại vách SNR bằng hàm thật** rồi cập nhật bảng trong `CONTRACTS.md` mục (a) — đã đo, trùng khít bản mẫu: 100% tới 8 dB, 0,85 ở 6 dB, 0,40 ở 4 dB
 
 **Bẫy**
 - Study §11 cảnh báo ở `hop = 205` khoảng lặng sau phím 7 **không có khung nào nằm trọn bên trong** → nguy cơ nuốt phím lặp. Khung xấu nhất ở đó vẫn 97.6% im lặng nên ngưỡng mặc định loại được — **nhưng phải test chứ không được tin**.
@@ -349,12 +352,13 @@ git log --oneline -1 -- docs/study/DTMF_LyThuyet.m
 - [ ] Dùng `hamming(256)` của toolbox (cửa sổ không phải nội dung được chấm)
 - [ ] `frameN=256, hop=128`, bin `[22 25 27 30 39 43 47]`
 - [ ] Dùng `|X[k]|^2` **chứ không phải** `|X[k]|` (TODO dòng 57 đã cảnh báo sẵn)
-- [ ] Chuẩn hóa theo năng lượng **đã nhân cửa sổ**: `frameN * sum((w.*frame).^2) / 2`
+- [ ] Chuẩn hóa theo năng lượng **đã nhân cửa sổ**, NHÂN THÊM hệ số bù cửa sổ: `cg = sum(w)^2/(frameN*sum(w.^2))` (Hamming 256 → 0,7317), `E = E_raw / (frameN*sum((w.*frame).^2)/2 * cg)` — xem quyết định (a). **Thiếu `cg` thì bộ giải mã loại 100% số khung** vì trần lý thuyết của `sum(E(1:7))` chỉ là 0,7317 còn khung thật đo được 0,6298, đều không qua nổi ngưỡng 0,70.
+- [ ] `info.tFrame` = TÂM khung `(tStart+tEnd)/2` theo quyết định (e), y hệt Goertzel — khung ở đây dài 256 nên lấy nhầm `tStart` là lệch 3,1875 ms so với Goertzel
 - [ ] `tests/test_decode_fft.m`: sạch đúng; `info` cùng hợp đồng shape với Goertzel
 - [ ] `tests/test_decode_fft.m`: **test tương đương liên phương pháp** — cùng tín hiệu sạch, FFT và Goertzel cho cùng `keysHat`
 
 **Bẫy**
-- Chuẩn hóa bằng năng lượng **chưa** nhân cửa sổ sẽ làm sai `energyRatio` do tổn hao coherent của Hamming → vách 8 dB dịch chỗ, 3 phương pháp lệch nhau.
+- Chuẩn hóa bằng năng lượng **chưa** nhân cửa sổ sẽ làm sai `energyRatio` do tổn hao coherent của Hamming → vách 8 dB dịch chỗ, 3 phương pháp lệch nhau. Đã đo: quên `cg` thì không phải "lệch" mà là **hỏng hẳn** — 0/41 phím, mọi khung mang nhãn `'level'`.
 - Test tương đương liên phương pháp mới là thứ **chứng minh** "3 bộ giải mã dùng chung luật quyết định" là thật chứ không phải khẩu hiệu.
 
 **Kiểm chứng**
@@ -384,6 +388,8 @@ git log --oneline -1 -- docs/study/DTMF_LyThuyet.m
 - [ ] `scripts/make_coeffs.m`: gọi `design_bpf_bank` rồi `save('data/mat/coeffs.mat','bank')`
 - [ ] ⚠️ `dtmf_decode_filterbank`: **lọc toàn bộ tín hiệu MỘT LẦN rồi mới chia khung**
 - [ ] Mỗi khung: `d = argmax E(1:7)`, gán `E(8,i) = E_harm(d,i)`; chuẩn hóa `E/sum(frame.^2)`
+- [ ] `info.tFrame` = TÂM khung `(tStart+tEnd)/2` theo quyết định (e), y hệt hai bộ kia
+- [ ] ⚠️ **ĐO** công thức chuẩn hóa `E = E_raw / sum(frame.^2)` chứ đừng tin: hai nhánh kia đều đã đo, riêng nhánh này mới chỉ dẫn giải trên giấy (đầu ra bộ lọc là tín hiệu miền thời gian nên không có thừa số `N/2`). Nhánh FFT từng sai đúng kiểu này và hậu quả là loại 100% số khung. Kiểm: tone sạch phải cho `sum(E(1:7)) ≈ 1` và `rho` nhỏ nhất của khung được nhận phải xấp xỉ 0,708 như hai phương pháp kia.
 - [ ] `tests/test_filterbank.m`:
   - [ ] `|H(f0)| = 1` sai số `1e-10` cho cả 14 bộ (kiểm bằng `freqz`)
   - [ ] `max(abs(roots(a))) = 0.99` sai số `1e-12` (ổn định BIBO)

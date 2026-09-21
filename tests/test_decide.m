@@ -67,15 +67,14 @@ testCase.verifyEqual(rj, 'level');
 end
 
 function test_degenerateInputs(testCase)
-% Năm dạng đầu vào suy biến. Ca cuối là cái bẫy Study §10.1: E toàn số hữu
-% hạn nên chốt chặn isfinite KHÔNG đỡ, nhưng nhóm hàng toàn 0 làm dRow = 0/0
-% = NaN bên trong hàm. Viết điều kiện thành 'if dRow < peakDb' thì NaN < 6 là
-% false -> khung rác lọt qua với nhãn 'none' và rowIdx = 1.
+% Bốn dạng đầu vào mà chốt chặn đầu hàm bắt. Khẳng định ĐÚNG CHỮ 'level' chứ
+% không phải "khác 'none'": nhãn reject là dữ liệu dựng histogram lý do loại
+% khung ở Buổi 10, sai nhãn thì biểu đồ sai mà kết quả giải mã vẫn đúng nên
+% không ai thấy.
 bad = { zeros(8,1), ...
         [1 8 1 1  1 9 1  NaN]', ...
         [1 8 1 1  1 Inf 1  0.1]', ...
-        [-1 8 1 1  1 9 1  0.1]', ...
-        [0 0 0 0  0.001 10 0.001  0]' };
+        [-1 8 1 1  1 9 1  0.1]' };
 
 for i = 1:numel(bad)
     msg = sprintf('ca suy bien thu %d', i);
@@ -83,8 +82,23 @@ for i = 1:numel(bad)
     [r, c, cf, rj] = dtmf_decide(bad{i});
     testCase.verifyEqual([r c], [0 0], msg);
     testCase.verifyEqual(cf, 0, msg);
-    testCase.verifyNotEqual(rj, 'none', msg);
+    testCase.verifyEqual(rj, 'level', msg);
 end
+end
+
+function test_nanRatioRejectedAsLevel(testCase)
+% Bẫy Study §10.1, tách riêng vì đây là ca dễ hỏng nhất cả file. E toàn số
+% hữu hạn và không âm nên chốt chặn đầu hàm KHÔNG đỡ; nhóm hàng toàn 0 làm
+% dRow = 0/0 = NaN sinh ra ngay BÊN TRONG hàm.
+%
+% Viết điều kiện 1 thành 'if dRow < opt.peakDb' thì NaN < 6 là false, khung
+% lọt qua điều kiện 1; sau đó twist = 10*log10(10/0) = Inf làm nó trượt điều
+% kiện 3 và nhận nhãn 'twist'. Loại hay không loại vẫn đúng, chỉ LÝ DO sai -
+% nên khẳng định "khác 'none'" không đủ, phải khẳng định đúng chữ 'level'.
+[r, c, cf, rj] = dtmf_decide([0 0 0 0  0.001 10 0.001  0]');
+testCase.verifyEqual(rj, 'level');
+testCase.verifyEqual([r c], [0 0]);
+testCase.verifyEqual(cf, 0);
 end
 
 function test_confInRange(testCase)

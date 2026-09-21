@@ -3,9 +3,12 @@ function y = dtmf_addnoise(x, opt)
 % Làm bẩn tín hiệu sạch để thử độ bền của bộ giải mã
 %   Y = DTMF_ADDNOISE(X) cộng nhiễu trắng Gauss với SNR = 10 dB.
 %
-%   Nhiễu thô v0 được nhân một hệ số để đạt đúng SNR mục tiêu:
-%       v = v0 * sqrt(mean(x.^2) / (mean(v0.^2) * 10^(snrDb/10)))
-%
+%   Các bước hoạt động:
+%       1. Sinh nhiễu thô v0 theo type - chỉ quan tâm dạng sóng, chưa quan
+%          tâm biên độ.
+%       2. Nhân v0 với một hệ số để đạt đúng SNR mục tiêu:
+%          v = v0 * sqrt(mean(x.^2) / (mean(v0.^2) * 10^(snrDb/10))).
+%       3. y = x + v.
 %   Nhánh 'speech' đọc data/wav/speech_*.wav; thiếu file thì báo lỗi, KHÔNG
 %   tự chuyển sang 'awgn'. Muốn tái lập nhiễu 'awgn', gọi rng(seed) trước.
 %
