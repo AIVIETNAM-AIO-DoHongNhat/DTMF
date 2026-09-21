@@ -6,19 +6,24 @@ function y = dtmf_addnoise(x, opt)
 %   Nhiễu thô v0 được nhân một hệ số để đạt đúng SNR mục tiêu:
 %       v = v0 * sqrt(mean(x.^2) / (mean(v0.^2) * 10^(snrDb/10)))
 %
+%   Nhánh 'speech' đọc data/wav/speech_*.wav; thiếu file thì báo lỗi, KHÔNG
+%   tự chuyển sang 'awgn'. Muốn tái lập nhiễu 'awgn', gọi rng(seed) trước.
+%
+%   Input:
+%       x: 1×N double, tín hiệu sạch.
+%
 %   Tham số tên–giá trị (mặc định trong ngoặc):
 %       'snrDb': tỉ số tín hiệu trên nhiễu [dB] (10).
 %       'type': 'awgn' (Gauss trắng) | 'hum50' (sin 50 Hz) | 'speech'.
 %       'fs': tần số lấy mẫu [Hz] (8000); cần cho 'hum50' và 'speech'.
 %
-%   Đầu vào:  x - 1×N double, tín hiệu sạch.
-%   Đầu ra:   y - 1×N double, y = x + v.
+%   Output:
+%       y: 1×N double, y = x + v.
 %
-%   Nhánh 'speech' đọc data/wav/speech_*.wav; thiếu file thì báo lỗi, KHÔNG
-%   tự chuyển sang 'awgn'. Muốn tái lập nhiễu 'awgn', gọi rng(seed) trước.
-%
-%   See also dtmf_generate, dtmf_decode_goertzel.
-
+%   Example:
+%       x = dtmf_generate('5');
+%       y = dtmf_addnoise(x, 'snrDb', 10, 'type', 'awgn');
+%       10*log10(sum(x.^2) / sum((y - x).^2))   % 10.0 (sai số < 0.5 dB)
 arguments
     x (1,:) double
     opt.snrDb (1,1) double = 10

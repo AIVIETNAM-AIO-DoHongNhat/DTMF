@@ -152,7 +152,7 @@ Gợi ý chia 12 ngày: ngày 1 (Buổi 0+1) · ngày 2 (2) · ngày 3 (3) · ng
 
 # CHI TIẾT TỪNG BUỔI
 
-## ☐ Buổi 0 — Dọn dẹp + chốt đặc tả · 45 phút · chưa viết code
+## ☐ Buổi 0 — Dọn dẹp + chốt đặc tả · 45 phút · chưa viết code (Đã xong)
 
 | | |
 |---|---|
@@ -184,7 +184,7 @@ git log --oneline -1 -- docs/study/DTMF_LyThuyet.m
 
 ---
 
-## ☐ Buổi 1 — `dtmf_generate` + `dtmf_addnoise` · 2 giờ
+## ☐ Buổi 1 — `dtmf_generate` + `dtmf_addnoise` · 2 giờ (Đã xong)
 
 | | |
 |---|---|
@@ -235,7 +235,8 @@ git log --oneline -1 -- docs/study/DTMF_LyThuyet.m
 - [ ] `dtmf_segment`: `nFrame = floor((numel(y)-frameN)/hop)+1`
 - [ ] `dtmf_segment`: **không zero-pad**, bỏ đuôi thừa
 - [ ] `dtmf_segment`: `numel(y) < frameN` → struct rỗng `1×0`, **không ném lỗi**
-- [ ] `tests/test_segment.m`: `nFrame` cho `(1000,205,205)→3`, `(1000,256,128)→6`, `(100,205,205)→0`; `seg(1).idx == [1 205]`; `seg(end).idx(2) <= numel(y)`; `tStart == (idx(1)-1)/fs`
+- [ ] `dtmf_segment`: mốc thời gian `tStart = (idx(1)-1)/fs`, `tEnd = idx(2)/fs` (quy ước **thời lượng**: `tEnd - tStart = frameN/fs`, giống `dtmf_generate`; với `hop = frameN` thì `seg(i).tEnd == seg(i+1).tStart`)
+- [ ] `tests/test_segment.m`: `nFrame` cho `(1000,205,205)→4`, `(1000,256,128)→6`, `(100,205,205)→0`; `seg(1).idx == [1 205]`; `seg(end).idx(2) <= numel(y)`; `tStart == (idx(1)-1)/fs`; `tEnd == idx(2)/fs`
 
 **Bẫy**
 - ⚠️ **Tuyệt đối không gọi `goertzel()` của toolbox trong `goertzel_power`.** Đề bài yêu cầu *cài đặt* thuật toán bằng IIR bậc 2; gọi hàm dựng sẵn là làm hỏng chính nội dung được chấm. `goertzel()` chỉ xuất hiện trong `tests/test_goertzel.m` với vai trò **phép đối chứng độc lập**.

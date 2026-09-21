@@ -10,8 +10,8 @@ function [x, t, meta] = dtmf_generate(keys, opt)
 %   trước tone đầu tiên. Tone 100 ms / nghỉ 50 ms là mức chốt của dự án,
 %   thỏa thời lượng tối thiểu của ITU-T Q.24 (xem CONTRACTS.md).
 %
-%   Đầu vào:
-%       keys - char 1×K, chuỗi phím, ví dụ '0912345678*#'.
+%   Input:
+%       keys: char 1×K, chuỗi phím, ví dụ '0912345678*#'.
 %
 %   Tham số tên–giá trị (mặc định trong ngoặc):
 %       'fs': tần số lấy mẫu [Hz] (8000).
@@ -20,13 +20,13 @@ function [x, t, meta] = dtmf_generate(keys, opt)
 %       'twistDb': mức tone cột so với tone hàng [dB] (0); > 0: cột mạnh hơn.
 %       'ampl': biên độ đỉnh sau chuẩn hóa, thuộc (0, 1] (0.5).
 %
-%   Đầu ra:
+%   Output:
 %       x: 1×N double, tín hiệu DTMF, nằm trong [-1, 1].
 %       t: 1×N double, trục thời gian [s], t(1) = 0.
 %       meta: struct nhãn thời gian, các trường đều 1×K:
 %              .keys (char), .onsets [s], .offsets [s], .fRow [Hz], .fCol [Hz].
 %
-%   Ví dụ:
+%   Example:
 %       [x, t, meta] = dtmf_generate('51');
 %       numel(x)        % 2000 = 800 (tone) + 400 (nghỉ) + 800 (tone)
 %       meta.fRow       % [770 697]

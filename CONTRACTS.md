@@ -15,7 +15,7 @@ seg = dtmf_segment(y, opt)
 [keys, info] = dtmf_decode_goertzel(y, opt)
 [keys, info] = dtmf_decode_filterbank(y, opt)
   % info.E        : 8 x nFrame  - công suất tại 7 tần số chuẩn + 1 hài bậc 2,
-  %                 ĐÃ CHUẨN HÓA theo năng lượng khung - xem "Ba quyết định chốt" (a)
+  %                 ĐÃ CHUẨN HÓA theo năng lượng khung - xem "Bốn quyết định chốt" (a)
   % info.rowIdx   : 1 x nFrame
   % info.colIdx   : 1 x nFrame
   % info.conf     : 1 x nFrame
@@ -60,14 +60,31 @@ m = dtmf_metrics(keysTrue, keysHat)  % .acc .editDist .confusion (12x12)
 - Viết tiếng Việt có dấu, file `.m` lưu dạng UTF-8 (không BOM).
   `.gitattributes` đã đặt `working-tree-encoding=UTF-8` nên git sẽ báo lỗi ngay lúc commit
   nếu file bị ghi nhầm bằng ANSI hoặc UTF-16.
-- Mỗi hàm có khối help ngay dưới dòng `function`, theo thứ tự:
-  1. **Dòng H1**: `%TEN_HAM Mô tả một dòng.` (tên hàm viết HOA, dùng cho `lookfor`).
-  2. Cú pháp gọi + mô tả ngắn.
-  3. `Đầu vào:` / `Tham số tên–giá trị (mặc định trong ngoặc):` / `Đầu ra:` - mỗi mục ghi **kích thước** (`1×N`), **kiểu** (`double`, `char`…) và **đơn vị trong ngoặc vuông** (`[Hz]`, `[s]`, `[dB]`, `[mẫu]`).
-  4. `Cơ sở lý thuyết:` - công thức viết theo cú pháp MATLAB (`10*log10(...)`), nêu rõ chỉ số tính từ 0 hay 1.
-  5. `Ví dụ:` - đoạn chạy được, ghi kết quả mong đợi.
-  6. `Tham khảo:` - đánh số `[1]`, `[2]` theo kiểu IEEE; tài liệu nội bộ ghi "Gói đặc tả #n (tổ …)".
-  7. `See also ...` - giữ nguyên tiếng Anh vì MATLAB dựa vào cụm này để tạo liên kết.
+- Mỗi hàm có khối help ngay dưới dòng `function`, theo thứ tự dưới đây.
+  **Mẫu chuẩn: `src/gen/dtmf_generate.m` và `src/decode/goertzel_power.m`** - viết hàm mới
+  thì mở một trong hai file đó ra chép bố cục, đừng tự nghĩ lại.
+  1. **Dòng H1**: `%TEN_HAM Mô tả một dòng` (tên hàm viết HOA, dùng cho `lookfor`; **không
+     có dấu chấm cuối**).
+  2. **Một dòng đời thường** ngay dưới H1, lùi 1 dấu cách: hàm này làm gì, nói như với người
+     chưa học DSP. Đây là dòng người đọc báo cáo đọc trước tiên.
+  3. Cú pháp gọi `[OUT] = TEN_HAM(IN)` + mô tả ngắn. Có tham số tên–giá trị thì thêm một câu
+     trỏ xuống danh sách bên dưới.
+  4. **Cách hoạt động** - công thức viết theo cú pháp MATLAB (`10*log10(...)`), nêu rõ chỉ số
+     tính từ 0 hay 1. Đặt **ngay sau cú pháp, trước `Input:`**: người đọc cần hiểu hàm làm
+     gì trước khi tra tên từng tham số. Không cần tiêu đề `Cơ sở lý thuyết:`.
+  5. `Input:` / `Tham số tên–giá trị (mặc định trong ngoặc):` / `Output:` - tiêu đề mục viết
+     tiếng Anh, **nội dung viết tiếng Việt**. Mỗi mục viết `tên: kích thước kiểu, mô tả`, ghi
+     **kích thước** (`1×N`), **kiểu** (`double`, `char`…) và **đơn vị trong ngoặc vuông**
+     (`[Hz]`, `[s]`, `[dB]`, `[mẫu]`). Dùng dấu **hai chấm** sau tên, không dùng gạch ngang.
+  6. `Example:` - đoạn chạy được; kết quả mong đợi ghi ở **comment cuối dòng** (`% 64`), không
+     tách thành dòng riêng. Đây là mục CUỐI của help.
+- **Không đặt `See also` trong help.** Liên kết giữa các hàm đã có ở sơ đồ phụ thuộc trong tài
+  liệu này; giữ thêm một bản trong help thì đổi tên hàm là phải sửa hai nơi.
+- **Không đặt mục `Tham khảo:` trong help.** Trích dẫn đầy đủ nằm ở
+  `report/template/references.bib`; trong help chỉ trỏ ngắn khi thật cần ("xem CONTRACTS.md",
+  "Gói đặc tả #4"). Lý do: help mà chép lại thư mục thì sớm muộn hai bên lệch nhau, mà bản đi
+  vào báo cáo là bản trong `.bib`.
+- Help kết thúc ngay trên dòng `arguments`, **không** chèn dòng `%` trống ngăn cách.
 - Số thập phân trong comment dùng dấu chấm (`0.99`) để khớp cú pháp MATLAB.
 - Nhãn công việc: `TODO(C):` (việc của coder), `LƯU Ý:` (ràng buộc bắt buộc).
 - Không sửa các pragma `%#ok<...>` và định danh lỗi `'ham:loi'` (phải là ASCII).
@@ -87,9 +104,10 @@ m = dtmf_metrics(keysTrue, keysHat)  % .acc .editDist .confusion (12x12)
 | Ngưỡng quyết định | đỉnh ≥ 6 dB so với bin nhì cùng nhóm; Σ8 bin ≥ 70% năng lượng khung |
 | Cộng hưởng filter bank | r = 0,99 → BW ≈ 25 Hz |
 
-## Ba quyết định chốt bổ sung
+## Bốn quyết định chốt bổ sung
 
-Ba điểm dưới đây trước kia còn treo và đã chặn `dtmf_decide`. Nay chốt như sau.
+Bốn điểm dưới đây trước kia còn treo. Ba điểm đầu chặn `dtmf_decide`, điểm (d) chặn
+`dtmf_segment`. Nay chốt như sau.
 
 ### (a) Chuẩn hóa `E` - bộ giải mã tự làm, KHÔNG đổi chữ ký hàm
 
@@ -143,6 +161,28 @@ conf = rho * min(1, min(dRow, dCol) / (2*peakDb))    nếu reject == 'none'
 
 Thuộc [0, 1], bằng 0 khi khung bị loại, giảm đơn điệu theo SNR.
 `ui_refresh` chọn khung hiển thị bằng `[~, iSel] = max(info.conf)`.
+
+### (d) Mốc thời gian của `dtmf_segment` - quy ước THỜI LƯỢNG
+
+Help của `dtmf_segment` chỉ mô tả `.tEnd` bằng lời ("thời điểm kết thúc khung"), không có
+công thức, nên hai cách hiểu đều hợp lý. Chốt:
+
+```
+tStart = (idx(1) - 1)/fs        % mốc thời gian của mẫu đầu, t = 0 tại y(1)
+tEnd   =  idx(2)     /fs        % = tStart + frameN/fs
+```
+
+Hệ quả `tEnd - tStart = frameN/fs` (25,625 ms với `frameN = 205`) **đúng bằng thời lượng
+khung** - cùng quy ước với `dtmf_generate`, nơi `meta.offsets - meta.onsets` bằng đúng
+`toneMs` chứ không thiếu 1 mẫu.
+
+Khi `hop = frameN` thì `seg(i).tEnd == seg(i+1).tStart` khít tuyệt đối, không có khe hở
+1 mẫu - `ui_plot_wave` vẽ ranh giới khung không phải xử lý ngoại lệ.
+
+Còn treo (sẽ chốt ở Buổi 4, khi viết bộ giải mã đầu tiên): `info.tFrame` hiện chỉ được mô tả
+là "thời điểm của khung [s]" - lấy `seg.tStart` hay tâm khung `(tStart+tEnd)/2` đều thỏa điều
+kiện "tăng ngặt" trong `test_decode_goertzel`. Chốt gì cũng được, miễn CẢ BA bộ giải mã lấy
+giống nhau, nếu không biểu đồ chồng ba phương pháp sẽ lệch trục thời gian.
 
 ## Ví dụ kiểm chứng Goertzel (đã tính sẵn)
 
