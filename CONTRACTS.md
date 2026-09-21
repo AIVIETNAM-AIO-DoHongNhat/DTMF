@@ -154,13 +154,19 @@ qua cả 14, mỗi khung lấy `d = argmax E(1:7)` rồi gán `E(8,i) = E_harm(d
 ```
 conf = 0                                             nếu reject ~= 'none'
 conf = rho * min(1, min(dRow, dCol) / (2*peakDb))    nếu reject == 'none'
-   rho  = sum(E(1:7))                                (đã chuẩn hóa theo (a))
+   rho  = min(1, sum(E(1:7)))                        (đã chuẩn hóa theo (a))
    dRow = 10*log10(rowPeak/rowPeak2)
    dCol = 10*log10(colPeak/colPeak2)
 ```
 
 Thuộc [0, 1], bằng 0 khi khung bị loại, giảm đơn điệu theo SNR.
 `ui_refresh` chọn khung hiển thị bằng `[~, iSel] = max(info.conf)`.
+
+LƯU Ý về `min(1, ...)` bọc ngoài `rho`: `dtmf_decide` không kiểm tra được caller đã chuẩn
+hóa `E` theo (a) hay chưa. Thiếu cái chặn này, một `E` thô (tổng hàng chục) cho `conf` hàng
+chục - phá vỡ lời hứa `conf ∈ [0, 1]` ghi trong help và làm `ui_plot_bars` vẽ sai thang.
+Với `E` đã chuẩn hóa đúng thì `sum(E(1:7)) <= 1` nên `min` không đổi kết quả; nó chỉ là
+tuyến phòng vệ, không phải một luật mới.
 
 ### (d) Mốc thời gian của `dtmf_segment` - quy ước THỜI LƯỢNG
 

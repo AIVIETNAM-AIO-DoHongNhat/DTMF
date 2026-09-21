@@ -220,7 +220,7 @@ git log --oneline -1 -- docs/study/DTMF_LyThuyet.m
 
 ---
 
-## ☐ Buổi 2 — `dtmf_segment` + `goertzel_power` · 1.5 giờ
+## ☐ Buổi 2 — `dtmf_segment` + `goertzel_power` · 1.5 giờ (Đã xong)
 
 | | |
 |---|---|
@@ -253,7 +253,7 @@ git log --oneline -1 -- docs/study/DTMF_LyThuyet.m
 
 ---
 
-## ☐ Buổi 3 — `dtmf_decide` · 2 giờ · ⚠️ NÚT THẮT
+## ☐ Buổi 3 — `dtmf_decide` · 2 giờ · ⚠️ NÚT THẮT (Đã xong)
 
 | | |
 |---|---|
@@ -274,9 +274,10 @@ git log --oneline -1 -- docs/study/DTMF_LyThuyet.m
 | 5 | `E(8) <= 0.5*min(rowPeak,colPeak)` ← quyết định (b) | `'harmonic'` |
 
 **Việc cần làm**
-- [ ] **Chốt chặn trước mọi `log10`**: `if ~all(isfinite(E)) || max(E) <= 0` → trả `0, 0, 0, 'level'`
+- [ ] **Chặn `E` nhiều khung**: `size(E,2) ~= 1` → `error('dtmf_decide:notOneFrame', ...)`. Khối `arguments` khai `E (8,:)` nên 8×n lọt qua, rồi `max` vector hóa làm cả 4 đầu ra thành vector — sai im lặng.
+- [ ] **Chốt chặn trước mọi `log10`**: `if ~all(isfinite(E)) || any(E < 0) || max(E) <= 0` → trả `0, 0, 0, 'level'`. Có `any(E < 0)` vì `10*log10(a/b)` với `b < 0` ra số phức, mà MATLAB so sánh số phức bằng phần thực — không báo lỗi.
 - [ ] Cài 5 điều kiện theo đúng thứ tự bảng trên
-- [ ] Cài `conf` theo công thức (c)
+- [ ] Cài `conf` theo công thức (c), nhớ `rho = min(1, sum(E(1:7)))`
 - [ ] `tests/test_decide.m` — 9 ca:
   - [ ] nhận: `[1 8 1 1 1 9 1 0.1]'` → `r=2, c=2, 'none'`, `conf>0`
   - [ ] level: `[5 5.5 1 1 1 9 1 0.1]'` → `'level'`, `r=c=0`, `conf==0`
@@ -284,13 +285,14 @@ git log --oneline -1 -- docs/study/DTMF_LyThuyet.m
   - [ ] twist nghịch: hàng mạnh gấp 10 lần cột → `'twist'`
   - [ ] harmonic: `[1 8 1 1 1 9 1 5]'` → `'harmonic'`
   - [ ] energy: `E` chuẩn hóa có `sum(E(1:7)) = 0.5` → `'level'`
-  - [ ] suy biến: `zeros(8,1)`, `NaN`, `Inf` → không lỗi, không `NaN`, `reject ~= 'none'`
-  - [ ] `0 <= conf <= 1` trên 1000 `E` ngẫu nhiên; `conf == 0` ⟺ bị loại
+  - [ ] suy biến: `zeros(8,1)`, `NaN`, `Inf`, `E` có phần tử âm → không lỗi, không `NaN`, `reject ~= 'none'`
+  - [ ] `0 <= conf <= 1` trên 1000 `E` ngẫu nhiên **chưa chuẩn hóa**; `conf == 0` ⟺ bị loại
   - [ ] bất biến thang đo: `dtmf_decide(E)` và `dtmf_decide(1e6*E)` cho cùng `rowIdx/colIdx`
 
 **Bẫy**
 - Study §10.1 cảnh báo: khung toàn 0 cho `NaN`, mọi so sánh thành `false` → **ra đúng kết quả nhưng sai nhãn `reject`**, làm hỏng hình H4.3 ở Buổi 10 mà rất khó phát hiện.
-- Ca "bất biến thang đo" không phải để bắt lỗi mà để **ghi lại tính chất**: điều kiện 4 là cái duy nhất phụ thuộc thang đo.
+- Ca "bất biến thang đo" không phải để bắt lỗi mà để **ghi lại tính chất**: điều kiện 4 là cái duy nhất phụ thuộc thang đo. Vì `rho` bị kẹp `min(1, ...)` nên bất biến chỉ áp cho `rowIdx/colIdx`, **không** áp cho `conf`.
+- Vector mẫu trong bảng ca test ở trên là `E` **thô** (tổng 22), cố ý không chuẩn hóa — chúng dùng để thử luật quyết định, không phải để thử thang `conf`.
 
 **Kiểm chứng**
 ```bash
