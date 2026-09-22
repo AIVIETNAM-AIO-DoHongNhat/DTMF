@@ -35,7 +35,7 @@ awgn      exist=0   ← thuộc Communications Toolbox, CHƯA cài
 | Hạng mục | Cách làm | Vì sao |
 |---|---|---|
 | `goertzel_power` | ✍️ **Tự viết** | Đề bài Chủ đề 4 yêu cầu *cài đặt* Goertzel bằng IIR bậc 2. Gọi `goertzel()` là làm hỏng chính đề bài |
-| Ngân hàng bộ lọc (`boLoc`) | ✍️ **Tự viết** | Đề bài yêu cầu thiết kế 8 bộ lọc hẹp Q cao. Công thức cộng hưởng cho phép *dẫn giải* được `r = 0.99` trong báo cáo |
+| Ngân hàng bộ lọc (`boLoc`) | ✍️ **Tự viết** | Đề bài yêu cầu thiết kế bộ lọc hẹp Q cao (dự án dựng **14** bộ, xem dòng 100). Công thức cộng hưởng cho phép *dẫn giải* được `r = 0.99` trong báo cáo |
 | Luật quyết định, debounce, metrics | ✍️ **Tự viết** | Không có hàm dựng sẵn, và đây là phần lõi của bài |
 | `hamming`, `tukeywin` | 📦 Dùng toolbox | Cửa sổ là chi tiết phụ trợ, không phải nội dung được chấm |
 | `spectrogram` | 📦 Dùng toolbox | Chỉ để **hiển thị**; `ui_plot_spec.m` TODO đã kê sẵn dùng nó |
@@ -64,14 +64,15 @@ Ba điểm này đang chặn `dtmf_decide`, mà `dtmf_decide` chặn cả 3 bộ
 
 ### (a) `energyRatio` — bộ giải mã tự chuẩn hóa `E`, KHÔNG đổi chữ ký hàm
 
-Vấn đề: luật "Σ8 bin ≥ 70% năng lượng khung" cần năng lượng toàn khung, nhưng `dtmf_decide(E, opt)` chỉ nhận `E (8,:)`.
+Vấn đề: luật "Σ7 bin ≥ 70% năng lượng khung" cần năng lượng toàn khung, nhưng `dtmf_decide(E, opt)` chỉ nhận `E (8,:)`.
 
 **Chốt:** mỗi bộ giải mã chia `E` cho năng lượng khung trước khi gọi `dtmf_decide`, khi đó `sum(E(1:7))` **chính là** tỉ lệ năng lượng:
 
 ```
 Goertzel (không cửa sổ):  E = E_raw / (frameN * sum(frame.^2) / 2)
-FFT (có Hamming):         E = E_raw / (frameN * sum((w.*frame).^2) / 2)   ← năng lượng ĐÃ nhân cửa sổ
-Filter bank (miền t/g):   E = E_raw / sum(frame.^2)
+FFT (có Hamming):         cg = sum(w)^2 / (frameN * sum(w.^2))           ← Hamming(256) = 0.7317
+                          E  = E_raw / (frameN * sum((w.*frame).^2) / 2 * cg)
+Filter bank (miền t/g):   E = E_raw / sum(frame.^2)   ← ⚠️ CHƯA ĐO, xem Buổi 6
 ```
 
 Vì sao chọn cách này thay vì thêm tham số `'frameEnergy'`:
@@ -80,7 +81,7 @@ Vì sao chọn cách này thay vì thêm tham số `'frameEnergy'`:
 3. Đây là **cổng chặn mức tuyệt đối duy nhất**. Bốn điều kiện còn lại đều là tỉ số nên bất biến thang đo — khung toàn nhiễu vẫn qua hết. Chuẩn hóa xong, khung nhiễu thuần chỉ đạt ≈ 0.07 → bị loại đúng.
 4. Ví dụ trong help (`dtmf_decide.m:45`) vẫn cho `r=2, c=2, 'none'` → không phải viết lại help.
 
-**Cái giá, nói thẳng:** với ngưỡng 0.70 đã chốt, cách này tạo **vách chính xác ở SNR ≈ 8 dB** — dưới mức đó mọi khung bị loại với `reject='level'`. Hai cách xử lý, đều rẻ:
+**Cái giá, nói thẳng:** với ngưỡng 0.70 đã chốt, cách này tạo một vách độ chính xác. Đã đo lại bằng hàm thật (xem `CONTRACTS.md` §7.2): vách nằm quanh **6 dB** và **dốc dần**, KHÔNG phải ở 8 dB và không phải "mọi khung bị loại" — tại đúng 8 dB độ chính xác vẫn là 1,00. Hai cách xử lý, đều rẻ:
 - Đây là **kết quả để báo cáo, không phải lỗi**. Histogram lý do loại khung ở 5 dB vs 15 dB là hình đẹp + đoạn phân tích tốt.
 - Khi demo, **kéo thanh SNR ở vùng ≥ 10 dB**. `run_bench` quét thêm `energyRatio ∈ {0.70, 0.40, 0}` để vẽ cả hai đường.
 
@@ -104,7 +105,7 @@ Ghi vào help: `floor(N/2)` thực tế **không bao giờ cắt** (xấu nhất
 ```
 conf = 0                                             nếu reject ~= 'none'
 conf = rho * min(1, min(dRow, dCol) / (2*peakDb))    nếu reject == 'none'
-   rho  = sum(E(1:7))                    (đã chuẩn hóa theo (a))
+   rho  = min(1, sum(E(1:7)))            (đã chuẩn hóa theo (a); min là tuyến phòng vệ)
    dRow = 10*log10(rowPeak/rowPeak2)
    dCol = 10*log10(colPeak/colPeak2)
 ```
@@ -385,25 +386,32 @@ git log --oneline -1 -- docs/study/DTMF_LyThuyet.m
 
 **Việc cần làm**
 - [ ] Lấy `boLoc` (study L1039) — **tự viết**, công thức `H(z) = G(1-z^-2)/(1 - 2r·cos(w0)z^-1 + r²z^-2)`
+- [ ] ⚠️ **Sửa mâu thuẫn tài liệu TRƯỚC khi viết code** (đã làm 22/09/2026): help hai file nói `1×8`, CONTRACTS §6(b) nói `1×14` — CONTRACTS đúng, vì `E(8)` chọn theo `argmax` của từng khung nên bộ lọc hài cố định không bám theo được
 - [ ] Dùng `freqz(b, a, [f0], fs)` của toolbox để chuẩn hóa `G` sao cho `|H(f0)| = 1` (thay `dapUngTanSo` của study)
 - [ ] `'withHarm' (1,1) logical = true` → trả `1×14` theo quyết định (b)
 - [ ] Nhánh ưu tiên: `isfile(opt.coeffs)` thì nạp; không thì dựng bằng công thức
-- [ ] `scripts/make_coeffs.m`: gọi `design_bpf_bank` rồi `save('data/mat/coeffs.mat','bank')`
+- [ ] ⚠️ **Chống hệ số cũ ghi đè công thức im lặng** (CONTRACTS §6(b)): file lưu kèm siêu dữ liệu `fs`/`r`/`withHarm`, khi nạp phải đối chiếu, lệch một trường thì bỏ file và dựng lại. `data/mat/` không nằm trong `.gitignore` nên file sẽ được commit; không có chốt này thì đổi `r` xong chạy lại vẫn ra hệ số cũ mà không báo gì
+- [ ] `scripts/make_coeffs.m`: gọi `design_bpf_bank` rồi `save` **kèm siêu dữ liệu**. File do script này sinh, **không** do `filterDesigner` (luật §3) — help cũ ghi sai là "tổ S3 xuất bằng filterDesigner", đã sửa
 - [ ] ⚠️ `dtmf_decode_filterbank`: **lọc toàn bộ tín hiệu MỘT LẦN rồi mới chia khung**
+- [ ] ⚠️ Dùng `filter`, **không** `filtfilt`: `filtfilt` lọc hai chiều nên triệt tiêu quá độ một cách giả tạo, làm ca test ghim quá độ mất sạch ý nghĩa
+- [x] ⚠️ **Debounce dùng chung `src/util/dtmf_debounce.m`, dải phải dài ≥ 2 khung** (quyết định (f), đã làm 22/09/2026). Nhánh này **phụ thuộc** luật đó: dư âm bộ lọc trong khoảng lặng sinh ra dải dài đúng một khung, `minRun = 1` làm nhân đôi phím lặp ở 29/42 cách căn lề và hỏng 30/30 chuỗi ngẫu nhiên 41 phím. Đổi lưới khung KHÔNG sửa được (256/128 vẫn hỏng 22/30) — xem `CONTRACTS.md` §7.5
 - [ ] Mỗi khung: `d = argmax E(1:7)`, gán `E(8,i) = E_harm(d,i)`; chuẩn hóa `E/sum(frame.^2)`
 - [ ] `info.tFrame` = TÂM khung `(tStart+tEnd)/2` theo quyết định (e), y hệt hai bộ kia
 - [ ] ⚠️ **ĐO** công thức chuẩn hóa `E = E_raw / sum(frame.^2)` chứ đừng tin: hai nhánh kia đều đã đo, riêng nhánh này mới chỉ dẫn giải trên giấy (đầu ra bộ lọc là tín hiệu miền thời gian nên không có thừa số `N/2`). Nhánh FFT từng sai đúng kiểu này và hậu quả là loại 100% số khung. Kiểm: tone sạch phải cho `sum(E(1:7)) ≈ 1` và `rho` nhỏ nhất của khung được nhận phải xấp xỉ 0,708 như hai phương pháp kia.
 - [ ] `tests/test_filterbank.m`:
-  - [ ] `|H(f0)| = 1` sai số `1e-10` cho cả 14 bộ (kiểm bằng `freqz`)
+  - [ ] `|H(f0)| = 1` sai số `1e-10` cho cả 14 bộ (kiểm bằng `freqz`) — đo được 2.2e-16, dư rất nhiều
+  - [ ] ⚠️ `freqz(b, a, f0, fs)` với `f0` **vô hướng** bị MATLAB hiểu là *số điểm*, không phải tần số. Phải truyền vector: `freqz(b, a, [f0 f0], fs)` rồi lấy phần tử 1
   - [ ] `max(abs(roots(a))) = 0.99` sai số `1e-12` (ổn định BIBO)
-  - [ ] băng thông −3 dB lệch < 10% so với `(1-r)*fs/pi ≈ 25.5 Hz`
-  - [ ] **test ghim quá độ**: lọc toàn bộ vs lọc từng khung lệch > 20% ở khung 2
+  - [ ] băng thông −3 dB lệch < **2%** so với `(1-r)*fs/pi = 25.465 Hz` — đo được 25.59 Hz, lệch 0.50%; ngưỡng 10% của bản cũ quá lỏng
+  - [ ] **test ghim quá độ**: lọc toàn bộ vs lọc từng khung, khung 2 lệch **> 40%** — đã đo 22/09/2026: khung 1 mất 0.00%, khung 2 mất **56.91%**, khung 3 mất 61.13%. Số 20% trong bản kế hoạch cũ quá lỏng
+  - [ ] ép **cả hai nhánh** nạp/dựng bằng `'coeffs'` tường minh (đường dẫn không tồn tại → nhánh công thức; đường dẫn thật → nhánh nạp). Không để kết quả test phụ thuộc máy đó có sẵn file hay không
   - [ ] `coeffs.mat` round-trip: nạp từ file ≡ dựng bằng công thức
   - [ ] sạch `'0912345'` đúng; khớp cả FFT và Goertzel
 
 **Bẫy**
 - **Lọc theo từng khung làm mất ~60% năng lượng từ khung 2 trở đi** (study §9 đo được) → mọi khung bị loại. Đây là cách viết *trực giác* nên rất dễ mắc. Test ghim quá độ tồn tại để sau không ai "tối ưu" ngược lại.
-- `r = 0.99` là **cận trên**: 5τ = 62 ms < 100 ms tone. `r = 0.995` cần 124.7 ms → vỡ. Lập luận này viết được thẳng vào báo cáo.
+- `r = 0.99` là **cận trên**: `τ = -1/(fs·ln r) = 12.44 ms`, `5τ = 62.2 ms < 100 ms` tone. `r = 0.995` cần 124.7 ms → vỡ. Lập luận này viết được thẳng vào báo cáo.
+- **Hệ quả của quá độ, chưa ai tính:** tone 100 ms = 800 mẫu ≈ **3.9 khung** ở `frameN = 205`, mà 62.2 ms đầu ≈ **2.4 khung** nằm trong quá độ. Debounce chỉ cần MỘT khung tốt nên chuỗi nhiều khả năng vẫn đúng, nhưng **tỉ lệ khung được nhận sẽ thấp hơn hẳn hai nhánh kia** — ảnh hưởng trực tiếp histogram H4.3 ở Buổi 10. Phải đo, đừng đoán.
 - `filterDesigner` giờ đã có, nhưng **vẫn thiết kế bằng công thức**: hệ số do `filterDesigner` sinh ra là những con số không giải thích được, còn công thức cộng hưởng cho phép *dẫn giải* `r = 0.99` và `BW ≈ 25.5 Hz` trong báo cáo. Có thể mở `filterDesigner` để đối chiếu cho vui.
 
 **Kiểm chứng**
@@ -544,7 +552,7 @@ git log --oneline -1 -- docs/study/DTMF_LyThuyet.m
 | Mã | Nội dung | Nguồn | ☐ |
 |---|---|---|:--:|
 | H2.1 | Phổ FFT phím "5" + 8 bin | `ui_plot_spec` | ☐ |
-| H2.3 | Giản đồ cực–không 8 bộ lọc | `zplane(b, a)` của toolbox | ☐ |
+| H2.3 | Giản đồ cực–không 7 bộ chuẩn (14 nếu kể cả bộ hài) | `zplane(b, a)` của toolbox | ☐ |
 | H2.4 | Biểu đồ 8 cột + ngưỡng | `ui_plot_bars` — *"hình quan trọng nhất buổi demo"* | ☐ |
 | H3.3 | Ảnh chụp giao diện | `exportgraphics(app.UIFigure,...)` | ☐ |
 | H4.1 | Độ chính xác theo SNR, 3 phương pháp | `bench.mat` | ☐ |

@@ -9,8 +9,8 @@ function [keys, info] = dtmf_decode_goertzel(y, opt)
 %       2. goertzel_power đo công suất 7 bin chuẩn + 1 bin hài mỗi khung, rồi
 %          chia cho năng lượng khung để sum(E(1:7)) thành TỈ LỆ năng lượng.
 %       3. dtmf_decide phán quyết từng khung: phím nào, hay loại vì lý do gì.
-%       4. Các khung liên tiếp cùng phím gộp thành MỘT ký tự; khung bị loại
-%          cắt dải, nhờ vậy '99' ra hai ký tự chứ không phải một.
+%       4. dtmf_debounce gộp các khung liên tiếp cùng phím thành MỘT ký tự;
+%          khung bị loại cắt dải, nhờ vậy '99' ra hai ký tự chứ không phải một.
 %
 %   Input:
 %       y: 1×N double, tín hiệu cần giải mã.
@@ -78,27 +78,9 @@ for i = 1:n
     info.tFrame(i) = (seg(i).tStart + seg(i).tEnd) / 2;   % TÂM khung, (e)
 end
 
-% Debounce: mỗi DẢI khung liên tiếp cùng một phím sinh đúng MỘT ký tự. So sánh
-% bằng chỉ số phím 1..12; khung bị loại cho 0 và cắt dải, nhờ đó hai lần bấm
-% cùng một phím vẫn ra hai ký tự.
-keys = blanks(n);       % nhiều nhất n ký tự; cắt lại đúng cỡ sau vòng lặp
-nKey = 0;
-prev = 0;
-
-for i = 1:n
-    if info.rowIdx(i) == 0
-        prev = 0;
-        continue
-    end
-
-    cur = (info.rowIdx(i) - 1) * 3 + info.colIdx(i);
-    if cur ~= prev
-        nKey = nKey + 1;
-        keys(nKey) = T.keys(info.rowIdx(i), info.colIdx(i));
-    end
-    prev = cur;
-end
-
-keys = keys(1:nKey);
+% Debounce dùng chung cho cả ba bộ giải mã - quyết định (f). Đừng viết lại vòng
+% gộp ở đây: ba bản sao sẽ trôi khỏi nhau và test tương đương liên phương pháp
+% không bắt được, vì nó so hai bộ với nhau chứ không so với luật.
+keys = dtmf_debounce(info.rowIdx, info.colIdx);
 
 end
