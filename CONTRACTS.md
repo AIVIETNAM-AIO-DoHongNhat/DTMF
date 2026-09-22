@@ -147,7 +147,9 @@ kéo xuống một hằng số. Với một tone thuần đúng tâm bin, `sum(E
 đúng 0,03**, và một khung DTMF thật đo được **0,6298 - nằm DƯỚI ngưỡng**. Hệ quả nếu bỏ
 `cg`: `dtmf_decode_fft` loại 100% số khung, trả về chuỗi rỗng ở mọi mức SNR.
 
-Đo trên chuỗi 41 phím (đi hết 41 cách căn lề khung), `frameN=256, hop=128`:
+Đo trên chuỗi 41 phím, `frameN=256, hop=128`. (Chuỗi 41 phím là chuỗi quét cạn của nhánh
+**Goertzel**; ở `hop = 128` số cách căn lề chỉ là **8** - xem ghi chú cuối mục này - nên nó
+phủ mỗi cách năm sáu lần, dư chứ không thiếu.)
 
 | Chuẩn hóa | Giải mã đúng | Khung bị loại giữa tone | `rho` nhỏ nhất của khung được nhận |
 |---|:--:|:--:|:--:|
@@ -178,6 +180,23 @@ lớn nhất **0,2423** trên 2000 khung - vẫn còn xa ngưỡng 0,70, đúng 
 Bảng trên đã đo lại bằng chính `dtmf_decode_goertzel` sau khi cài đặt xong, kết quả **trùng
 khít** bản mẫu ở mọi mức SNR. `run_bench` ở Buổi 10 (3 phương pháp × nhiều loại nhiễu, số
 lần thử lớn hơn) mới là số cuối cùng đi vào báo cáo.
+
+Đo lại bằng `dtmf_decode_fft` thật (22/09/2026, `'0912345'`, 5 lần thử mỗi mức, `rng(2026)`):
+hai nhánh **trùng nhau tới 8 dB** (đều 1,00) rồi tách ở đáy vách - FFT 0,60 còn Goertzel
+0,85 tại 6 dB, cả hai 0,00 tại 4 dB. Vị trí vách giống nhau, chỉ độ dốc khác, nên kết luận
+"chống talk-off có chủ đích" ở trên vẫn đứng cho cả hai.
+
+**Số cách căn lề khung phụ thuộc `hop`, đừng chép số giữa hai nhánh.** Mỗi phím chiếm
+`(toneMs+pauseMs)·fs/1000 = 1200` mẫu, khung nhảy từng `hop`, nên độ lệch tương đối của
+phím thứ *i* là `mod((i-1)·1200, hop)` và nó chạy hết `hop/gcd(mod(1200,hop), hop)` giá trị:
+
+| Nhánh | `hop` | `mod(1200,hop)` | `gcd` | Số cách căn lề | Chuỗi quét cạn |
+|---|:--:|:--:|:--:|:--:|---|
+| Goertzel | 205 | 175 | 5 | **41** | 41 phím |
+| FFT | 128 | 48 | 16 | **8** | 16 phím (phủ hai lượt) |
+
+Cả hai test quét cạn đều khẳng định `gcd` ngay trong ca test, để ai đổi `toneMs`, `pauseMs`
+hay `hop` thì lập luận vỡ ra thấy ngay chứ không âm thầm tụt xuống thành phép thử vài ca.
 
 ### (b) Bin hài bậc 2 - thích nghi theo từng khung
 

@@ -304,7 +304,7 @@ git log --oneline -1 -- docs/study/DTMF_LyThuyet.m
 
 ---
 
-## ☐ Buổi 4 — `dtmf_decode_goertzel` · 2 giờ · 🎉 pipeline đầu tiên chạy thông
+## ☐ Buổi 4 — `dtmf_decode_goertzel` · 2 giờ · 🎉 pipeline đầu tiên chạy thông (Đã xong)
 
 | | |
 |---|---|
@@ -314,16 +314,16 @@ git log --oneline -1 -- docs/study/DTMF_LyThuyet.m
 | **Phụ thuộc** | Buổi 1, 3 |
 
 **Việc cần làm**
-- [ ] Chia khung `frameN=205, hop=205` bằng `dtmf_segment`
-- [ ] Mỗi khung: `goertzel_power` tại 7 bin `[18 20 22 24 31 34 38]`
-- [ ] Tính bin hài `k_harm = min(2*k_peak, floor(205/2))` → `E(8)`
-- [ ] **Chuẩn hóa** `E(:,i) = E_raw / (frameN * sum(frame.^2) / 2)` theo (a); chặn `sum(frame.^2) == 0`
-- [ ] Gọi `dtmf_decide` từng khung → `rowIdx/colIdx/conf/reject`
-- [ ] `info.tFrame(i) = (seg(i).tStart + seg(i).tEnd)/2` — **TÂM khung**, quyết định (e). Cả ba bộ giải mã lấy giống nhau; dùng `tStart` sẽ đẩy đường FFT lệch trái 3,1875 ms (25,5 mẫu) so với Goertzel trên biểu đồ chồng ở Buổi 10.
-- [ ] **Debounce**: mã hóa run-length `keyIdx(i)` (0 = bị loại), mỗi dải liên tiếp khác 0 sinh **một** ký tự
-- [ ] `tests/test_decode_goertzel.m`: sạch `'0912345'` đúng; `size(info.E)==[8 nFrame]`; `reject` là cellstr đủ `nFrame` phần tử; `tFrame` tăng ngặt; `conf ∈ [0,1]`; `zeros(1,4000)` → `''` và toàn `'level'`
-- [ ] `tests/test_pipeline.m`: ca **`'12345699'` phải ra đủ 8 ký tự**
-- [ ] Chốt hình dạng `info` khi `nFrame = 0` (`numel(y) < frameN`): `info.E` là `8×0`, các trường `1×nFrame` là `1×0`, `info.reject` là cell `1×0`, `keys = ''`. Stub đang khởi tạo `[]` tức `0×0` - sai hợp đồng, cùng họ với chuyện `1×0` vs `0×0` của `dtmf_segment`. Buổi 8 GUI sẽ gọi với tín hiệu ngắn nên ca này xảy ra thật; ghim bằng test.
+- [x] Chia khung `frameN=205, hop=205` bằng `dtmf_segment`
+- [x] Mỗi khung: `goertzel_power` tại 7 bin `[18 20 22 24 31 34 38]`
+- [x] Tính bin hài `k_harm = min(2*k_peak, floor(205/2))` → `E(8)`
+- [x] **Chuẩn hóa** `E(:,i) = E_raw / (frameN * sum(frame.^2) / 2)` theo (a); chặn `sum(frame.^2) == 0`
+- [x] Gọi `dtmf_decide` từng khung → `rowIdx/colIdx/conf/reject`
+- [x] `info.tFrame(i) = (seg(i).tStart + seg(i).tEnd)/2` — **TÂM khung**, quyết định (e). Cả ba bộ giải mã lấy giống nhau; dùng `tStart` sẽ đẩy đường FFT lệch trái 3,1875 ms (25,5 mẫu) so với Goertzel trên biểu đồ chồng ở Buổi 10.
+- [x] **Debounce**: mã hóa run-length `keyIdx(i)` (0 = bị loại), mỗi dải liên tiếp khác 0 sinh **một** ký tự
+- [x] `tests/test_decode_goertzel.m`: sạch `'0912345'` đúng; `size(info.E)==[8 nFrame]`; `reject` là cellstr đủ `nFrame` phần tử; `tFrame` tăng ngặt; `conf ∈ [0,1]`; `zeros(1,4000)` → `''` và toàn `'level'`
+- [x] `tests/test_pipeline.m`: ca **`'12345699'` phải ra đủ 8 ký tự**
+- [x] Chốt hình dạng `info` khi `nFrame = 0` (`numel(y) < frameN`): `info.E` là `8×0`, các trường `1×nFrame` là `1×0`, `info.reject` là cell `1×0`, `keys = ''`. Stub đang khởi tạo `[]` tức `0×0` - sai hợp đồng, cùng họ với chuyện `1×0` vs `0×0` của `dtmf_segment`. Buổi 8 GUI sẽ gọi với tín hiệu ngắn nên ca này xảy ra thật; ghim bằng test.
 - [x] **Đo lại vách SNR bằng hàm thật** rồi cập nhật bảng trong `CONTRACTS.md` mục (a) — đã đo, trùng khít bản mẫu: 100% tới 8 dB, 0,85 ở 6 dB, 0,40 ở 4 dB
 
 **Bẫy**
@@ -334,12 +334,12 @@ git log --oneline -1 -- docs/study/DTMF_LyThuyet.m
 ```bash
 "$MLB" -batch "cd('D:\PROJECT\DMTF'); addpath(genpath('src')); [x,~,m]=dtmf_generate('0912345'); k=dtmf_decode_goertzel(x); fprintf('true=%s hat=%s\n',m.keys,k); assert(strcmp(k,m.keys)); disp('PIPELINE OK')"
 ```
-- [ ] `true=0912345 hat=0912345`
-- [ ] Ca `'12345699'` ra 8 ký tự
+- [x] `true=0912345 hat=0912345`
+- [x] Ca `'12345699'` ra 8 ký tự
 
 ---
 
-## ☐ Buổi 5 — `dtmf_decode_fft` · 1.5 giờ
+## ☐ Buổi 5 — `dtmf_decode_fft` · 1.5 giờ (Đã xong)
 
 | | |
 |---|---|
@@ -349,24 +349,27 @@ git log --oneline -1 -- docs/study/DTMF_LyThuyet.m
 | **Phụ thuộc** | Buổi 4 |
 
 **Việc cần làm**
-- [ ] Dùng `hamming(256)` của toolbox (cửa sổ không phải nội dung được chấm)
-- [ ] `frameN=256, hop=128`, bin `[22 25 27 30 39 43 47]`
-- [ ] Dùng `|X[k]|^2` **chứ không phải** `|X[k]|` (TODO dòng 57 đã cảnh báo sẵn)
-- [ ] Chuẩn hóa theo năng lượng **đã nhân cửa sổ**, NHÂN THÊM hệ số bù cửa sổ: `cg = sum(w)^2/(frameN*sum(w.^2))` (Hamming 256 → 0,7317), `E = E_raw / (frameN*sum((w.*frame).^2)/2 * cg)` — xem quyết định (a). **Thiếu `cg` thì bộ giải mã loại 100% số khung** vì trần lý thuyết của `sum(E(1:7))` chỉ là 0,7317 còn khung thật đo được 0,6298, đều không qua nổi ngưỡng 0,70.
-- [ ] `info.tFrame` = TÂM khung `(tStart+tEnd)/2` theo quyết định (e), y hệt Goertzel — khung ở đây dài 256 nên lấy nhầm `tStart` là lệch 3,1875 ms so với Goertzel
-- [ ] `tests/test_decode_fft.m`: sạch đúng; `info` cùng hợp đồng shape với Goertzel
-- [ ] `tests/test_decode_fft.m`: **test tương đương liên phương pháp** — cùng tín hiệu sạch, FFT và Goertzel cho cùng `keysHat`
+- [x] Dùng `hamming(256)` của toolbox (cửa sổ không phải nội dung được chấm)
+- [x] `frameN=256, hop=128`, bin `[22 25 27 30 39 43 47]`
+- [x] Dùng `|X[k]|^2` **chứ không phải** `|X[k]|` (TODO dòng 57 đã cảnh báo sẵn)
+- [x] Chuẩn hóa theo năng lượng **đã nhân cửa sổ**, NHÂN THÊM hệ số bù cửa sổ: `cg = sum(w)^2/(frameN*sum(w.^2))` (Hamming 256 → 0,7317), `E = E_raw / (frameN*sum((w.*frame).^2)/2 * cg)` — xem quyết định (a). **Thiếu `cg` thì bộ giải mã loại 100% số khung** vì trần lý thuyết của `sum(E(1:7))` chỉ là 0,7317 còn khung thật đo được 0,6298, đều không qua nổi ngưỡng 0,70.
+- [x] `info.tFrame` = TÂM khung `(tStart+tEnd)/2` theo quyết định (e), y hệt Goertzel — khung ở đây dài 256 nên lấy nhầm `tStart` là lệch 3,1875 ms so với Goertzel
+- [x] `tests/test_decode_fft.m`: sạch đúng; `info` cùng hợp đồng shape với Goertzel
+- [x] `tests/test_decode_fft.m`: **test tương đương liên phương pháp** — cùng tín hiệu sạch, FFT và Goertzel cho cùng `keysHat`
 
 **Bẫy**
 - Chuẩn hóa bằng năng lượng **chưa** nhân cửa sổ sẽ làm sai `energyRatio` do tổn hao coherent của Hamming → vách 8 dB dịch chỗ, 3 phương pháp lệch nhau. Đã đo: quên `cg` thì không phải "lệch" mà là **hỏng hẳn** — 0/41 phím, mọi khung mang nhãn `'level'`.
 - Test tương đương liên phương pháp mới là thứ **chứng minh** "3 bộ giải mã dùng chung luật quyết định" là thật chứ không phải khẩu hiệu.
+- ⚠️ **`hamming(N)` trả về vector CỘT.** Viết `w .* frame` với `frame` là hàng thì nở thành ma trận `256×256` và MATLAB **không báo một chữ nào**; công suất tại bin 22 ra `2,6e-07` thay vì `3,6e+02`, sai chín bậc độ lớn. Phải `w = hamming(opt.frameN)';` — đã đo ngày 22/09/2026.
+- ⚠️ **Chỉ số FFT lệch 1 so với Goertzel: phải `X(k+1)`, không phải `X(k)`.** Bin DFT đánh số từ 0 còn MATLAB đánh số từ 1, trong khi `goertzel_power(frame, k, N)` nhận `k` trực tiếp. Quên `+1` thì mọi bin tụt một nấc mà vẫn ra những con số trông hợp lý. Đây là khác biệt cú pháp **duy nhất** giữa hai nhánh, nên đừng "sửa" cho giống nhau.
+- **Số cách căn lề khung ở nhánh này là 8, KHÔNG phải 41.** `mod(1200,128) = 48`, `gcd(48,128) = 16` → `128/16 = 8`. Chép chuỗi 41 phím của Buổi 4 sang thì vẫn xanh nhưng lập luận "quét cạn" gắn sai tham số; dùng chuỗi 16 phím phủ mỗi cách hai lượt.
 
 **Kiểm chứng**
 ```bash
 "$MLB" -batch "cd('D:\PROJECT\DMTF'); addpath('tests'); run_all_tests"
 ```
-- [ ] ~30 ca xanh
-- [ ] Test FFT ≡ Goertzel xanh
+- [x] 56 ca xanh
+- [x] Test FFT ≡ Goertzel xanh
 
 ---
 
