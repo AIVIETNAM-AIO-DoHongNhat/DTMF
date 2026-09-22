@@ -43,16 +43,72 @@ arguments
     opt.hop (1,1) double = 205
 end
 
-% TODO(C):
-%   1. bank = design_bpf_bank('fs', opt.fs);
-%   2. Lọc toàn bộ y qua cả 14 bộ: yj(j,:) = filter(bank(j).b, bank(j).a, y).
-%   3. seg = dtmf_segment(y, ...); mỗi khung tính sum(yj(j,idx).^2) cho 7 bộ
-%      chuẩn, chọn d = argmax rồi lấy E(8) từ bộ hài thứ d.
-%   4. Chuẩn hóa E/sum(frame.^2), gọi dtmf_decide, điền info.
-%   5. keys = dtmf_debounce(info.rowIdx, info.colIdx);
+bank = design_bpf_bank('fs', opt.fs);
 
-keys = ''; %#ok<NASGU>
-info = struct('E', [], 'rowIdx', [], 'colIdx', [], 'conf', [], 'tFrame', [], 'reject', {{}}); %#ok<NASGU>
-error('dtmf_decode_filterbank:notImplemented', 'TODO: cai dat dtmf_decode_filterbank.');
+% Hàm này đánh chỉ số bộ hài bằng 7+d nên cần đúng 14 bộ. Thiếu chốt thì một
+% ngân hàng 7 bộ cho lỗi "index exceeds" ở giữa vòng lặp, khó lần ra nguồn.
+%
+% Kiểm thử đột biến cho thấy bỏ chốt này KHÔNG làm test nào đỏ, vì lời gọi trên
+% luôn dùng withHarm mặc định = true nên bank luôn có 14 phần tử. Đây là chốt
+% phòng vệ cho tương lai (ai đó đổi mặc định của design_bpf_bank), không phải
+% mã chết - đừng xóa.
+if numel(bank) ~= 14
+    error('dtmf_decode_filterbank:bankSize', ...
+        'design_bpf_bank trả %d bộ lọc; nhánh này cần đúng 14 (7 chuẩn + 7 hài).', ...
+        numel(bank));
+end
+
+% Lọc TOÀN BỘ tín hiệu một lần, trước khi chia khung. Lọc riêng từng khung làm
+% trạng thái bộ lọc reset ở mỗi biên: đo được khung 2 mất 56.9% và khung 3 mất
+% 61.1% năng lượng, đủ để mọi khung trượt ngưỡng 0.70 và hàm trả về rỗng.
+yj = zeros(numel(bank), numel(y));
+for j = 1:numel(bank)
+    yj(j, :) = filter(bank(j).b, bank(j).a, y);
+end
+
+seg = dtmf_segment(y, 'fs', opt.fs, 'frameN', opt.frameN, 'hop', opt.hop);
+n   = numel(seg);
+
+% Cấp phát đúng cỡ hợp đồng. n = 0 rơi luôn vào đây: zeros(8,0) là 8×0 và
+% cell(1,0) là 1×0, không cần nhánh if riêng. Phải bọc {cell(1,n)} vì struct()
+% coi cell là danh sách giá trị, không bọc sẽ ra mảng struct 1×n.
+info = struct('E',      zeros(8, n), ...
+              'rowIdx', zeros(1, n), ...
+              'colIdx', zeros(1, n), ...
+              'conf',   zeros(1, n), ...
+              'tFrame', zeros(1, n), ...
+              'reject', {cell(1, n)});
+
+for i = 1:n
+    i1 = seg(i).idx(1);
+    i2 = seg(i).idx(2);
+
+    P = zeros(8, 1);
+    P(1:7) = sum(yj(1:7, i1:i2).^2, 2);
+
+    % Bộ hài bám theo đỉnh của CHÍNH khung này - quyết định (b). Bộ hài của bin
+    % d nằm ở chỉ số 7+d, theo đúng thứ tự design_bpf_bank xếp ra.
+    [~, d] = max(P(1:7));
+    P(8) = sum(yj(7+d, i1:i2).^2);
+
+    % Chuẩn hóa theo quyết định (a): mẫu số là năng lượng khung ĐẦU VÀO, không
+    % có thừa số N/2 vì đầu ra bộ lọc là tín hiệu miền thời gian chứ không phải
+    % vạch phổ. Khung im lặng có en = 0: để nguyên E = 0, dtmf_decide trả
+    % 'level'; chia thẳng sẽ cho 0/0 = NaN và khung rác lọt qua với nhãn 'none'.
+    en = sum(y(i1:i2).^2);
+    if en > 0
+        info.E(:, i) = P / en;
+    end
+
+    [info.rowIdx(i), info.colIdx(i), info.conf(i), info.reject{i}] = ...
+        dtmf_decide(info.E(:, i));
+
+    info.tFrame(i) = (seg(i).tStart + seg(i).tEnd) / 2;   % TÂM khung, (e)
+end
+
+% Debounce dùng chung cho cả ba bộ giải mã - quyết định (f). Nhánh này PHỤ
+% THUỘC luật "dải >= 2 khung": dư âm bộ lọc trong khoảng lặng sinh ra dải dài
+% đúng một khung, và luật đó là thứ duy nhất loại nó.
+keys = dtmf_debounce(info.rowIdx, info.colIdx);
 
 end

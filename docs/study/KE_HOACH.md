@@ -87,7 +87,7 @@ Vì sao chọn cách này thay vì thêm tham số `'frameEnergy'`:
 
 ### (b) Hài bậc 2 — lấy nguyên định nghĩa trong file study
 
-`docs/goertzel.md` được nhắc tới nhưng **không tồn tại** và sẽ không tìm lại được. Nguồn còn sống duy nhất là `DTMF_LyThuyet.m` §8.4 (L713–727) và §13:
+`docs/goertzel.md` được nhắc tới nhưng **không tồn tại** và sẽ không tìm lại được. Nguồn còn sống duy nhất là `DTMF_LyThuyet.m` §8.4 (L713–727) và §13 của cùng file đó:
 
 ```
 k_peak = argmax E(j),  j = 1..7          % bin chuẩn mạnh nhất — KHÔNG phải 1633 Hz
@@ -139,7 +139,7 @@ MLB='C:\Program Files\MATLAB\R2026a\bin\matlab.exe'
 | 3 | ⚠️ **`dtmf_decide`** — NÚT THẮT | 2.0 | 2 | `test_decide` xanh (9 ca) | ☐ |
 | 4 | `dtmf_decode_goertzel` | 2.0 | 1,3 | 🎉 giải mã `'0912345'` đúng | ☐ |
 | 5 | `dtmf_decode_fft` | 1.5 | 4 | FFT ≡ Goertzel trên tín hiệu sạch | ☐ |
-| 6 | `design_bpf_bank` + `filterbank` | 2.5 | 4 | `coeffs.mat` sinh ra, 3 phương pháp khớp | ☐ |
+| 6 | `design_bpf_bank` + `filterbank` | 2.5 | 4 | 3 phương pháp khớp nhau | ☑ |
 | 7 | `dtmf_metrics` | 1.0 | 4 | `acc == 1` cả 3 phương pháp | ☐ |
 | 8 | `dtmf_run` + 3 hàm `ui_plot_*` | 2.0 | 7 | `test_ui_smoke` xanh, headless | ☐ |
 | 9 | 🖥️ **Giao diện `DTMFApp`** | 3.0 | 8 | App giải mã đúng, có tiếng | ☐ |
@@ -374,44 +374,48 @@ git log --oneline -1 -- docs/study/DTMF_LyThuyet.m
 
 ---
 
-## ☐ Buổi 6 — `design_bpf_bank` + `dtmf_decode_filterbank` · 2.5 giờ
+## ☐ Buổi 6 — `design_bpf_bank` + `dtmf_decode_filterbank` · 2.5 giờ (Đã xong)
 
 | | |
 |---|---|
 | **Mục tiêu** | Ngân hàng 14 bộ lọc IIR cộng hưởng + bộ giải mã thứ ba |
 | **File sửa** | `src/decode/design_bpf_bank.m` · `src/decode/dtmf_decode_filterbank.m` |
 | **File thêm** | `scripts/make_coeffs.m` · `tests/test_filterbank.m` |
-| **Sinh ra** | `data/mat/coeffs.mat` |
+| **Sinh ra** | `data/mat/coeffs.mat` (**không commit** — xem ghi chú cuối mục) |
 | **Phụ thuộc** | Buổi 4 |
 
 **Việc cần làm**
-- [ ] Lấy `boLoc` (study L1039) — **tự viết**, công thức `H(z) = G(1-z^-2)/(1 - 2r·cos(w0)z^-1 + r²z^-2)`
-- [ ] ⚠️ **Sửa mâu thuẫn tài liệu TRƯỚC khi viết code** (đã làm 22/09/2026): help hai file nói `1×8`, CONTRACTS §6(b) nói `1×14` — CONTRACTS đúng, vì `E(8)` chọn theo `argmax` của từng khung nên bộ lọc hài cố định không bám theo được
-- [ ] Dùng `freqz(b, a, [f0], fs)` của toolbox để chuẩn hóa `G` sao cho `|H(f0)| = 1` (thay `dapUngTanSo` của study)
-- [ ] `'withHarm' (1,1) logical = true` → trả `1×14` theo quyết định (b)
-- [ ] Nhánh ưu tiên: `isfile(opt.coeffs)` thì nạp; không thì dựng bằng công thức
-- [ ] ⚠️ **Chống hệ số cũ ghi đè công thức im lặng** (CONTRACTS §6(b)): file lưu kèm siêu dữ liệu `fs`/`r`/`withHarm`, khi nạp phải đối chiếu, lệch một trường thì bỏ file và dựng lại. `data/mat/` không nằm trong `.gitignore` nên file sẽ được commit; không có chốt này thì đổi `r` xong chạy lại vẫn ra hệ số cũ mà không báo gì
-- [ ] `scripts/make_coeffs.m`: gọi `design_bpf_bank` rồi `save` **kèm siêu dữ liệu**. File do script này sinh, **không** do `filterDesigner` (luật §3) — help cũ ghi sai là "tổ S3 xuất bằng filterDesigner", đã sửa
-- [ ] ⚠️ `dtmf_decode_filterbank`: **lọc toàn bộ tín hiệu MỘT LẦN rồi mới chia khung**
-- [ ] ⚠️ Dùng `filter`, **không** `filtfilt`: `filtfilt` lọc hai chiều nên triệt tiêu quá độ một cách giả tạo, làm ca test ghim quá độ mất sạch ý nghĩa
+- [x] Lấy `boLoc` (study L1039) — **tự viết**, công thức `H(z) = G(1-z^-2)/(1 - 2r·cos(w0)z^-1 + r²z^-2)`
+- [x] ⚠️ **Sửa mâu thuẫn tài liệu TRƯỚC khi viết code** (đã làm 22/09/2026): help hai file nói `1×8`, CONTRACTS §6(b) nói `1×14` — CONTRACTS đúng, vì `E(8)` chọn theo `argmax` của từng khung nên bộ lọc hài cố định không bám theo được
+- [x] Dùng `freqz(b, a, [f0], fs)` của toolbox để chuẩn hóa `G` sao cho `|H(f0)| = 1` (thay `dapUngTanSo` của study)
+- [x] `'withHarm' (1,1) logical = true` → trả `1×14` theo quyết định (b)
+- [x] Nhánh ưu tiên: `isfile(opt.coeffs)` thì nạp; không thì dựng bằng công thức
+- [x] ⚠️ **Chống hệ số cũ ghi đè công thức im lặng** (CONTRACTS §6(b)): file lưu kèm siêu dữ liệu `fs`/`r`/`withHarm`, khi nạp phải đối chiếu, lệch một trường thì bỏ file và dựng lại. `data/mat/` không nằm trong `.gitignore` nên file sẽ được commit; không có chốt này thì đổi `r` xong chạy lại vẫn ra hệ số cũ mà không báo gì
+- [x] `scripts/make_coeffs.m`: gọi `design_bpf_bank` rồi `save` **kèm siêu dữ liệu**. File do script này sinh, **không** do `filterDesigner` (luật §3) — help cũ ghi sai là "tổ S3 xuất bằng filterDesigner", đã sửa
+- [x] ⚠️ `dtmf_decode_filterbank`: **lọc toàn bộ tín hiệu MỘT LẦN rồi mới chia khung**
+- [x] ⚠️ Dùng `filter`, **không** `filtfilt`: `filtfilt` lọc hai chiều nên triệt tiêu quá độ một cách giả tạo, làm ca test ghim quá độ mất sạch ý nghĩa
 - [x] ⚠️ **Debounce dùng chung `src/util/dtmf_debounce.m`, dải phải dài ≥ 2 khung** (quyết định (f), đã làm 22/09/2026). Nhánh này **phụ thuộc** luật đó: dư âm bộ lọc trong khoảng lặng sinh ra dải dài đúng một khung, `minRun = 1` làm nhân đôi phím lặp ở 29/42 cách căn lề và hỏng 30/30 chuỗi ngẫu nhiên 41 phím. Đổi lưới khung KHÔNG sửa được (256/128 vẫn hỏng 22/30) — xem `CONTRACTS.md` §7.5
-- [ ] Mỗi khung: `d = argmax E(1:7)`, gán `E(8,i) = E_harm(d,i)`; chuẩn hóa `E/sum(frame.^2)`
-- [ ] `info.tFrame` = TÂM khung `(tStart+tEnd)/2` theo quyết định (e), y hệt hai bộ kia
-- [ ] ⚠️ **ĐO** công thức chuẩn hóa `E = E_raw / sum(frame.^2)` chứ đừng tin: hai nhánh kia đều đã đo, riêng nhánh này mới chỉ dẫn giải trên giấy (đầu ra bộ lọc là tín hiệu miền thời gian nên không có thừa số `N/2`). Nhánh FFT từng sai đúng kiểu này và hậu quả là loại 100% số khung. Kiểm: tone sạch phải cho `sum(E(1:7)) ≈ 1` và `rho` nhỏ nhất của khung được nhận phải xấp xỉ 0,708 như hai phương pháp kia.
-- [ ] `tests/test_filterbank.m`:
-  - [ ] `|H(f0)| = 1` sai số `1e-10` cho cả 14 bộ (kiểm bằng `freqz`) — đo được 2.2e-16, dư rất nhiều
-  - [ ] ⚠️ `freqz(b, a, f0, fs)` với `f0` **vô hướng** bị MATLAB hiểu là *số điểm*, không phải tần số. Phải truyền vector: `freqz(b, a, [f0 f0], fs)` rồi lấy phần tử 1
-  - [ ] `max(abs(roots(a))) = 0.99` sai số `1e-12` (ổn định BIBO)
-  - [ ] băng thông −3 dB lệch < **2%** so với `(1-r)*fs/pi = 25.465 Hz` — đo được 25.59 Hz, lệch 0.50%; ngưỡng 10% của bản cũ quá lỏng
-  - [ ] **test ghim quá độ**: lọc toàn bộ vs lọc từng khung, khung 2 lệch **> 40%** — đã đo 22/09/2026: khung 1 mất 0.00%, khung 2 mất **56.91%**, khung 3 mất 61.13%. Số 20% trong bản kế hoạch cũ quá lỏng
-  - [ ] ép **cả hai nhánh** nạp/dựng bằng `'coeffs'` tường minh (đường dẫn không tồn tại → nhánh công thức; đường dẫn thật → nhánh nạp). Không để kết quả test phụ thuộc máy đó có sẵn file hay không
-  - [ ] `coeffs.mat` round-trip: nạp từ file ≡ dựng bằng công thức
-  - [ ] sạch `'0912345'` đúng; khớp cả FFT và Goertzel
+- [x] Mỗi khung: `d = argmax E(1:7)`, gán `E(8,i) = E_harm(d,i)`; chuẩn hóa `E/sum(frame.^2)`
+- [x] `info.tFrame` = TÂM khung `(tStart+tEnd)/2` theo quyết định (e), y hệt hai bộ kia
+- [x] ⚠️ **ĐO** công thức chuẩn hóa `E = E_raw / sum(frame.^2)` chứ đừng tin: hai nhánh kia đều đã đo, riêng nhánh này mới chỉ dẫn giải trên giấy (đầu ra bộ lọc là tín hiệu miền thời gian nên không có thừa số `N/2`). Nhánh FFT từng sai đúng kiểu này và hậu quả là loại 100% số khung. Kiểm: tone sạch phải cho `sum(E(1:7)) ≈ 1` và `rho` nhỏ nhất của khung được nhận phải xấp xỉ 0,708 như hai phương pháp kia.
+- [x] `tests/test_filterbank.m`:
+  - [x] `|H(f0)| = 1` sai số `1e-10` cho cả 14 bộ (kiểm bằng `freqz`) — đo được 2.2e-16, dư rất nhiều
+  - [x] ⚠️ `freqz(b, a, f0, fs)` với `f0` **vô hướng** bị MATLAB hiểu là *số điểm*, không phải tần số. Phải truyền vector: `freqz(b, a, [f0 f0], fs)` rồi lấy phần tử 1
+  - [x] `max(abs(roots(a))) = 0.99` sai số `1e-12` (ổn định BIBO)
+  - [x] băng thông −3 dB lệch < **2%** so với `(1-r)*fs/pi = 25.465 Hz` — đo được 25.59 Hz, lệch 0.50%; ngưỡng 10% của bản cũ quá lỏng
+  - [x] **test ghim quá độ**: lọc toàn bộ vs lọc từng khung, khung 2 lệch **> 40%** — đã đo 22/09/2026: khung 1 mất 0.00%, khung 2 mất **56.91%**, khung 3 mất 61.13%. Số 20% trong bản kế hoạch cũ quá lỏng
+  - [x] ép **cả hai nhánh** nạp/dựng bằng `'coeffs'` tường minh (đường dẫn không tồn tại → nhánh công thức; đường dẫn thật → nhánh nạp). Không để kết quả test phụ thuộc máy đó có sẵn file hay không
+  - [x] `coeffs.mat` round-trip: nạp từ file ≡ dựng bằng công thức
+  - [x] sạch `'0912345'` đúng; khớp cả FFT và Goertzel
 
 **Bẫy**
 - **Lọc theo từng khung làm mất ~60% năng lượng từ khung 2 trở đi** (study §9 đo được) → mọi khung bị loại. Đây là cách viết *trực giác* nên rất dễ mắc. Test ghim quá độ tồn tại để sau không ai "tối ưu" ngược lại.
 - `r = 0.99` là **cận trên**: `τ = -1/(fs·ln r) = 12.44 ms`, `5τ = 62.2 ms < 100 ms` tone. `r = 0.995` cần 124.7 ms → vỡ. Lập luận này viết được thẳng vào báo cáo.
 - **Hệ quả của quá độ, chưa ai tính:** tone 100 ms = 800 mẫu ≈ **3.9 khung** ở `frameN = 205`, mà 62.2 ms đầu ≈ **2.4 khung** nằm trong quá độ. Debounce chỉ cần MỘT khung tốt nên chuỗi nhiều khả năng vẫn đúng, nhưng **tỉ lệ khung được nhận sẽ thấp hơn hẳn hai nhánh kia** — ảnh hưởng trực tiếp histogram H4.3 ở Buổi 10. Phải đo, đừng đoán.
+- ✅ **Đo được sau khi cài đặt (22/09/2026):** `|H(f0)|-1` = 2,2e-16 · sai số bán kính cực = 3,3e-16 · BW −3 dB = 25,590 Hz so với lý thuyết 25,465 Hz, lệch **0,50%**. Cả ba đều dư biên rất rộng so với ngưỡng test.
+- ✅ **Kết quả so sánh chính của Chủ đề 4:** ngân hàng bộ lọc **chịu nhiễu tốt nhất trong ba** — độ chính xác 1,00 ở 4 dB, nơi Goertzel chỉ còn 0,02 và FFT 0,00 (10 chuỗi × 5 lần mỗi mức). Lý do dẫn giải được: 14 bộ cộng hưởng `BW ≈ 25,5 Hz` loại gần hết nhiễu **ngoài băng** trước khi đo năng lượng, còn hai nhánh kia lấy năng lượng khung **thô** làm mẫu số nên nhiễu kéo `rho` xuống. Kết quả này **ngược trực giác** "FFT mạnh nhất" nên rất đáng viết vào báo cáo.
+- ⚠️ **`rho` của nhánh này CÓ THỂ vượt 1** (đo được 3,08), khác hẳn hai nhánh kia (tối đa 0,95). Tử số là năng lượng đầu ra bộ lọc, trễ sau đầu vào đúng một thời hằng, nên ở khung khoảng lặng mẫu số sụp mà tử số còn dư âm. Đây là đặc tính thật, không phải lỗi — và chính nó làm phát sinh luật `minRun = 2` ở quyết định (f).
+- ⚠️ **`freqz(b, a, f0, fs)` với `f0` vô hướng bị hiểu là SỐ ĐIỂM.** Phải truyền vector `[f0 f0]` rồi lấy phần tử 1. Bẫy này làm hỏng lần chạy thử đầu tiên.
 - `filterDesigner` giờ đã có, nhưng **vẫn thiết kế bằng công thức**: hệ số do `filterDesigner` sinh ra là những con số không giải thích được, còn công thức cộng hưởng cho phép *dẫn giải* `r = 0.99` và `BW ≈ 25.5 Hz` trong báo cáo. Có thể mở `filterDesigner` để đối chiếu cho vui.
 
 **Kiểm chứng**
@@ -419,8 +423,15 @@ git log --oneline -1 -- docs/study/DTMF_LyThuyet.m
 "$MLB" -batch "cd('D:\PROJECT\DMTF'); addpath(genpath('src')); addpath('scripts'); make_coeffs; fprintf('coeffs.mat = %d bytes\n', dir('data/mat/coeffs.mat').bytes)"
 "$MLB" -batch "cd('D:\PROJECT\DMTF'); addpath('tests'); run_all_tests"
 ```
-- [ ] `coeffs.mat` sinh ra, `data/mat/` hết rỗng
-- [ ] `test_filterbank` xanh cả 6 nhóm ca
+- [x] `coeffs.mat` sinh ra được (710 bytes) và nạp lại khớp công thức tuyệt đối
+- [x] `test_filterbank` xanh 23/23 ca; toàn bộ 88/88 PASS
+
+**Ghi chú — `coeffs.mat` KHÔNG được commit** (chốt 22/09/2026, `.gitignore` có `data/mat/*.mat`).
+Không thứ gì trong dự án phụ thuộc vào nó: `design_bpf_bank` tự rơi về nhánh công thức khi
+thiếu file, và `test_filterbank` tự sinh file riêng trong `tempdir` nên kết quả test không đổi
+giữa máy đã chạy `make_coeffs` và máy vừa clone. Giữ file trong git chỉ thêm một blob nhị phân
+mỗi lần sinh lại, vì header MAT-file chứa dấu thời gian nên hai lần chạy cho hai file khác byte
+dù hệ số y hệt. Chạy `make_coeffs` khi và chỉ khi đổi tham số thiết kế (`r`, `fs`, `withHarm`).
 
 ---
 
@@ -469,6 +480,8 @@ git log --oneline -1 -- docs/study/DTMF_LyThuyet.m
 - [ ] `ui_refresh`: gọi 3 hàm vẽ, set `LblDecoded`, nối lỗi vào `TxtLog`, bọc `try/catch`
 - [ ] `tests/test_run.m`: 3 phương pháp đều dispatch được; method sai → `lastError` khác rỗng và **không throw**
 - [ ] `tests/test_ui_smoke.m`: `uifigure('Visible','off')` → gọi 3 hàm vẽ → `verifyNotEmpty(ax.Children)`; thêm ca `meta = []`
+
+- [ ] ⚠️ **`dtmf_run` phải TRỪ TRUNG BÌNH tín hiệu trước khi gọi bộ giải mã.** Đo 22/09/2026: độ lệch một chiều 0,2 (40% biên độ đỉnh) làm **cả ba** bộ giải mã trả chuỗi rỗng, vì `sum(frame.^2)` ở mẫu số phình lên và `rho` tụt dưới 0,70. `y - mean(y)` sửa được hoàn toàn. Đây là việc của lớp trung gian, KHÔNG sửa trong `src/` — xem `CONTRACTS.md` §7.7.
 
 **Bẫy**
 - Tham số `spectrogram` phải **khớp đúng** `dtmf_decode_fft`: cửa sổ Hamming 256, `noverlap = 128` (tức hop = 128). Lệch tham số thì hình phổ không còn là cái bộ giải mã nhìn thấy — khi vấn đáp bị hỏi là không trả lời được.

@@ -41,21 +41,32 @@ Với Goertzel, chọn $N = 205$ để bin gần nhất lệch khỏi mọi tầ
 ## Luồng xử lý
 
 ```
-dtmf_generate → dtmf_addnoise → dtmf_segment → ┬ dtmf_decode_fft        ┬ → dtmf_decide → dtmf_metrics
-                                               ├ dtmf_decode_goertzel   ┤
-                                               └ dtmf_decode_filterbank ┘
+dtmf_generate → dtmf_addnoise → ┬ dtmf_decode_fft        ┬ → dtmf_metrics
+                                ├ dtmf_decode_goertzel   ┤
+                                └ dtmf_decode_filterbank ┘
 ```
+
+Ba bộ giải mã có **cùng một chữ ký** và bên trong đi qua **cùng bốn bước**; chúng chỉ khác nhau
+ở bước đo phổ:
+
+```
+dtmf_segment → [đo phổ: FFT | Goertzel | ngân hàng bộ lọc] → dtmf_decide → dtmf_debounce
+```
+
+`dtmf_decide` (luật quyết định) và `dtmf_debounce` (gộp khung liên tiếp thành phím) là hàm
+**dùng chung**, không bộ giải mã nào tự viết lại. Nhờ vậy khác biệt giữa ba phương pháp nằm
+đúng ở chỗ đề tài muốn so sánh.
 
 ## Cấu trúc thư mục
 
 ```
 src/gen/      Phát tín hiệu: dtmf_table, dtmf_generate, dtmf_addnoise
 src/decode/   Giải mã: FFT, Goertzel, ngân hàng bộ lọc
-src/util/     Chia khung, luật quyết định, đánh giá
+src/util/     Chia khung, luật quyết định, gộp phím, đánh giá
 app/          dtmf_run (lớp trung gian) + app/ui/ (các hàm vẽ)
 tests/        Unit test (matlab.unittest)
-scripts/      dev_harness.m - kịch bản thử tay
-data/         wav/, mat/ (tập dữ liệu, hệ số bộ lọc)
+scripts/      dev_harness.m (thử tay), make_coeffs.m (sinh hệ số bộ lọc)
+data/         wav/, mat/ - tập dữ liệu; coeffs.mat sinh tại chỗ, không nằm trong git
 docs/         Báo cáo, slide, tài liệu tham khảo
 ```
 
@@ -91,6 +102,19 @@ Chạy toàn bộ test:
 ```matlab
 run_all_tests
 ```
+
+Ngân hàng bộ lọc (`dtmf_decode_filterbank`) chạy được ngay mà không cần chuẩn bị gì:
+`design_bpf_bank` dựng 14 bộ cộng hưởng bằng công thức mỗi lần gọi. Nếu muốn có sẵn bản
+hệ số trên đĩa để nạp lại cho nhanh:
+
+```matlab
+addpath('scripts'); make_coeffs      % ghi data/mat/coeffs.mat
+```
+
+(`dtmf_setup` chỉ nạp `src/`, `app/` và `tests/`; các script trong `scripts/` nạp riêng.)
+
+File đó **không nằm trong git** (dựng lại được, và mỗi lần sinh lại là một blob nhị phân mới).
+Chỉ cần chạy lại khi đổi tham số thiết kế `r`, `fs` hoặc `withHarm`.
 
 ## Quy ước
 

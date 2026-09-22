@@ -136,8 +136,9 @@ tâm bin `sum(E(1:7))` không vượt quá `cg = (Σw)²/(N·Σw²)`; thiếu `c
 số khung ở mọi mức SNR (§7.1). Kiểm tra nhất quán: `w = ones(1,frameN)` cho `cg = 1` và công
 thức FFT thu về đúng công thức Goertzel.
 
-⚠️ Nhánh ngân hàng bộ lọc (Buổi 6) **chưa được đo**, mới chỉ dẫn giải trên giấy. Phải đo
-theo tiêu chí §7.1 trước khi tin.
+Nhánh ngân hàng bộ lọc **đã đo** (22/09/2026, §7.6): công thức trên đúng - không có thừa số
+`N/2` vì đầu ra bộ lọc là tín hiệu miền thời gian chứ không phải vạch phổ. Một điểm khác hai
+nhánh kia: `rho` ở đây **có thể vượt 1**, xem §7.6.
 
 ### (b) Bin hài bậc 2 - thích nghi theo từng khung
 
@@ -162,6 +163,10 @@ mất tác dụng mà không có dấu hiệu nào. Luật:
 
 - File do **`scripts/make_coeffs.m`** sinh ra từ chính `design_bpf_bank`, **không** do
   `filterDesigner` (§3). File phải lưu kèm siêu dữ liệu `fs`, `r`, `withHarm`.
+- File **không được commit** (`.gitignore` có `data/mat/*.mat`): nó dựng lại được trong vài
+  mili-giây, không thứ gì phụ thuộc nó, và header MAT-file chứa dấu thời gian nên mỗi lần sinh
+  lại là một blob nhị phân mới dù hệ số y hệt. Nhánh nạp vẫn là hợp đồng bắt buộc và vẫn được
+  test đầy đủ - nó chỉ không có dữ liệu sẵn trong repo.
 - Khi nạp, `design_bpf_bank` **đối chiếu siêu dữ liệu với tham số đang yêu cầu**; lệch một
   trường thì bỏ qua file và dựng lại bằng công thức.
 - Test phải ép **cả hai nhánh** bằng cách truyền `'coeffs'` tường minh (một đường dẫn không
@@ -319,6 +324,69 @@ nhau chứ không một chiều. Biên an toàn: dải ngắn nhất của một
 ở mọi mức tới 8 dB, chỉ tụt xuống 1 khung tại 6 dB. Tín hiệu một phím cũng an toàn - `'5'`
 cho 3 khung ở Goertzel và 5 khung ở FFT.
 
+### 7.6 Nhánh ngân hàng bộ lọc
+
+Đo 22/09/2026, `r = 0,99`, `fs = 8000`, `frameN = hop = 205`.
+
+**Thiết kế** - cả ba đại lượng dư biên rất rộng so với ngưỡng test:
+
+| Đại lượng | Đo được | Ngưỡng test |
+|---|:--:|:--:|
+| `abs(\|H(f0)\|-1)`, 14 bộ | 2,2e-16 | 1e-10 |
+| sai số bán kính cực | 3,3e-16 | 1e-12 |
+| BW −3 dB | 25,590 Hz (lý thuyết `(1-r)·fs/π` = 25,465) | lệch < 2% |
+
+**Quá độ** - lý do phải lọc toàn bộ tín hiệu một lần rồi mới chia khung. `τ = -1/(fs·ln r) =
+12,44 ms`, `5τ = 62,2 ms`, tức **2,4 khung đầu** của mỗi tone 100 ms (= 3,9 khung) nằm trong
+quá độ. Nếu lọc riêng từng khung:
+
+| Khung | Mất bao nhiêu năng lượng |
+|:--:|:--:|
+| 1 | 0,00% (cả hai cách cùng khởi động từ trạng thái 0) |
+| 2 | **56,91%** |
+| 3 | **61,13%** |
+
+**`rho` vượt 1 - đặc tính riêng của nhánh này.** Tử số là năng lượng đầu ra bộ lọc, trễ sau
+đầu vào đúng một thời hằng; ở khung khoảng lặng mẫu số `sum(frame.^2)` sụp mà tử số vẫn còn
+dư âm, nên `rho` đo được tới **3,08** (hai nhánh kia tối đa 0,95). Đây là nguồn gốc của luật
+`minRun = 2` ở §6(f). Test của nhánh này **không** khẳng định `rho <= 1,05` như nhánh FFT.
+
+**Chịu nhiễu - kết quả so sánh chính của Chủ đề 4.** 10 chuỗi 12 phím × 5 lần mỗi mức,
+`rng(2026)`:
+
+| SNR [dB] | 20 | 15 | 10 | 8 | 6 | 4 | 2 |
+|---|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
+| Ngân hàng bộ lọc | 1,00 | 1,00 | 1,00 | 1,00 | **1,00** | **1,00** | 0,04 |
+| Goertzel | 1,00 | 1,00 | 1,00 | 1,00 | 0,74 | 0,02 | 0,00 |
+| FFT | 1,00 | 1,00 | 1,00 | 1,00 | 0,86 | 0,00 | 0,00 |
+
+Ngân hàng bộ lọc **bền hơn hẳn**, còn tuyệt đối ở 4 dB nơi hai nhánh kia đã sụp. Giải thích:
+14 bộ cộng hưởng `BW ≈ 25,5 Hz` loại gần hết nhiễu **ngoài băng** trước khi đo năng lượng,
+trong khi Goertzel và FFT lấy năng lượng khung **thô** làm mẫu số nên nhiễu ngoài băng kéo
+`rho` xuống. Kết quả này ngược với trực giác "FFT mạnh nhất".
+
+### 7.7 Thành phần một chiều làm hỏng CẢ BA bộ giải mã
+
+Đo 22/09/2026 trên `'0912345'` (biên độ đỉnh 0,5), cộng thêm một hằng số DC:
+
+| DC | 0 | 0,05 | 0,10 | 0,20 | 0,30 | 0,50 |
+|---|:--:|:--:|:--:|:--:|:--:|:--:|
+| Ba bộ giải mã | đúng | đúng | Goertzel mất 1 phím | **rỗng** | **rỗng** | **rỗng** |
+| `rho` lớn nhất (filterbank) | 3,08 | 3,25 | 1,38 | 0,68 | 0,44 | 0,21 |
+
+Cơ chế: `sum(frame.^2)` ở mẫu số phình theo DC (gấp 1,65 lần ở DC = 0,20, gấp 5,02 lần ở
+DC = 0,50) nên `rho` tụt dưới ngưỡng 0,70 và mọi khung mang nhãn `'level'`. Cả ba nhánh hỏng
+ở **cùng một mức**, nên đây là tính chất của quyết định (a) chứ không phải lỗi của nhánh nào.
+
+Về nguyên tắc đây là hành vi ĐÚNG: luật "7 bin giữ ≥ 70% năng lượng khung" nói rằng một
+thành phần một chiều mạnh nghĩa là bảy bin **không** giữ đủ năng lượng. Nhưng âm thanh thu
+từ micro thường có độ lệch một chiều, nên:
+
+- **Trừ trung bình trước khi giải mã là xong** - đã kiểm: `y - mean(y)` cho kết quả đúng ở
+  DC = 0,2 · 0,5 · 1,0.
+- Việc đó thuộc về **`app/dtmf_run.m`** (Buổi 8, lớp trung gian duy nhất giữa UI và `src/`),
+  KHÔNG thuộc về ba bộ giải mã - chúng phải giữ đúng quyết định (a).
+
 ## 8. Cấu trúc thư mục
 
 ```
@@ -333,7 +401,7 @@ DMTF/
 │  └─ ui/       ui_plot_wave.m ui_plot_spec.m ui_plot_bars.m ui_refresh.m ui_play.m
 ├─ tests/       test_generate.m test_goertzel.m run_all_tests.m  (+ các test bổ sung)
 ├─ scripts/     dev_harness.m  make_coeffs.m  run_bench.m  make_figures.m
-├─ data/        wav/  mat/      (coeffs.mat sinh bằng scripts/make_coeffs.m)
+├─ data/        wav/  mat/      (coeffs.mat sinh tại chỗ, .gitignore - xem §6(b))
 ├─ results/     figures/  bench.mat
 └─ docs/        report/  slides/  study/KE_HOACH.md
 ```

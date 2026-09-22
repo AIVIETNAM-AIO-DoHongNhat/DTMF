@@ -24,3 +24,10 @@ report/template/*.xdv
 # He dieu hanh
 .DS_Store
 Thumbs.db
+
+# San pham sinh lai duoc - KHONG commit.
+# data/mat/coeffs.mat dung lai bang `scripts/make_coeffs.m` trong vai mili-giay,
+# va design_bpf_bank tu roi ve nhanh cong thuc khi khong co file. Giu file trong
+# git chi tao them mot blob nhi phan mo^i lan sinh lai, vi header MAT-file chua
+# dau thoi gian nen hai lan chay cho hai file khac byte du he so y het.
+data/mat/*.mat

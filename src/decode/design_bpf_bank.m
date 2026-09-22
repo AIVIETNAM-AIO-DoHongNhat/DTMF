@@ -40,14 +40,58 @@ arguments
     opt.withHarm (1,1) logical = true
 end
 
-% TODO(C):
-%   1. Nếu isfile(opt.coeffs): nạp, kiểm siêu dữ liệu fs/r/withHarm; khớp thì
-%      trả luôn, không khớp thì đi tiếp xuống bước 2.
-%   2. Dựng 7 bộ cộng hưởng cho [697 770 852 941 1209 1336 1477] Hz theo công
-%      thức trên, chuẩn hóa G bằng freqz.
-%   3. withHarm thì dựng tiếp 7 bộ tại 2*f0, nối vào sau.
+% Cực nằm ở bán kính r, nên r >= 1 đẩy cực lên/ra ngoài vòng tròn đơn vị và bộ
+% lọc phân kỳ. filter() không báo gì, chỉ trả ra dãy số lớn dần - chặn tại nguồn.
+if ~(opt.r > 0 && opt.r < 1)
+    error('design_bpf_bank:unstableR', ...
+        'r = %g; bán kính cực phải thỏa 0 < r < 1 để bộ lọc ổn định.', opt.r);
+end
 
-bank = struct('f', {}, 'b', {}, 'a', {}); %#ok<NASGU>
-error('design_bpf_bank:notImplemented', 'TODO: cai dat design_bpf_bank (xem CONTRACTS muc 6b).');
+T  = dtmf_table();
+f0 = [T.rowHz T.colHz];
+if opt.withHarm
+    f0 = [f0 2*f0];     % 7 bộ chuẩn trước, 7 bộ hài sau: bộ hài của j nằm ở 7+j
+end
+
+% Tần số hài gấp đôi nên dễ vượt Nyquist khi ai đó hạ fs. Ở fs = 8000 thì
+% 2*1477 = 2954 < 4000, không chạm; hạ xuống fs = 4000 là gập phổ, và bộ lọc vẫn
+% dựng ra bình thường với một tần số tâm SAI.
+if max(f0) >= opt.fs/2
+    error('design_bpf_bank:aboveNyquist', ...
+        'Tần số tâm cao nhất %g Hz >= fs/2 = %g Hz.', max(f0), opt.fs/2);
+end
+
+nWant = numel(f0);
+
+% Nhánh nạp - quyết định (b). Chỉ nhận file khi siêu dữ liệu khớp ĐÚNG tham số
+% đang yêu cầu; lệch một trường thì bỏ qua và dựng lại. Thiếu chốt này, đổi r
+% xong chạy lại vẫn ra hệ số cũ mà không một dấu hiệu nào.
+if isfile(opt.coeffs)
+    S = load(opt.coeffs);
+    if isfield(S, 'bank') && isfield(S, 'meta') ...
+            && isequal(S.meta.fs, opt.fs) ...
+            && isequal(S.meta.r, opt.r) ...
+            && isequal(S.meta.withHarm, opt.withHarm) ...
+            && numel(S.bank) == nWant
+        bank = S.bank;
+        return
+    end
+end
+
+bank = repmat(struct('f', 0, 'b', [0 0 0], 'a', [0 0 0]), 1, nWant);
+
+for j = 1:nWant
+    w0 = 2*pi*f0(j) / opt.fs;
+    b  = [1 0 -1];                          % hai điểm không tại z = ±1
+    a  = [1  -2*opt.r*cos(w0)  opt.r^2];    % hai cực tại z = r*exp(±j*w0)
+
+    % freqz(b, a, f, fs) với f VÔ HƯỚNG bị hiểu là SỐ ĐIỂM chứ không phải tần
+    % số - phải truyền vector rồi lấy phần tử đầu.
+    H = freqz(b, a, [f0(j) f0(j)], opt.fs);
+
+    bank(j).f = f0(j);
+    bank(j).b = b / abs(H(1));              % G = 1/|H(f0)| -> độ lợi tâm bằng 1
+    bank(j).a = a;
+end
 
 end
