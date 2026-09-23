@@ -109,7 +109,7 @@ nằm ở `report/template/references.bib`) - giữ hai bản thì sớm muộn 
 | Ngưỡng quyết định | đỉnh ≥ 6 dB so với bin nhì **cùng nhóm**; Σ7 bin ≥ 70% năng lượng khung |
 | Cộng hưởng filter bank | r = 0,99 → BW ≈ 25 Hz |
 
-## 6. Sáu quyết định chốt bổ sung
+## 6. Bảy quyết định chốt bổ sung
 
 ### (a) Chuẩn hóa `E` - bộ giải mã tự làm, không đổi chữ ký hàm
 
@@ -235,6 +235,36 @@ bị loại (`rowIdx = 0`) **cắt** dải; dải dài `>= minRun` khung mới s
 khung** ở `frameN = 205`, nên dải dài đúng **một** khung không thể là phím thật. Số liệu ở
 §7.5; ở đó cũng cho thấy `minRun = 1` làm nhánh ngân hàng bộ lọc **nhân đôi phím lặp** ở
 29/42 cách căn lề.
+
+### (g) `dtmf_metrics` - `acc` suy từ `editDist`, không đếm ô khớp
+
+```matlab
+acc = 1 - editDist / max(numel(keysTrue), numel(keysHat));   % hai chuỗi rỗng -> acc = 1
+```
+
+Cách khác - đếm số ô khớp lúc truy vết rồi chia `max(K,L)` - cho **số khác**: đo được
+978/14641 cặp lệch nhau khi vét cạn mọi chuỗi độ dài 0..4 (§7.8). Lý do đại số: mọi căn chỉnh
+tối ưu thỏa `nMatch = max(K,L) - editDist + t` với `t` là số phép **chèn**, nên một cặp
+chèn+xóa thay cho một phép thay giữ nguyên chi phí nhưng **tăng** số ô khớp. Hệ quả là
+`nMatch` phụ thuộc thứ tự ưu tiên lúc truy vết, còn `editDist` thì không.
+
+Chọn công thức trên vì `acc` và `editDist` nằm cạnh nhau trong bảng kết quả ở Buổi 10: ghi
+"3 lỗi trên 12 phím, độ chính xác 83,3%" là tự mâu thuẫn trên cùng một dòng. Đánh đổi phải
+chấp nhận: **`trace(confusion)` có thể lớn hơn `acc*max(K,L)`** - hai trường đọc rời nhau
+được, nhưng không cộng lại thành một câu chuyện duy nhất.
+
+Bốn quy ước đi kèm:
+
+- **Truy vết ưu tiên CHÉO > XÓA > CHÈN.** Khi nhiều đường cùng tối ưu, thứ tự này quyết định
+  ô nào của `confusion` được cộng. Không đường nào đúng hơn đường nào, nên luật phải ghim -
+  `'12'` so với `'3'` là cặp ngắn nhất phân biệt được (§7.8).
+- **`confusion` chỉ ghi cặp đã căn chỉnh** (bước chéo). Chèn và xóa không có ô nào trong ma
+  trận 12×12 để ghi, nên `sum(confusion(:))` nhỏ hơn `max(K,L)` khi hai chuỗi lệch độ dài.
+- **Thứ tự phím là `'147*2580369#'`** - duyệt `dtmf_table().keys` theo **CỘT**,
+  `sub2ind([4 3], r, c)`. Duyệt theo hàng cho ra ma trận **chuyển vị**, mà hình vẽ trong báo
+  cáo vẫn trông hợp lý vì đường chéo vẫn là đường chéo.
+- Ký tự ngoài 12 phím là **lỗi gọi hàm** (`dtmf_metrics:badKey`), không phải dữ liệu xấu cần
+  bỏ qua.
 
 ## 7. Số liệu đã đo
 
@@ -386,6 +416,33 @@ từ micro thường có độ lệch một chiều, nên:
   DC = 0,2 · 0,5 · 1,0.
 - Việc đó thuộc về **`app/dtmf_run.m`** (Buổi 8, lớp trung gian duy nhất giữa UI và `src/`),
   KHÔNG thuộc về ba bộ giải mã - chúng phải giữ đúng quyết định (a).
+
+### 7.8 Hai công thức `acc` lệch nhau bao nhiêu
+
+Vét cạn mọi cặp chuỗi độ dài 0..4 trên bảng chữ 3 ký tự (23/09/2026):
+
+| | |
+|---|:--:|
+| Số cặp thử | 14 641 |
+| Cặp có `1 - editDist/max` ≠ `nMatch/max` | **978** (6,7%) |
+| Đúng là các cặp mà đường truy vết chứa đồng thời một phép chèn và một phép xóa | 978 |
+| Chênh `nMatch` khi đổi thứ tự ưu tiên truy vết (chuỗi dài 4) | tới **2 ký tự** |
+
+Trên dữ liệu thật - 3 bộ giải mã × 7 mức SNR × 8 chuỗi 12 phím = 168 ca - hai công thức chỉ
+lệch **2/168 ca**, chênh lớn nhất **0,083**, và cả hai ca đều ở SNR = 4 dB:
+
+```
+87340668988* -> 8873068988*    editDist = 3, K = 12
+   acc (đếm ô khớp) = 10/12 = 0,833      acc (chốt) = 1 - 3/12 = 0,750
+```
+
+Cặp ngắn nhất phân biệt được thứ tự ưu tiên truy vết: **`'12'` so với `'3'`**, `editDist = 2`
+theo hai đường cùng tối ưu - xóa `'1'` rồi thay `'2'→'3'`, hoặc xóa `'2'` rồi thay `'1'→'3'`.
+Cùng `acc`, khác ô `confusion`. Luật CHÉO-trước chọn `'2'→'3'`, tức ô `(5,9)`.
+
+Kiểm thử đột biến trên `dtmf_metrics` (9 đột biến, mỗi đột biến một thư mục riêng): **9/9
+ĐỎ**. Đột biến "truy vết ưu tiên XÓA trước CHÉO" ban đầu **lọt lưới** - ca `'121'/'212'` không
+bắt được vì đường đi của nó bắt đầu bằng một phép xóa ở cả hai luật; phải thêm ca `'12'/'3'`.
 
 ## 8. Cấu trúc thư mục
 

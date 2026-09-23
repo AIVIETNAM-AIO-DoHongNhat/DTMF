@@ -133,14 +133,14 @@ MLB='C:\Program Files\MATLAB\R2026a\bin\matlab.exe'
 
 | Buổi | Nội dung | Giờ | Phụ thuộc | Kết quả kiểm chứng | Trạng thái |
 |:--:|---|:--:|:--:|---|:--:|
-| 0 | Dọn dẹp + chốt đặc tả | 0.75 | — | `help dtmf_table` có `See also` | ☐ |
-| 1 | `dtmf_generate` + `dtmf_addnoise` | 2.0 | 0 | `test_table` + `test_generate` xanh | ☐ |
-| 2 | `dtmf_segment` + `goertzel_power` | 1.5 | 0 | Goertzel `P = 64.000000` | ☐ |
-| 3 | ⚠️ **`dtmf_decide`** — NÚT THẮT | 2.0 | 2 | `test_decide` xanh (9 ca) | ☐ |
-| 4 | `dtmf_decode_goertzel` | 2.0 | 1,3 | 🎉 giải mã `'0912345'` đúng | ☐ |
-| 5 | `dtmf_decode_fft` | 1.5 | 4 | FFT ≡ Goertzel trên tín hiệu sạch | ☐ |
+| 0 | Dọn dẹp + chốt đặc tả | 0.75 | — | `help dtmf_table` có `See also` | ☑ |
+| 1 | `dtmf_generate` + `dtmf_addnoise` | 2.0 | 0 | `test_table` + `test_generate` xanh | ☑ |
+| 2 | `dtmf_segment` + `goertzel_power` | 1.5 | 0 | Goertzel `P = 64.000000` | ☑ |
+| 3 | ⚠️ **`dtmf_decide`** — NÚT THẮT | 2.0 | 2 | `test_decide` xanh (9 ca) | ☑ |
+| 4 | `dtmf_decode_goertzel` | 2.0 | 1,3 | 🎉 giải mã `'0912345'` đúng | ☑ |
+| 5 | `dtmf_decode_fft` | 1.5 | 4 | FFT ≡ Goertzel trên tín hiệu sạch | ☑ |
 | 6 | `design_bpf_bank` + `filterbank` | 2.5 | 4 | 3 phương pháp khớp nhau | ☑ |
-| 7 | `dtmf_metrics` | 1.0 | 4 | `acc == 1` cả 3 phương pháp | ☐ |
+| 7 | `dtmf_metrics` | 1.0 | 4 | `acc == 1` cả 3 phương pháp | ☑ |
 | 8 | `dtmf_run` + 3 hàm `ui_plot_*` | 2.0 | 7 | `test_ui_smoke` xanh, headless | ☐ |
 | 9 | 🖥️ **Giao diện `DTMFApp`** | 3.0 | 8 | App giải mã đúng, có tiếng | ☐ |
 | 10 | Thực nghiệm + 8 hình | 2.0 | 9 | ≥ 8 file trong `results/figures/` | ☐ |
@@ -153,7 +153,7 @@ Gợi ý chia 12 ngày: ngày 1 (Buổi 0+1) · ngày 2 (2) · ngày 3 (3) · ng
 
 # CHI TIẾT TỪNG BUỔI
 
-## ☐ Buổi 0 — Dọn dẹp + chốt đặc tả · 45 phút · chưa viết code (Đã xong)
+## ☑ Buổi 0 — Dọn dẹp + chốt đặc tả · 45 phút · chưa viết code (Đã xong)
 
 | | |
 |---|---|
@@ -185,7 +185,7 @@ git log --oneline -1 -- docs/study/DTMF_LyThuyet.m
 
 ---
 
-## ☐ Buổi 1 — `dtmf_generate` + `dtmf_addnoise` · 2 giờ (Đã xong)
+## ☑ Buổi 1 — `dtmf_generate` + `dtmf_addnoise` · 2 giờ (Đã xong)
 
 | | |
 |---|---|
@@ -221,7 +221,7 @@ git log --oneline -1 -- docs/study/DTMF_LyThuyet.m
 
 ---
 
-## ☐ Buổi 2 — `dtmf_segment` + `goertzel_power` · 1.5 giờ (Đã xong)
+## ☑ Buổi 2 — `dtmf_segment` + `goertzel_power` · 1.5 giờ (Đã xong)
 
 | | |
 |---|---|
@@ -254,7 +254,7 @@ git log --oneline -1 -- docs/study/DTMF_LyThuyet.m
 
 ---
 
-## ☐ Buổi 3 — `dtmf_decide` · 2 giờ · ⚠️ NÚT THẮT (Đã xong)
+## ☑ Buổi 3 — `dtmf_decide` · 2 giờ · ⚠️ NÚT THẮT (Đã xong)
 
 | | |
 |---|---|
@@ -305,7 +305,7 @@ git log --oneline -1 -- docs/study/DTMF_LyThuyet.m
 
 ---
 
-## ☐ Buổi 4 — `dtmf_decode_goertzel` · 2 giờ · 🎉 pipeline đầu tiên chạy thông (Đã xong)
+## ☑ Buổi 4 — `dtmf_decode_goertzel` · 2 giờ · 🎉 pipeline đầu tiên chạy thông (Đã xong)
 
 | | |
 |---|---|
@@ -340,7 +340,7 @@ git log --oneline -1 -- docs/study/DTMF_LyThuyet.m
 
 ---
 
-## ☐ Buổi 5 — `dtmf_decode_fft` · 1.5 giờ (Đã xong)
+## ☑ Buổi 5 — `dtmf_decode_fft` · 1.5 giờ (Đã xong)
 
 | | |
 |---|---|
@@ -374,7 +374,7 @@ git log --oneline -1 -- docs/study/DTMF_LyThuyet.m
 
 ---
 
-## ☐ Buổi 6 — `design_bpf_bank` + `dtmf_decode_filterbank` · 2.5 giờ (Đã xong)
+## ☑ Buổi 6 — `design_bpf_bank` + `dtmf_decode_filterbank` · 2.5 giờ (Đã xong)
 
 | | |
 |---|---|
@@ -435,7 +435,7 @@ dù hệ số y hệt. Chạy `make_coeffs` khi và chỉ khi đổi tham số t
 
 ---
 
-## ☐ Buổi 7 — `dtmf_metrics` · 1 giờ
+## ☑ Buổi 7 — `dtmf_metrics` · 1 giờ (Đã xong)
 
 | | |
 |---|---|
@@ -445,13 +445,15 @@ dù hệ số y hệt. Chạy `make_coeffs` khi và chỉ khi đổi tham số t
 | **Phụ thuộc** | Buổi 4 |
 
 **Việc cần làm**
-- [ ] Lấy `levenshtein` (study L1049) — nó trả về **cả bảng quy hoạch động `D`**, đúng thứ cần để truy vết căn chỉnh khi tính `.acc` (TODO dòng 37 nói đúng điều này)
-- [ ] `.acc` = số vị trí khớp / `max(numel(keysTrue), numel(keysHat))` sau khi truy vết `D`
-- [ ] `.confusion` 12×12 theo thứ tự phím `'147*2580369#'`
-- [ ] `tests/test_metrics.m`: chuỗi giống hệt → `acc==1, editDist==0, trace==numel`; `levenshtein('123','1283')==1` (ví dụ study L937); `keysHat` rỗng → `acc==0, editDist==numel(keysTrue)`; một phép thay → đúng ô `(i,j)`; `size==[12 12]`; khẳng định rõ thứ tự phím
+- [x] Lấy `levenshtein` (study L1049) — nó trả về **cả bảng quy hoạch động `D`**, cần cho bước truy vết căn chỉnh
+- [x] `.acc` = `1 - editDist/max(numel(keysTrue), numel(keysHat))`, hai chuỗi rỗng cho `acc = 1`
+- [x] `.confusion` 12×12 theo thứ tự phím `'147*2580369#'`, truy vết ưu tiên CHÉO > XÓA > CHÈN
+- [x] `tests/test_metrics.m` — 14 ca; kiểm thử đột biến 9/9 đỏ
 
 **Bẫy**
-- Help dòng 19 quy định duyệt `T.keys` **theo cột**. Sai chỗ này thì hình ma trận nhầm lẫn trong báo cáo bị **chuyển vị** — nhìn vẫn "có vẻ đúng" nên rất khó phát hiện.
+- Help dòng 19 quy định duyệt `T.keys` **theo cột**. Sai chỗ này thì hình ma trận nhầm lẫn trong báo cáo bị **chuyển vị** — nhìn vẫn "có vẻ đúng" nên rất khó phát hiện. Ca `test_keyOrderIsColumnMajor` ghim cả hàng lẫn cột; ca `dtmf_metrics(k, k)` KHÔNG bắt được vì nó ra `eye(12)` với mọi thứ tự nhất quán.
+- ⚠️ **Mục `.acc` ở đây trước ghi "số vị trí khớp sau khi truy vết / max(K,L)". Đã sửa.** Hai công thức lệch nhau ở 978/14641 cặp chuỗi, và cách đếm ô khớp còn phụ thuộc thứ tự ưu tiên lúc truy vết. Lý do chọn và số liệu: `CONTRACTS.md` §6(g) và §7.8.
+- Đổi lại sang công thức đếm ô khớp là sửa một dòng trong `dtmf_metrics.m` cộng hai ca test (`test_accIsDerivedFromEditDist`, `test_traceCanExceedAccuracy`) — nhưng phải sửa cả §6(g) cho khớp.
 
 **Kiểm chứng**
 ```bash
