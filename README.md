@@ -1,15 +1,12 @@
 # Hệ thống phát và giải mã tín hiệu DTMF
 
-> Đề tài Chủ đề 4 - Xử lý tín hiệu số · MATLAB
+> Đề tài Chủ đề 4 · Xử lý tín hiệu số · MATLAB
 
-## Tóm tắt
-
-DTMF (*Dual-Tone Multi-Frequency*, ITU-T Q.23) mã hóa mỗi phím điện thoại bằng tổng hai sóng sin: một tần số thuộc nhóm thấp (hàng) và một tần số thuộc nhóm cao (cột). Dự án xây dựng một bộ phát tín hiệu DTMF và **ba bộ giải mã**: FFT, thuật toán Goertzel và ngân hàng bộ lọc IIR. Cả ba bộ giải mã dùng chung một cách chia khung và một luật quyết định, nhờ vậy có thể so sánh công bằng độ chính xác của chúng khi SNR giảm dần. Kết quả được trình bày qua một giao diện `uifigure` viết bằng mã (`app/DTMFApp.m`), nhờ vậy giao diện cũng nằm trong bộ unit test.
-
-
-## Cơ sở lý thuyết
-
-**Bảng tần số** (Hz):
+DTMF (*Dual-Tone Multi-Frequency*, ITU-T Q.23) mã hóa mỗi phím điện thoại bằng tổng hai
+sóng sin: một tần số nhóm hàng và một tần số nhóm cột. Dự án gồm một bộ phát tín hiệu và
+**ba bộ giải mã** — FFT, thuật toán Goertzel, ngân hàng bộ lọc IIR — dùng chung một cách
+chia khung và một luật quyết định, nhờ vậy so sánh được công bằng khi SNR giảm dần. Kết quả
+trình bày qua giao diện `app/DTMFApp.m`.
 
 |         | 1209 | 1336 | 1477 |
 |---------|:----:|:----:|:----:|
@@ -18,145 +15,115 @@ DTMF (*Dual-Tone Multi-Frequency*, ITU-T Q.23) mã hóa mỗi phím điện tho�
 | **852** |  7   |  8   |  9   |
 | **941** |  \*  |  0   |  #   |
 
-**Mô hình tín hiệu** của một phím ở hàng $r$, cột $c$:
+## Ba bộ giải mã
 
-$$x(t) = \sin(2\pi f_r t) + g\,\sin(2\pi f_c t), \qquad g = 10^{\,\text{twist}_{\text{dB}}/20}$$
+Tần số lấy mẫu 8000 Hz, tone 100 ms, nghỉ 50 ms.
 
-**Ba phương pháp giải mã** (tần số lấy mẫu $f_s = 8000$ Hz):
+| | Nguyên lý | Khung | Δf | Phép nhân / giây âm thanh |
+|---|---|---|:--:|:--:|
+| FFT | Phổ công suất, cửa sổ Hamming | N = 256, hop 128 | 31.25 Hz | 273 000 |
+| Goertzel | IIR bậc 2, tính riêng 8 bin | N = 205, hop 205 | 39.02 Hz | **65 000** |
+| Ngân hàng bộ lọc | 14 bộ cộng hưởng bậc 2 song song | N = 205, hop 205 | BW ≈ 25.5 Hz | 672 000 |
 
-| Phương pháp | Nguyên lý | Tham số | Độ phân giải $\Delta f$ | Chi phí mỗi khung |
-|---|---|---|---|---|
-| FFT | Phổ công suất $\lvert X[k]\rvert^2$, cửa sổ Hamming | $N = 256$, hop 128 | 31.25 Hz | $O(N\log N)$ |
-| Goertzel | Bộ lọc IIR bậc 2, tính riêng từng bin | $N = 205$, 8 bin | 39.02 Hz | $O(KN)$, $K = 8$ |
-| Ngân hàng bộ lọc | 8 bộ cộng hưởng bậc 2 chạy song song | $r = 0.99$ | BW ≈ 25 Hz | $O(KN)$ |
+Goertzel chọn N = 205 để bin gần nhất lệch khỏi mọi tần số chuẩn không quá 1.4%, nằm trong
+dung sai ±1.5% của ITU-T Q.24.
 
-Với Goertzel, chọn $N = 205$ để bin gần nhất lệch khỏi mọi tần số chuẩn không quá 1.4%, tức nằm trong dung sai nhận ±1.5% của ITU-T Q.24.
-
-**Luật quyết định** (dùng chung cho cả ba bộ giải mã, cài trong `dtmf_decide`): một khung được chấp nhận khi thỏa đồng thời các điều kiện sau.
-- Đỉnh của mỗi nhóm cao hơn đỉnh thứ nhì trong cùng nhóm ít nhất 6 dB.
-- Twist nằm trong giới hạn: thuận ≤ 4 dB, nghịch ≤ 8 dB.
-- Tổng công suất 8 bin chiếm ít nhất 70% năng lượng khung.
-- Hài bậc 2 đủ nhỏ, để phân biệt tone với tiếng nói.
-
-## Luồng xử lý
+Cả ba đi qua **cùng bốn bước**, chỉ khác nhau ở bước đo phổ:
 
 ```
-dtmf_generate → dtmf_addnoise → ┬ dtmf_decode_fft        ┬ → dtmf_metrics
-                                ├ dtmf_decode_goertzel   ┤
-                                └ dtmf_decode_filterbank ┘
+dtmf_generate → dtmf_addnoise → dtmf_segment → [FFT | Goertzel | ngân hàng bộ lọc]
+                                             → dtmf_decide → dtmf_debounce → dtmf_metrics
 ```
 
-Ba bộ giải mã có **cùng một chữ ký** và bên trong đi qua **cùng bốn bước**; chúng chỉ khác nhau
-ở bước đo phổ:
+`dtmf_decide` (năm điều kiện: đỉnh nổi ≥ 6 dB so với bin nhì cùng nhóm, twist trong giới hạn,
+bảy bin giữ ≥ 70% năng lượng khung, hài bậc 2 đủ nhỏ) và `dtmf_debounce` là hàm **dùng
+chung**, không bộ giải mã nào tự viết lại. Nhờ vậy khác biệt giữa ba phương pháp nằm đúng ở
+chỗ đề tài muốn so sánh.
 
-```
-dtmf_segment → [đo phổ: FFT | Goertzel | ngân hàng bộ lọc] → dtmf_decide → dtmf_debounce
-```
+## Kết quả
 
-`dtmf_decide` (luật quyết định) và `dtmf_debounce` (gộp khung liên tiếp thành phím) là hàm
-**dùng chung**, không bộ giải mã nào tự viết lại. Nhờ vậy khác biệt giữa ba phương pháp nằm
-đúng ở chỗ đề tài muốn so sánh.
+Độ chính xác trung bình, nhiễu AWGN, 20 chuỗi 12 phím mỗi mức, `rng(2026)` cố định:
 
-## Cấu trúc thư mục
+| SNR [dB] | 0 | 2.5 | 5 | ≥ 7.5 |
+|---|:--:|:--:|:--:|:--:|
+| FFT | 0.00 | 0.16 | 0.93 | 1.00 |
+| Goertzel | 0.00 | 0.35 | 0.93 | 1.00 |
+| Ngân hàng bộ lọc | 0.01 | **0.96** | 1.00 | 1.00 |
 
-```
-src/gen/      Phát tín hiệu: dtmf_table, dtmf_generate, dtmf_addnoise
-src/decode/   Giải mã: FFT, Goertzel, ngân hàng bộ lọc
-src/util/     Chia khung, luật quyết định, gộp phím, đánh giá
-app/          DTMFApp (giao diện) + dtmf_run (lớp trung gian) + app/ui/ (vẽ, phát tiếng)
-tests/        Unit test (matlab.unittest)
-scripts/      dev_harness (thử tay), make_coeffs (hệ số bộ lọc),
-              run_bench (số liệu), make_figures (hình), publish_figures (chép sang báo cáo)
-data/         wav/, mat/ - tập dữ liệu; coeffs.mat sinh tại chỗ, không nằm trong git
-results/      bench.mat + figures/ - máy sinh ra, không nằm trong git
-docs/         Báo cáo, slide, tài liệu tham khảo
-```
+Ngân hàng bộ lọc bền hơn hẳn — ngược với trực giác "FFT mạnh nhất" — vì 14 bộ cộng hưởng
+băng hẹp loại nhiễu ngoài băng **trước** khi đo năng lượng, trong khi FFT và Goertzel lấy
+năng lượng khung thô làm mẫu số. Với nhiễu ù 50 Hz nó đạt 1.00 ngay từ 2.5 dB trong khi FFT
+còn 0.00.
 
-## Yêu cầu
+Goertzel cần ít phép nhân nhất, chỉ bằng 1/4 FFT, nhưng **không** chạy nhanh nhất: nó là
+vòng lặp MATLAB thông dịch còn `fft` và `filter` là mã biên dịch.
 
-- MATLAB **R2021b** trở lên (môi trường phát triển hiện tại: R2026a).
-- **Signal Processing Toolbox** - bắt buộc, dùng `hamming`, `tukeywin`, `spectrogram`, `freqz`, `zplane`.
-- Communications Toolbox - **không cần**. Hàm `dtmf_addnoise` tự tính nhiễu theo công suất
-  mục tiêu thay vì gọi `awgn`, nhờ vậy SNR chính xác và tái lập được với `rng` cố định.
+## Chạy thử
 
-> **Nguyên tắc dùng toolbox:** tự cài đặt phần được chấm, dùng thư viện cho phần phụ trợ.
-> Cụ thể, `goertzel_power` và ngân hàng bộ lọc cộng hưởng **phải tự viết** (đây là nội dung
-> chính của đề tài); `goertzel` của toolbox chỉ được dùng trong `tests/test_goertzel.m` với
-> vai trò phép đối chứng độc lập. Cửa sổ, vẽ phổ và kiểm tra đáp ứng tần số thì dùng toolbox.
-
-## Sử dụng
-
-Mở MATLAB, đặt Current Folder là thư mục gốc repo rồi nạp path một lần cho mỗi phiên:
+Đặt Current Folder là thư mục gốc repo, nạp path một lần cho mỗi phiên:
 
 ```matlab
 dtmf_setup
 ```
 
 ```matlab
-[x, t, meta]    = dtmf_generate('0912345');          % fs = 8000 Hz, tone 100 ms / nghỉ 50 ms
+[x, t, meta]    = dtmf_generate('0912345');          % tone 100 ms / nghỉ 50 ms
 y               = dtmf_addnoise(x, 'snrDb', 15);     % AWGN, SNR = 15 dB
 [keysHat, info] = dtmf_decode_goertzel(y);
 m               = dtmf_metrics(meta.keys, keysHat);  % m.acc, m.editDist, m.confusion
+
+DTMFApp          % giao diện: bấm phím để nghe, "Phát tín hiệu" -> "Giải mã"
+run_all_tests    % 162 ca
 ```
 
-Mở giao diện:
-
-```matlab
-DTMFApp                 % bấm phím để nghe, "Phát tín hiệu" -> "Giải mã"
-```
-
-Giao diện là `app/DTMFApp.m` dạng `classdef` tự dựng `uifigure`, **không** phải `.mlapp`: file
-`.mlapp` là ZIP nhị phân, không diff, không merge và không chạy được trong `matlab -batch`. Nhờ
-vậy toàn bộ tầng giao diện nằm trong `run_all_tests` — `DTMFApp('off')` dựng cửa sổ ẩn, test gọi
-thẳng callback rồi đọc `app.LblDecoded.Text`. Giao diện ẩn thì không phát tiếng.
-
-Chạy toàn bộ test:
-
-```matlab
-run_all_tests
-```
-
-## Thực nghiệm và hình cho báo cáo
-
-Ba script chạy nối tiếp, mỗi script một việc:
+Sinh lại số liệu và toàn bộ hình cho báo cáo (khoảng một phút):
 
 ```matlab
 addpath('scripts');
-run_bench          % ~15 s  -> results/bench.mat
-make_figures       % ~30 s  -> results/figures/H*.png + H*.pdf
-publish_figures    %        -> report/template/Figures/
+run_bench        % -> results/bench.mat, không vẽ gì
+make_figures     % -> results/figures/H*.png (300 dpi) + H*.pdf (vector)
+publish_figures  % -> report/template/Figures/, chép một chiều
 ```
 
-`run_bench` quét 3 phương pháp × SNR `-5:2.5:30` × {awgn, hum50} × 3 ngưỡng
-`energyRatio` × 20 chuỗi 12 phím với `rng(2026)` cố định, và **không vẽ gì**.
-`make_figures` chỉ đọc `bench.mat` rồi vẽ, nên sửa màu một cái hình không làm
-đổi một con số nào. Hai hình gắn với giao diện được vẽ bằng chính
-`app/ui/ui_plot_spec` và `app/ui/ui_plot_bars`, không vẽ lại bằng tay.
+`results/` không nằm trong git vì dựng lại được; bản đi vào git là bản đã công bố ở
+`report/template/Figures/`.
 
-Mỗi hình ghi ra **hai bản cùng tên**: `.png` 300 dpi cho slide và bản Word,
-`.pdf` vector cho LaTeX. Tên file dùng gạch dưới (`H2_1`) vì LaTeX cắt phần mở
-rộng ở dấu chấm đầu tiên.
+## Cấu trúc
 
-`results/` nằm trong `.gitignore`: nó dựng lại được. Bản đi vào git là bản đã
-công bố ở `report/template/Figures/`, do `publish_figures` chép sang **một
-chiều** — sửa tay bên đích sẽ bị lần chạy sau ghi đè.
-
-Ngân hàng bộ lọc (`dtmf_decode_filterbank`) chạy được ngay mà không cần chuẩn bị gì:
-`design_bpf_bank` dựng 14 bộ cộng hưởng bằng công thức mỗi lần gọi. Nếu muốn có sẵn bản
-hệ số trên đĩa để nạp lại cho nhanh:
-
-```matlab
-addpath('scripts'); make_coeffs      % ghi data/mat/coeffs.mat
+```
+src/gen/      dtmf_table, dtmf_generate, dtmf_addnoise
+src/decode/   FFT, Goertzel, ngân hàng bộ lọc
+src/util/     chia khung, luật quyết định, gộp phím, đánh giá
+app/          DTMFApp (giao diện) · dtmf_run (lớp trung gian) · ui/ (vẽ, phát tiếng)
+tests/        unit test (matlab.unittest)
+scripts/      dev_harness · make_coeffs · run_bench · make_figures · publish_figures
+data/         wav/, mat/ — coeffs.mat sinh tại chỗ, không nằm trong git
+results/      bench.mat + figures/ — máy sinh ra, không nằm trong git
+docs/         báo cáo, slide, kế hoạch
 ```
 
-(`dtmf_setup` chỉ nạp `src/`, `app/` và `tests/`; các script trong `scripts/` nạp riêng.)
+## Yêu cầu
 
-File đó **không nằm trong git** (dựng lại được, và mỗi lần sinh lại là một blob nhị phân mới).
-Chỉ cần chạy lại khi đổi tham số thiết kế `r`, `fs` hoặc `withHarm`.
+- MATLAB **R2021b** trở lên (đang phát triển trên R2026a) và **Signal Processing Toolbox**.
+- Communications Toolbox **không cần**: `dtmf_addnoise` tự tính nhiễu theo công suất mục
+  tiêu thay vì gọi `awgn`, nhờ vậy SNR chính xác và tái lập được với `rng` cố định.
 
-## Quy ước
+**Nguyên tắc dùng toolbox:** tự cài đặt phần được chấm, dùng thư viện cho phần phụ trợ.
+`goertzel_power` và ngân hàng bộ lọc cộng hưởng phải tự viết; `goertzel` của toolbox chỉ
+xuất hiện trong `tests/test_goertzel.m` với vai trò phép đối chứng độc lập.
 
-- Chữ ký hàm, thông số đã chốt và quy ước chú thích xem trong [CONTRACTS.md](CONTRACTS.md).
-- Hàm trong `src/` **không** được gọi `figure`, `plot`, `disp`, `sound`, `input`. Việc vẽ và phát âm thanh chỉ nằm trong `app/ui/*.m` và ba script `scripts/dev_harness.m`, `scripts/run_bench.m`, `scripts/make_figures.m`. `app/dtmf_run.m` là lớp trung gian tính toán nên cũng **không** được vẽ.
+## Ghi chú thiết kế
+
+- Giao diện là `classdef` tự dựng `uifigure`, **không** phải `.mlapp` — file `.mlapp` là ZIP
+  nhị phân, không diff, không merge và không chạy được trong `matlab -batch`. Nhờ vậy tầng
+  giao diện cũng nằm trong `run_all_tests`: `DTMFApp('off')` dựng cửa sổ ẩn, test gọi thẳng
+  callback rồi đọc `app.LblDecoded.Text`.
+- Hàm trong `src/` không được gọi `figure`, `plot`, `disp`, `sound`, `input`. Vẽ và phát âm
+  thanh chỉ nằm trong `app/ui/*.m` và ba script `dev_harness`, `run_bench`, `make_figures`.
 - Làm việc trực tiếp trên nhánh `main`; chỉ commit khi `run_all_tests` pass hết.
-- Kế hoạch triển khai và tiến độ: [docs/study/KE_HOACH.md](docs/study/KE_HOACH.md).
+
+## Tài liệu
+
+- [CONTRACTS.md](CONTRACTS.md) — chữ ký hàm, thông số đã chốt, quy ước chú thích, số liệu đo.
+- [docs/study/KE_HOACH.md](docs/study/KE_HOACH.md) — kế hoạch triển khai và tiến độ.
+- [docs/ui_naming.md](docs/ui_naming.md) — quy ước tên component của giao diện.
