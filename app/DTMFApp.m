@@ -272,7 +272,13 @@ classdef DTMFApp < handle
 
         function dungGiaoDien(app, visible)
         %DUNGGIAODIEN Dựng cửa sổ, hai cột: điều khiển bên trái, ba trục bên phải.
+            % 'Theme', 'light' là BẮT BUỘC, không phải sở thích. Từ R2025a
+            % uifigure bám theme của hệ điều hành: máy để Windows ở chế độ tối
+            % thì cả giao diện lẫn ba trục ra nền ĐEN, và ảnh chụp H3.3 của báo
+            % cáo cũng đen theo. Ghim sáng để hình trên giấy, hình trên máy
+            % chiếu và hình trên máy người chấm là cùng một hình.
             app.UIFigure = uifigure('Visible', visible, ...
+                'Theme', 'light', ...
                 'Name', 'DTMF - Phát và giải mã tín hiệu', ...
                 'Position', [80 60 1180 720], ...
                 'CloseRequestFcn', @(src, evt) delete(app));

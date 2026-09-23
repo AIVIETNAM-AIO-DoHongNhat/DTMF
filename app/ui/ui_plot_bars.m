@@ -62,12 +62,12 @@ b.FaceColor = 'flat';
 b.CData = repmat([0.70 0.70 0.74], numel(E), 1);
 b.CData(E > thr, :) = repmat([0.90 0.45 0.13], nnz(E > thr), 1);
 
-yline(ax, thr, 'r--', 'ngưỡng', ...
+yline(ax, thr, 'r--', 'ngưỡng hài', ...
     'LabelHorizontalAlignment', 'left', 'LabelVerticalAlignment', 'bottom');
 
 xlabel(ax, 'Tần số [Hz]');
 ylabel(ax, 'Năng lượng đã chuẩn hóa');
-title(ax, sprintf('Công suất theo bin - ngưỡng %.3f', thr));
+title(ax, sprintf('Công suất chuẩn hóa theo bin, ngưỡng hài bậc 2 = %.3f', thr));
 
 % max(...) có thể bằng 0 khi khung im lặng; ylim([0 0]) là lỗi.
 yTop = max([E, thr]);

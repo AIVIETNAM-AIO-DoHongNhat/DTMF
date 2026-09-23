@@ -69,7 +69,7 @@ plot(ax, t, y, 'Color', [0.10 0.35 0.70]);
 hold(ax, 'off');
 xlabel(ax, 'Thời gian [s]');
 ylabel(ax, 'Biên độ');
-title(ax, sprintf('Dạng sóng - %.0f Hz, %.3f s', fs, numel(y)/fs));
+title(ax, sprintf('Dạng sóng, fs = %.0f Hz, thời lượng %.3f s', fs, numel(y)/fs));
 
 % t(end) = 0 khi tín hiệu dài đúng 1 mẫu; xlim phải luôn là khoảng thật sự.
 xlim(ax, [0 max(t(end), 1/fs)]);

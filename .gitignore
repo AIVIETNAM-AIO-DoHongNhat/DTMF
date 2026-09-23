@@ -31,3 +31,12 @@ Thumbs.db
 # git chi tao them mot blob nhi phan mo^i lan sinh lai, vi header MAT-file chua
 # dau thoi gian nen hai lan chay cho hai file khac byte du he so y het.
 data/mat/*.mat
+
+# results/ la thu muc may SINH RA, khong phai thu muc nguon.
+# bench.mat dung lai bang `run_bench` trong ~15 giay; hinh dung lai bang
+# `make_figures`. Ban di vao git la ban DA CONG BO o report/template/Figures/,
+# do `publish_figures` chep sang mot chieu - giu ca hai noi trong git la hai
+# blob nhi phan cho moi lan sinh lai, va som muon lech nhau.
+results/bench.mat
+results/figures/*.pdf
+results/figures/*.png

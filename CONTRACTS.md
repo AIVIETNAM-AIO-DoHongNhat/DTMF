@@ -45,6 +45,10 @@ m = dtmf_metrics(keysTrue, keysHat)  % .acc .editDist .confusion (12x12)
   Ngoại lệ đúng một hàm: **`dtmf_table()` được phép gọi từ `app/ui/*.m`**, vì đó là bảng
   hằng số chứ không phải phép tính, và chép tay 7 tần số vào mỗi hàm vẽ thì sớm muộn lệch
   với `src/gen/dtmf_table.m`.
+  Luật này ràng buộc **tầng ứng dụng**. `tests/` và `scripts/` gọi thẳng `src/` là đúng -
+  chúng nằm ngoài đường đi của giao diện, và riêng `scripts/run_bench.m` bắt buộc phải gọi
+  `dtmf_decide` với ngưỡng khác mặc định, việc mà không chữ ký công khai nào của ba bộ giải
+  mã cho phép.
 - Chỉ hai nơi được phép vẽ và phát âm thanh: **`app/ui/*.m`** (tầng hiển thị của
   `DTMFApp`) và ba script `scripts/dev_harness.m`, `scripts/run_bench.m`,
   `scripts/make_figures.m`. Mọi nơi khác - kể cả `app/dtmf_run.m` - thì không.

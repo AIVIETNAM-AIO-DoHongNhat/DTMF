@@ -33,7 +33,7 @@ hop    = 128;
 
 if numel(y) < frameN
     cla(ax);
-    title(ax, sprintf('Tín hiệu ngắn hơn %d mẫu - chưa vẽ được phổ đồ', frameN));
+    title(ax, sprintf('Tín hiệu ngắn hơn %d mẫu, chưa đủ một cửa sổ để vẽ phổ đồ', frameN));
     return
 end
 
@@ -58,7 +58,10 @@ end
 
 xlabel(ax, 'Thời gian [s]');
 ylabel(ax, 'Tần số [Hz]');
-title(ax, 'Phổ đồ STFT - Hamming 256, chồng lấp 128 [dB]');
+% Ba con số trong tiêu đề lấy từ chính biến đang dùng, không gõ tay: tiêu đề
+% ghi sai tham số còn tệ hơn không ghi, vì người đọc lấy nó làm căn cứ.
+title(ax, sprintf('Phổ đồ STFT, cửa sổ Hamming %d mẫu, chồng lấp %d mẫu, thang [dB]', ...
+    frameN, frameN - hop));
 ylim(ax, [0 3000]);
 
 end

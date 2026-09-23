@@ -143,7 +143,7 @@ MLB='C:\Program Files\MATLAB\R2026a\bin\matlab.exe'
 | 7 | `dtmf_metrics` | 1.0 | 4 | `acc == 1` cả 3 phương pháp | ☑ |
 | 8 | `dtmf_run` + 3 hàm `ui_plot_*` | 2.0 | 7 | `test_ui_smoke` xanh, headless | ☑ |
 | 9 | 🖥️ **Giao diện `DTMFApp`** | 3.0 | 8 | App giải mã đúng, có tiếng | ☑ |
-| 10 | Thực nghiệm + 8 hình | 2.0 | 9 | ≥ 8 file trong `results/figures/` | ☐ |
+| 10 | Thực nghiệm + 9 hình | 2.0 | 9 | 18 file trong `results/figures/` | ☑ |
 
 **Tổng ≈ 20.25 giờ.** Đường găng: `0 → 1 → 2 → 3 → 4 → {5,6} → 7 → 8 → 9 → 10`.
 
@@ -562,44 +562,80 @@ dù hệ số y hệt. Chạy `make_coeffs` khi và chỉ khi đổi tham số t
 
 ---
 
-## ☐ Buổi 10 — Thực nghiệm + hình vẽ · 2 giờ
+## ☑ Buổi 10 — Thực nghiệm + hình vẽ · 2 giờ (Đã xong)
 
 | | |
 |---|---|
-| **Mục tiêu** | Số liệu so sánh 3 phương pháp + 8 hình cho báo cáo |
+| **Mục tiêu** | Số liệu so sánh 3 phương pháp + 9 hình cho báo cáo |
 | **File thêm** | `scripts/run_bench.m` · `scripts/make_figures.m` · `scripts/publish_figures.m` |
-| **Sinh ra** | `results/bench.mat` · `results/figures/*.pdf\|png` |
+| **Sinh ra** | `results/bench.mat` · `results/figures/H*.png` + `H*.pdf` · `report/template/Figures/` |
 | **Phụ thuộc** | Buổi 9 |
 
 **Việc cần làm**
-- [ ] `run_bench.m`: 3 phương pháp × SNR `-5:2.5:30` × {awgn, hum50} × 20 chuỗi 12 phím, `rng(2026)` cố định
-- [ ] `run_bench.m`: gom `acc`, `editDist`, `confusion`, **histogram lý do loại khung**, `tic/toc` mỗi khung
-- [ ] `run_bench.m`: quét thêm `energyRatio ∈ {0.70, 0.40, 0}` (xử lý rủi ro R2)
-- [ ] `run_bench.m`: **không vẽ gì**, chỉ `save('results/bench.mat','B')` — ước tính 2–4 phút chạy
-- [ ] `make_figures.m`: nạp `bench.mat`, dựng `uifigure` ẩn rồi **giao việc vẽ cho chính `app/ui/ui_plot_*`**, sau đó `exportgraphics(..., 'ContentType','vector')`
-- [ ] `publish_figures.m`: `copyfile('results/figures/H*.pdf','report/template/Figures/')` — **một chiều, không bao giờ sửa tay bên đích**
+- [x] `run_bench.m`: 3 phương pháp × SNR `-5:2.5:30` × {awgn, hum50} × 20 chuỗi 12 phím, `rng(2026)` cố định
+- [x] `run_bench.m`: gom `acc`, `editDist`, `confusion`, **histogram lý do loại khung**, `tic/toc` mỗi khung
+- [x] `run_bench.m`: quét thêm `energyRatio ∈ {0.70, 0.40, 0}` (xử lý rủi ro R2)
+- [x] `run_bench.m`: **không vẽ gì**, chỉ `save('results/bench.mat','B')` — **đo được 14.3 s**, không phải 2–4 phút
+- [x] `make_figures.m`: nạp `bench.mat`, dựng `uifigure` ẩn rồi **giao việc vẽ cho chính `app/ui/ui_plot_*`**, sau đó `exportgraphics`
+- [x] `publish_figures.m`: chép `H*.pdf` **và** `H*.png` sang `report/template/Figures/` — **một chiều, không bao giờ sửa tay bên đích**
+- [x] Mỗi hình ghi **hai bản**: `.png` 300 dpi (slide, Word) + `.pdf` vector (LaTeX)
+- [x] Ép **theme sáng** ở mọi mặt vẽ, kể cả `DTMFApp` — xem Bẫy bên dưới
+- [x] Bảng màu **Okabe–Ito** cho mọi hình mã hóa bằng màu (mù màu vẫn đọc được, in đen trắng vẫn phân biệt được)
+- [x] `results/` vào `.gitignore`; bản đi vào git là bản đã công bố ở `report/template/Figures/`
 
-**8 hình sinh bằng MATLAB**
+**9 hình sinh bằng MATLAB**
 
-| Mã | Nội dung | Nguồn | ☐ |
-|---|---|---|:--:|
-| H2.1 | Phổ FFT phím "5" + 8 bin | `ui_plot_spec` | ☐ |
-| H2.3 | Giản đồ cực–không 7 bộ chuẩn (14 nếu kể cả bộ hài) | `zplane(b, a)` của toolbox | ☐ |
-| H2.4 | Biểu đồ 8 cột + ngưỡng | `ui_plot_bars` — *"hình quan trọng nhất buổi demo"* | ☐ |
-| H3.3 | Ảnh chụp giao diện | `exportapp` trong phiên **hiện hình**, hoặc `exportgraphics` từng trục — xem ghi chú cuối Buổi 9 | ☐ |
-| H4.1 | Độ chính xác theo SNR, 3 phương pháp | `bench.mat` | ☐ |
-| H4.2 | Heatmap ma trận nhầm lẫn | `bench.mat` | ☐ |
-| H4.3 | Histogram lý do loại khung theo SNR | `bench.mat` — vách 8 dB thành **phát hiện** | ☐ |
-| H4.4 | Thời gian chạy vs số phép nhân lý thuyết | `bench.mat` + study §8.5 | ☐ |
+| Mã | File | Nội dung | Nguồn | ☑ |
+|---|---|---|---|:--:|
+| H2.1 | `H2_1` | Phổ đồ STFT phím "5" + 7 vạch tần số chuẩn, có thang dB | `ui_plot_spec` | ☑ |
+| H2.3 | `H2_3` | Vị trí cực và điểm không của 14 bộ cộng hưởng | `zplane(Z, P)` một lần, hai ma trận | ☑ |
+| H2.4 | `H2_4` | Biểu đồ 8 cột + ngưỡng hài | `ui_plot_bars` qua `dtmf_run` — *"hình quan trọng nhất buổi demo"* | ☑ |
+| H3.3 | `H3_3` | Ảnh chụp giao diện | `exportapp` trong phiên **hiện hình** | ☑ |
+| H4.1 | `H4_1` | Độ chính xác theo SNR, 3 phương pháp, 2 loại nhiễu | `bench.mat` | ☑ |
+| H4.2 | `H4_2` | Ma trận nhầm lẫn tại mức SNR nhiều lỗi nhất | `bench.mat` | ☑ |
+| H4.3 | `H4_3` | Kết cục của từng khung theo SNR, 3 phương pháp | `bench.mat` | ☑ |
+| H4.4 | `H4_4` | Thời gian đo được so với số phép nhân lý thuyết | `bench.mat` | ☑ |
+| H4.5 | `H4_5` | **Thêm ngoài kế hoạch:** quét `energyRatio`, phục vụ thẳng rủi ro R2 | `bench.mat` | ☑ |
 
 **4 hình vẽ tay** (TikZ/draw.io, không sinh bằng MATLAB — làm song song bất cứ lúc nào): H1.1 chồng phổ · H2.2 sơ đồ khối Goertzel · H3.1 kiến trúc phần mềm · H3.2 lưu đồ một lần bấm phím.
 
+**Số liệu thu được** (`rng(2026)`, 20 chuỗi 12 phím mỗi mức, nhiễu awgn, `energyRatio = 0.70`)
+
+| SNR [dB] | 0 | 2.5 | 5 | 7.5 | ≥ 10 |
+|---|:--:|:--:|:--:|:--:|:--:|
+| FFT | 0.00 | 0.16 | 0.93 | 1.00 | 1.00 |
+| Goertzel | 0.00 | 0.35 | 0.93 | 1.00 | 1.00 |
+| Ngân hàng bộ lọc | 0.01 | **0.96** | 1.00 | 1.00 | 1.00 |
+
+Với nhiễu ù 50 Hz, ngân hàng bộ lọc đạt **1.00 ngay từ 2.5 dB** trong khi FFT còn 0.00 — khẳng định lại §7.6 trên bộ dữ liệu lớn hơn.
+
+| Chi phí | FFT | Goertzel | Ngân hàng bộ lọc |
+|---|:--:|:--:|:--:|
+| Lý thuyết [nghìn phép nhân / giây âm thanh] | 273 | **65** | 672 |
+| Thời gian mỗi phép nhân, **so với FFT** | 1.0 | **≈ 2.6** (ổn định) | 0.5–0.8 (kém ổn định) |
+
+Goertzel ít phép nhân nhất — chỉ bằng **1/4** FFT — mà **không** nhanh nhất, vì nó là vòng lặp MATLAB thông dịch còn `fft` và `filter` là mã biên dịch. Đây là câu trả lời cho câu hỏi vấn đáp "sao Goertzel rẻ hơn mà chạy không nhanh hơn".
+
+> ⚠️ **Cột phép nhân lý thuyết là hằng số; cột thời gian thì KHÔNG.** Đo 23/09/2026, bốn lần chạy trên **cùng một máy** cho nhánh FFT các giá trị **28.9 / 82.7 / 88.8 / 82.9 µs mỗi khung** — chênh gần 3 lần tùy máy đang bận gì. Thứ giữ nguyên qua cả bốn lần là **tỉ số** Goertzel/FFT ≈ 2.5–2.6 lần thời gian mỗi phép nhân. Trong báo cáo hãy trích tỉ số và nói rõ con số tuyệt đối trên hình H4.4 là của **một lần chạy trên một máy**; đừng ghi nó như một hằng số của thuật toán. Mọi trường khác của `bench.mat` (`acc`, `editDist`, `confusion`, `rejectHist`) **đã kiểm là tái lập bit-khớp** giữa hai lần chạy.
+
+**Bẫy đã gặp ở buổi này**
+
+- ⚠️ **Theme tối của Windows ăn vào MỌI hình.** Từ R2025a cả `figure` lẫn `uifigure` bám theme hệ điều hành: máy đang để chế độ tối thì hình xuất ra **nền đen**, và `'Color', 'w'` một mình KHÔNG cứu được vì nền trục, màu chữ và màu lưới đều do theme quyết định. Phải `theme(fig, 'light')` cho figure cổ điển và `'Theme', 'light'` cho `uifigure`. `DTMFApp` cũng đã ghim sáng — nếu không thì ảnh H3.3 đen theo.
+- ⚠️ **`axis(ax, 'equal')` sau `zplane` phá giới hạn trục.** `zplane` đã tự đặt tỉ lệ 1:1; gọi thêm `axis equal` nới `xlim` ra **±350** (đo được) và vòng tròn đơn vị teo thành một chấm. Đặt `xlim`/`ylim` tường minh rồi `pbaspect`.
+- ⚠️ **Phụ đề dài hơn bề ngang figure bị cắt cụt không cảnh báo**, và chữ mất là chữ **đầu dòng** — "Tổng 34 phép sửa" thành "ổng 34 phép sửa". Tách `subtitle` thành cellstr nhiều dòng.
+- ⚠️ **`exportapp` có lúc chụp trước khi ba `uiaxes` vẽ xong** — ra ảnh đủ cột trái, ba trục trắng trơn, đúng một lần trong nhiều lần chạy. `drawnow` trả về khi hàng đợi sự kiện rỗng chứ không phải khi đã vẽ xong, và không có API công khai nào hỏi được. Đã chèn `drawnow; pause(1); drawnow`. **Vẫn phải liếc mắt vào `H3_3.png` trước khi nộp.**
+- ⚠️ **Tên file dùng gạch dưới, không dùng dấu chấm.** LaTeX cắt phần mở rộng ở dấu chấm ĐẦU TIÊN, nên `\includegraphics{Figures/H2.1}` đi tìm file tên "H2" đuôi ".1". Mã hình trong báo cáo vẫn là H2.1, tên file là `H2_1`.
+- ⚠️ **Ma trận nhầm lẫn gần như chỉ có đường chéo, và đó là KẾT QUẢ chứ không phải lỗi.** Tại 5 dB có 34 phép sửa nhưng chỉ **2** lần thay phím; 32 lần còn lại là chèn/xóa, mà `confusion` không có ô nào để ghi (CONTRACTS §6(g)). Bộ giải mã **mất** phím chứ không **nhầm** phím. Con số đó đã đưa lên phụ đề H4.2, nếu không người đọc nhìn đường chéo sạch rồi kết luận ngược.
+- ⚠️ **`run_bench` phải tự quyết định lại từ `info.E`** để quét `energyRatio`, vì không chữ ký công khai nào của ba bộ giải mã cho đổi ngưỡng. Chốt `assert` rằng đường quyết định lại ở `energyRatio = 0.70` trùng khít chuỗi bộ giải mã tự trả về — giữ đúng trên cả **5400** điều kiện.
+
 **Kiểm chứng**
 ```bash
-"$MLB" -batch "cd('D:\PROJECT\DMTF'); addpath(genpath('src')); addpath(genpath('app')); addpath('scripts'); run_bench; make_figures; fprintf('%d hinh\n', numel(dir('results/figures/*.pdf'))); assert(numel(dir('results/figures/*.pdf'))>=8)"
+"$MLB" -batch "cd('D:\PROJECT\DMTF'); addpath(genpath('src')); addpath(genpath('app')); addpath('scripts'); run_bench; make_figures; publish_figures; n=numel(dir('results/figures/H*.png')); assert(n>=8); fprintf('%d hinh, %d file\n', n, 2*n)"
 ```
-- [ ] ≥ 8 file trong `results/figures/`
-- [ ] H4.1 cho thấy Goertzel ≈ FFT ≈ filterbank ở SNR cao
+- [x] 9 hình × 2 định dạng = 18 file trong `results/figures/`, đã chép sang `report/template/Figures/`
+- [x] H4.1 cho thấy Goertzel ≈ FFT ≈ filterbank ở SNR cao (cả ba bằng 1.00 từ 7.5 dB)
+- [x] Toàn bộ **162/162 test vẫn PASS** sau khi đổi theme và sửa chữ trong `app/ui/*`
+- [ ] Mở `results/figures/H3_3.png` xem ba trục có nội dung ← **mắt người, xem bẫy `exportapp` ở trên**
 
 ---
 
@@ -618,7 +654,7 @@ MLB='C:\Program Files\MATLAB\R2026a\bin\matlab.exe'
 "$MLB" -batch "cd('D:\PROJECT\DMTF'); addpath(genpath('src')); addpath(genpath('app')); a=DTMFApp('off'); a.EfKeys.Value='0912345'; a.BtnGenPushed([]); a.BtnDecodePushed([]); fprintf('Decoded=%s err=[%s]\n',a.LblDecoded.Text,a.S.lastError); delete(a)"
 
 # 4. Sinh đủ hình
-"$MLB" -batch "cd('D:\PROJECT\DMTF'); addpath(genpath('src')); addpath(genpath('app')); addpath('scripts'); run_bench; make_figures; assert(numel(dir('results/figures/*.pdf'))>=8)"
+"$MLB" -batch "cd('D:\PROJECT\DMTF'); addpath(genpath('src')); addpath(genpath('app')); addpath('scripts'); run_bench; make_figures; publish_figures; assert(numel(dir('report/template/Figures/H*.png'))>=8)"
 
 # 5. GUI thật — mắt người nhìn
 "$MLB" -batch "cd('D:\PROJECT\DMTF'); addpath(genpath('src')); addpath(genpath('app')); DTMFApp('on'); uiwait"
@@ -632,7 +668,7 @@ MLB='C:\Program Files\MATLAB\R2026a\bin\matlab.exe'
 |:--:|---|:--:|---|:--:|
 | R1 | Lỡ tay gọi `goertzel()` / `filterDesigner` cho phần lõi vì giờ đã có sẵn → **mất điểm đúng chỗ được chấm nhiều nhất** | Trung bình | Bám bảng phân chia ở P1; `goertzel()` chỉ được xuất hiện trong `tests/test_goertzel.m` | 2, 6 |
 | R1b | `awgn` không có (Communications Toolbox chưa cài) | Chắc chắn (đã đo) | Dùng công thức tay trong help `dtmf_addnoise` dòng 25–26 — chính xác và tái lập hơn `awgn` | 1 |
-| R2 | Vách chính xác ở SNR ≈ 8 dB do `energyRatio = 0.70` | Cao | Quét `{0.70, 0.40, 0}` trong `run_bench`; trình bày như kết quả có chủ đích (chống talk-off); **demo ở SNR ≥ 10 dB** | 10 |
+| R2 | Vách chính xác ở SNR ≈ 8 dB do `energyRatio = 0.70` | Cao | **Đã xử lý (Buổi 10).** Vách đo được nằm ở **2.5–5 dB**, không phải 8. Hạ ngưỡng xuống 0.40 đẩy vách thêm ~5 dB xuống nữa, nhưng đặt bằng 0 làm ngân hàng bộ lọc **tụt xuống 0.96 ở SNR cao** (dư âm bộ lọc được nhận nhầm) — đúng cái giá của việc bỏ luật chống nhận nhầm tiếng nói. Hình H4.5. Demo ở SNR ≥ 10 dB, dư 5 dB | 10 |
 | R3 | Debounce nuốt phím lặp ở khoảng lặng thứ 7 | Thấp | Ca `'12345699'`. Nếu xảy ra: đổi `hop = 102` — `CONTRACTS.md` khóa `N = 205` nhưng **không khóa hop** | 4 |
 | R4 | `.mlapp` không merge/test được | Chắc chắn | Phương án B (`DTMFApp.m`); A chỉ làm sau, một lượt, nếu bắt buộc | 9 |
 | R5 | `10*log10(0/0)` → `NaN`, ra đúng kết quả nhưng **sai nhãn `reject`** → hỏng hình H4.3 | Cao nếu không chặn | Chặn `isfinite`/`max(E)<=0` trước mọi `log10` | 3 |
@@ -644,6 +680,6 @@ MLB='C:\Program Files\MATLAB\R2026a\bin\matlab.exe'
 
 # NGOÀI PHẠM VI (ghi lại để không quên)
 
-- **Báo cáo LaTeX**: `report/template/main.tex` còn **28 chỗ `[Nội dung viết tại đây.]`** và 8 `\chohinh{}`. Hình từ Buổi 10 là đầu vào. Bốn đoạn lập luận khó nhất đã có sẵn trong `DTMF_LyThuyet.m` L987–1005 ("Bốn lập luận đáng viết vào báo cáo").
+- **Báo cáo LaTeX**: `report/template/main.tex` còn **28 chỗ `[Nội dung viết tại đây.]`** và 8 `\chohinh{}`. Hình đã sẵn sàng ở `report/template/Figures/` (9 hình, mỗi hình `.png` + `.pdf`); chèn bằng `\includegraphics{Figures/H4_1}` — **không ghi đuôi file**, để `graphicx` tự chọn bản `.pdf`. Bốn đoạn lập luận khó nhất đã có sẵn trong `DTMF_LyThuyet.m` L987–1005 ("Bốn lập luận đáng viết vào báo cáo").
 - **Slide + thuyết trình** (30% điểm GHP).
 - `report/template/README.md` nhắc tới `main_mau.pdf` (bản mẫu 22 trang) — **file này không có trong repo**, hỏi lại Lâm/Khương nếu cần.

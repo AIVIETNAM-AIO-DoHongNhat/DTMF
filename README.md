@@ -65,8 +65,10 @@ src/decode/   Giải mã: FFT, Goertzel, ngân hàng bộ lọc
 src/util/     Chia khung, luật quyết định, gộp phím, đánh giá
 app/          DTMFApp (giao diện) + dtmf_run (lớp trung gian) + app/ui/ (vẽ, phát tiếng)
 tests/        Unit test (matlab.unittest)
-scripts/      dev_harness.m (thử tay), make_coeffs.m (sinh hệ số bộ lọc)
+scripts/      dev_harness (thử tay), make_coeffs (hệ số bộ lọc),
+              run_bench (số liệu), make_figures (hình), publish_figures (chép sang báo cáo)
 data/         wav/, mat/ - tập dữ liệu; coeffs.mat sinh tại chỗ, không nằm trong git
+results/      bench.mat + figures/ - máy sinh ra, không nằm trong git
 docs/         Báo cáo, slide, tài liệu tham khảo
 ```
 
@@ -113,6 +115,31 @@ Chạy toàn bộ test:
 ```matlab
 run_all_tests
 ```
+
+## Thực nghiệm và hình cho báo cáo
+
+Ba script chạy nối tiếp, mỗi script một việc:
+
+```matlab
+addpath('scripts');
+run_bench          % ~15 s  -> results/bench.mat
+make_figures       % ~30 s  -> results/figures/H*.png + H*.pdf
+publish_figures    %        -> report/template/Figures/
+```
+
+`run_bench` quét 3 phương pháp × SNR `-5:2.5:30` × {awgn, hum50} × 3 ngưỡng
+`energyRatio` × 20 chuỗi 12 phím với `rng(2026)` cố định, và **không vẽ gì**.
+`make_figures` chỉ đọc `bench.mat` rồi vẽ, nên sửa màu một cái hình không làm
+đổi một con số nào. Hai hình gắn với giao diện được vẽ bằng chính
+`app/ui/ui_plot_spec` và `app/ui/ui_plot_bars`, không vẽ lại bằng tay.
+
+Mỗi hình ghi ra **hai bản cùng tên**: `.png` 300 dpi cho slide và bản Word,
+`.pdf` vector cho LaTeX. Tên file dùng gạch dưới (`H2_1`) vì LaTeX cắt phần mở
+rộng ở dấu chấm đầu tiên.
+
+`results/` nằm trong `.gitignore`: nó dựng lại được. Bản đi vào git là bản đã
+công bố ở `report/template/Figures/`, do `publish_figures` chép sang **một
+chiều** — sửa tay bên đích sẽ bị lần chạy sau ghi đè.
 
 Ngân hàng bộ lọc (`dtmf_decode_filterbank`) chạy được ngay mà không cần chuẩn bị gì:
 `design_bpf_bank` dựng 14 bộ cộng hưởng bằng công thức mỗi lần gọi. Nếu muốn có sẵn bản

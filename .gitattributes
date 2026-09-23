@@ -5,6 +5,7 @@
 *.mat   binary
 *.wav   binary
 *.pdf   binary
+*.png   binary
 
 # File van ban - bat buoc UTF-8.
 # LUU Y: comment trong .m viet tieng Viet co dau. Neu mot cong cu ghi file
