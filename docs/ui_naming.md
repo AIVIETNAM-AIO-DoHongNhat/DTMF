@@ -1,4 +1,6 @@
-# Quy ước tên component - DTMFApp.mlapp
+# Quy ước tên component - DTMFApp
+
+> Giao diện là `app/DTMFApp.m` dạng `classdef`, **không** phải `.mlapp` — xem `CONTRACTS.md` §8.
 
 > `AxWave`, `AxSpec`, `AxBars`, `TxtLog`, `LblDecoded` đã bị `app/ui/ui_refresh.m` gọi thẳng - **không đổi tên**.
 

@@ -119,6 +119,6 @@ Chỉ cần chạy lại khi đổi tham số thiết kế `r`, `fs` hoặc `wit
 ## Quy ước
 
 - Chữ ký hàm, thông số đã chốt và quy ước chú thích xem trong [CONTRACTS.md](CONTRACTS.md).
-- Hàm trong `src/` **không** được gọi `figure`, `plot`, `disp`, `sound`, `input`. Việc vẽ và phát âm thanh chỉ nằm trong `app/ui/` hoặc `scripts/dev_harness.m`.
+- Hàm trong `src/` **không** được gọi `figure`, `plot`, `disp`, `sound`, `input`. Việc vẽ và phát âm thanh chỉ nằm trong `app/ui/*.m` và ba script `scripts/dev_harness.m`, `scripts/run_bench.m`, `scripts/make_figures.m`. `app/dtmf_run.m` là lớp trung gian tính toán nên cũng **không** được vẽ.
 - Làm việc trực tiếp trên nhánh `main`; chỉ commit khi `run_all_tests` pass hết.
 - Kế hoạch triển khai và tiến độ: [docs/study/KE_HOACH.md](docs/study/KE_HOACH.md).

@@ -141,7 +141,7 @@ MLB='C:\Program Files\MATLAB\R2026a\bin\matlab.exe'
 | 5 | `dtmf_decode_fft` | 1.5 | 4 | FFT ≡ Goertzel trên tín hiệu sạch | ☑ |
 | 6 | `design_bpf_bank` + `filterbank` | 2.5 | 4 | 3 phương pháp khớp nhau | ☑ |
 | 7 | `dtmf_metrics` | 1.0 | 4 | `acc == 1` cả 3 phương pháp | ☑ |
-| 8 | `dtmf_run` + 3 hàm `ui_plot_*` | 2.0 | 7 | `test_ui_smoke` xanh, headless | ☐ |
+| 8 | `dtmf_run` + 3 hàm `ui_plot_*` | 2.0 | 7 | `test_ui_smoke` xanh, headless | ☑ |
 | 9 | 🖥️ **Giao diện `DTMFApp`** | 3.0 | 8 | App giải mã đúng, có tiếng | ☐ |
 | 10 | Thực nghiệm + 8 hình | 2.0 | 9 | ≥ 8 file trong `results/figures/` | ☐ |
 
@@ -463,7 +463,7 @@ dù hệ số y hệt. Chạy `make_coeffs` khi và chỉ khi đổi tham số t
 
 ---
 
-## ☐ Buổi 8 — `dtmf_run` + 3 hàm `ui_plot_*` · 2 giờ
+## ☑ Buổi 8 — `dtmf_run` + 3 hàm `ui_plot_*` · 2 giờ (Đã xong)
 
 | | |
 |---|---|
@@ -473,21 +473,22 @@ dù hệ số y hệt. Chạy `make_coeffs` khi và chỉ khi đổi tham số t
 | **Phụ thuộc** | Buổi 7 |
 
 **Việc cần làm**
-- [ ] `dtmf_run`: switch theo `S.method`, bọc `try/catch` ghi `S.lastError`
-- [ ] `dtmf_run`: nhánh `otherwise` → `S.lastError = sprintf('method không hợp lệ: %s', S.method)`, **không ném lỗi**
-- [ ] `dtmf_run`: tính luôn `S.thr` và `S.iSel = argmax(info.conf)` — vì `ui_refresh` đọc hai giá trị này mà **tầng UI không được phép tính toán**
-- [ ] `ui_plot_wave`: dạng sóng + vùng tone + nhãn phím; phải chịu được `meta = []`
-- [ ] `ui_plot_spec`: theo đúng TODO gốc — `spectrogram(y, hamming(256), 128, 256, fs)` → `imagesc` trên uiaxes → `axis xy` → `ylim [0 3000]`
-- [ ] `ui_plot_bars`: `bar(ax, categorical(labels), E)` + `yline(ax, thr, 'r--')`
-- [ ] `ui_refresh`: gọi 3 hàm vẽ, set `LblDecoded`, nối lỗi vào `TxtLog`, bọc `try/catch`
-- [ ] `tests/test_run.m`: 3 phương pháp đều dispatch được; method sai → `lastError` khác rỗng và **không throw**
-- [ ] `tests/test_ui_smoke.m`: `uifigure('Visible','off')` → gọi 3 hàm vẽ → `verifyNotEmpty(ax.Children)`; thêm ca `meta = []`
+- [x] `dtmf_run`: switch theo `S.method`, bọc `try/catch` ghi `S.lastError`
+- [x] `dtmf_run`: nhánh `otherwise` → `S.lastError = sprintf('method không hợp lệ: %s', S.method)`, **không ném lỗi**
+- [x] `dtmf_run`: tính luôn `S.thr` và `S.iSel = argmax(info.conf)` — vì `ui_refresh` đọc hai giá trị này mà **tầng UI không được phép tính toán**
+- [x] `ui_plot_wave`: dạng sóng + vùng tone + nhãn phím; phải chịu được `meta = []`
+- [x] `ui_plot_spec`: theo đúng TODO gốc — `spectrogram(y, hamming(256), 128, 256, fs)` → `imagesc` trên uiaxes → `axis xy` → `ylim [0 3000]`
+- [x] `ui_plot_bars`: `bar(ax, categorical(labels, labels), E)` + `yline(ax, thr, 'r--')`; cột vượt ngưỡng tô khác màu
+- [x] `ui_refresh`: gọi 3 hàm vẽ, set `LblDecoded`, nối lỗi vào `TxtLog`, bọc `try/catch`
+- [x] `tests/test_run.m`: 3 phương pháp đều dispatch được; method sai → `lastError` khác rỗng và **không throw**
+- [x] `tests/test_ui_smoke.m`: `uifigure('Visible','off')` → gọi 3 hàm vẽ → `verifyNotEmpty(ax.Children)`; thêm ca `meta = []`
 
-- [ ] ⚠️ **`dtmf_run` phải TRỪ TRUNG BÌNH tín hiệu trước khi gọi bộ giải mã.** Đo 22/09/2026: độ lệch một chiều 0,2 (40% biên độ đỉnh) làm **cả ba** bộ giải mã trả chuỗi rỗng, vì `sum(frame.^2)` ở mẫu số phình lên và `rho` tụt dưới 0,70. `y - mean(y)` sửa được hoàn toàn. Đây là việc của lớp trung gian, KHÔNG sửa trong `src/` — xem `CONTRACTS.md` §7.7.
+- [x] ⚠️ **`dtmf_run` phải TRỪ TRUNG BÌNH tín hiệu trước khi gọi bộ giải mã.** Đo 22/09/2026: độ lệch một chiều 0,2 (40% biên độ đỉnh) làm **cả ba** bộ giải mã trả chuỗi rỗng, vì `sum(frame.^2)` ở mẫu số phình lên và `rho` tụt dưới 0,70. `y - mean(y)` sửa được hoàn toàn. Đây là việc của lớp trung gian, KHÔNG sửa trong `src/` — xem `CONTRACTS.md` §7.7.
 
 **Bẫy**
 - Tham số `spectrogram` phải **khớp đúng** `dtmf_decode_fft`: cửa sổ Hamming 256, `noverlap = 128` (tức hop = 128). Lệch tham số thì hình phổ không còn là cái bộ giải mã nhìn thấy — khi vấn đáp bị hỏi là không trả lời được.
 - `ui_plot_bars` là "hình quan trọng nhất của buổi demo" theo `docs/ui_naming.md` — đầu tư cho đẹp.
+- ⚠️ **`categorical(labels)` TỰ SẮP XẾP hạng mục theo thứ tự chữ cái.** Đo 23/09/2026: 8 nhãn tần số ra thứ tự `1209 1336 1477 2f 697 770 852 941`, tức mỗi cột đứng dưới **sai nhãn**. Hình vẫn có 8 cột, vẫn có hai cột cao, không một chữ cảnh báo — đúng loại lỗi của `hamming` cột ở Buổi 5. Phải viết `categorical(labels, labels)`; tham số thứ hai mới là thứ ghim thứ tự. Gợi ý cũ ở mục việc cần làm đã ghi sai dòng này, nay đã sửa.
 
 **Kiểm chứng**
 ```bash

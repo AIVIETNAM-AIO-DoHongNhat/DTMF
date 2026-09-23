@@ -40,9 +40,14 @@ m = dtmf_metrics(keysTrue, keysHat)  % .acc .editDist .confusion (12x12)
   này, nên hàm trả `''` (`0×0`) làm ca round-trip chuỗi rỗng báo sai dù giải mã đúng. Trong
   test kiểm rỗng bằng `verifyEmpty` + `verifyClass`, không dùng `verifyEqual(x, '')`.
 - Hàm trong `src/` **không được** gọi `figure`, `plot`, `disp`, `sound`, `input`.
-- `app/dtmf_run.m` là lớp trung gian **duy nhất** giữa UI và `src/`.
-- Chỉ ba script được phép vẽ và phát âm thanh: `scripts/dev_harness.m`,
-  `scripts/run_bench.m`, `scripts/make_figures.m`.
+- `app/dtmf_run.m` là lớp trung gian **duy nhất** cho phần TÍNH TOÁN: chỉ nó được gọi
+  `src/decode/*` và `src/util/*`. `app/ui/*.m` chỉ vẽ cái đã có sẵn trong `S` - xem §6(h).
+  Ngoại lệ đúng một hàm: **`dtmf_table()` được phép gọi từ `app/ui/*.m`**, vì đó là bảng
+  hằng số chứ không phải phép tính, và chép tay 7 tần số vào mỗi hàm vẽ thì sớm muộn lệch
+  với `src/gen/dtmf_table.m`.
+- Chỉ hai nơi được phép vẽ và phát âm thanh: **`app/ui/*.m`** (tầng hiển thị của
+  `DTMFApp`) và ba script `scripts/dev_harness.m`, `scripts/run_bench.m`,
+  `scripts/make_figures.m`. Mọi nơi khác - kể cả `app/dtmf_run.m` - thì không.
 - Định danh lỗi dạng `'ham:loi'`, **ASCII**.
 - Khối `arguments` là mặt hợp đồng: không thêm validator. Cần chặn gì thì chặn trong thân hàm.
 - Không sửa pragma `%#ok<...>` sẵn có, và **không thêm pragma mới** - loại bỏ nguyên nhân
@@ -109,7 +114,7 @@ nằm ở `report/template/references.bib`) - giữ hai bản thì sớm muộn 
 | Ngưỡng quyết định | đỉnh ≥ 6 dB so với bin nhì **cùng nhóm**; Σ7 bin ≥ 70% năng lượng khung |
 | Cộng hưởng filter bank | r = 0,99 → BW ≈ 25 Hz |
 
-## 6. Bảy quyết định chốt bổ sung
+## 6. Tám quyết định chốt bổ sung
 
 ### (a) Chuẩn hóa `E` - bộ giải mã tự làm, không đổi chữ ký hàm
 
@@ -266,6 +271,36 @@ Bốn quy ước đi kèm:
 - Ký tự ngoài 12 phím là **lỗi gọi hàm** (`dtmf_metrics:badKey`), không phải dữ liệu xấu cần
   bỏ qua.
 
+### (h) Tầng UI không tính toán - `dtmf_run` dọn sẵn `thr` và `iSel`
+
+`app/ui/*.m` chỉ được **vẽ cái đã có sẵn trong `S`**. Mọi con số phải do `app/dtmf_run.m` tính,
+vì đó là lớp trung gian duy nhất giữa UI và `src/`. Hai giá trị mà `ui_refresh` cần:
+
+```matlab
+S.iSel = argmax(info.conf);                                  % 0 nếu không có khung nào
+S.thr  = 0.5 * min(max(E(1:4)), max(E(5:7)));                % E = info.E(:, S.iSel)
+```
+
+`thr` là **luật thứ 5 của `dtmf_decide`** (hài bậc 2). Đó là luật duy nhất trong năm luật vẽ
+được thành một đường nằm ngang trong đơn vị của `E`: bốn luật còn lại so sánh các bin **với
+nhau** (đỉnh so với đỉnh nhì, cột so với hàng, tổng bảy bin so với năng lượng khung) nên không
+có đường nào để vẽ. Đo trên khung thật của phím `'5'`: `thr = 0,196` và đúng **2** cột vượt
+ngưỡng - chính là hàng và cột được chọn.
+
+`nFrame = 0` cho `iSel = 0` và `thr = 0`; `ui_plot_bars` nhận `E` rỗng thì xóa trục thay vì vẽ
+rác. `iSel` lấy theo `conf` lớn nhất, **không** phải "khung cuối có `reject` khác `'none'`".
+
+**`dtmf_run` trừ trung bình trước khi gọi bộ giải mã nhưng KHÔNG ghi đè `S.y`:**
+
+```matlab
+[S.keysHat, S.info] = dtmf_decode_xxx(S.y - mean(S.y), 'fs', S.fs);
+```
+
+Ghi đè `S.y` thì `ui_plot_wave` vẽ một tín hiệu khác với cái người dùng vừa sinh ra và vừa
+nghe. Lý do phải trừ trung bình: §7.7.
+
+`S.lastError` rỗng là **`blanks(0)` (1×0)**, không phải `''` (0×0) - luật §2.
+
 ## 7. Số liệu đã đo
 
 ### 7.1 Hệ số bù cửa sổ của nhánh FFT
@@ -380,6 +415,13 @@ quá độ. Nếu lọc riêng từng khung:
 đầu vào đúng một thời hằng; ở khung khoảng lặng mẫu số `sum(frame.^2)` sụp mà tử số vẫn còn
 dư âm, nên `rho` đo được tới **3,08** (hai nhánh kia tối đa 0,95). Đây là nguồn gốc của luật
 `minRun = 2` ở §6(f). Test của nhánh này **không** khẳng định `rho <= 1,05` như nhánh FFT.
+
+Con số 3,08 đo trên tín hiệu **chưa trừ trung bình**. Sau khi `dtmf_run` trừ trung bình theo
+§6(h), khung khoảng lặng không còn `en = 0` đúng bằng 0 nữa mà thành *rất nhỏ khác 0*, nên
+chốt `if en > 0` không giữ `E = 0` được và `rho` vọt lên **6,65e7** (đo 23/09/2026 trên
+`'0912345'`). Vô hại: các khung đó vẫn trượt luật đỉnh, và `minRun = 2` dọn nốt phần còn lại -
+quét 60 chuỗi ngẫu nhiên × 3 phương pháp cho **0/180 ca sai** trên tín hiệu sạch và **0/180**
+với DC 0,2 kèm nhiễu 15 dB. Đừng viết test khẳng định cận trên của `rho` cho nhánh này.
 
 **Chịu nhiễu - kết quả so sánh chính của Chủ đề 4.** 10 chuỗi 12 phím × 5 lần mỗi mức,
 `rng(2026)`:

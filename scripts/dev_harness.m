@@ -1,6 +1,6 @@
 %% dev_harness.m
 % DEV_HARNESS Kịch bản để coder tự kiểm tra toàn bộ pipeline BẰNG TAY, không
-% cần chờ DTMFApp.mlapp (Epic E5) hay coeffs.mat của tổ S3 (Gói #5).
+% cần chờ DTMFApp (Buổi 9) hay coeffs.mat của tổ S3 (Gói #5).
 %
 % Đây là file duy nhất trong repo ĐƯỢC PHÉP gọi figure/plot/sound - vì nó
 % không thuộc src/ hay app/, chỉ là kịch bản thử nghiệm cá nhân.
