@@ -142,7 +142,7 @@ MLB='C:\Program Files\MATLAB\R2026a\bin\matlab.exe'
 | 6 | `design_bpf_bank` + `filterbank` | 2.5 | 4 | 3 phương pháp khớp nhau | ☑ |
 | 7 | `dtmf_metrics` | 1.0 | 4 | `acc == 1` cả 3 phương pháp | ☑ |
 | 8 | `dtmf_run` + 3 hàm `ui_plot_*` | 2.0 | 7 | `test_ui_smoke` xanh, headless | ☑ |
-| 9 | 🖥️ **Giao diện `DTMFApp`** | 3.0 | 8 | App giải mã đúng, có tiếng | ☐ |
+| 9 | 🖥️ **Giao diện `DTMFApp`** | 3.0 | 8 | App giải mã đúng, có tiếng | ☑ |
 | 10 | Thực nghiệm + 8 hình | 2.0 | 9 | ≥ 8 file trong `results/figures/` | ☐ |
 
 **Tổng ≈ 20.25 giờ.** Đường găng: `0 → 1 → 2 → 3 → 4 → {5,6} → 7 → 8 → 9 → 10`.
@@ -499,7 +499,7 @@ dù hệ số y hệt. Chạy `make_coeffs` khi và chỉ khi đổi tham số t
 
 ---
 
-## ☐ Buổi 9 — Giao diện `DTMFApp` · 3 giờ · 🖥️
+## ☑ Buổi 9 — Giao diện `DTMFApp` · 3 giờ · 🖥️ (Đã xong)
 
 | | |
 |---|---|
@@ -518,29 +518,45 @@ dù hệ số y hệt. Chạy `make_coeffs` khi và chỉ khi đổi tham số t
 **Khuyến nghị: phương án B.** Lý do cụ thể: `ui_refresh.m` **không quan tâm** app tạo bằng cách nào — nó chỉ đụng `app.AxWave`, `app.AxSpec`, `app.AxBars`, `app.TxtLog`, `app.LblDecoded`, `app.S`. Một `classdef DTMFApp < handle` có đúng 5 property đó thỏa mãn `ui_refresh` **y hệt** class do App Designer sinh. Tên "đóng băng" trong `docs/ui_naming.md` vẫn được tôn trọng nguyên vẹn. Và B là phương án **duy nhất** bảo vệ được bằng `run_all_tests`.
 
 **Việc cần làm**
-- [ ] `classdef DTMFApp < handle`, constructor nhận `visible` (`'off'` cho test)
-- [ ] Property: `UIFigure, PnlKeypad, Btn1..Btn9, Btn0, BtnStar, BtnHash, AxWave, AxSpec, AxBars, DdMethod, SldSNR, EfKeys, BtnGen, BtnDecode, BtnPlay, LblDecoded, TxtLog, S`
-- [ ] 12 nút keypad dùng **chung một callback** `Btn1Pushed` đọc `event.Source.Text`
-- [ ] `DdMethod.ItemsData = {'fft','goertzel','filterbank'}`
-- [ ] `SldSNR.Limits = [-5 30]`, dùng `ValueChanged` (**không** `ValueChanging`)
-- [ ] `TxtLog.Editable = 'off'`, `Value` kiểu cell
-- [ ] Mỗi callback **≤ 3 dòng**: đọc UI → `dtmf_run` → `ui_refresh`
-- [ ] `app/ui/ui_play.m` gọi `sound()`, bọc `if usejava('jvm')` để test headless không treo
-- [ ] `tests/test_app_smoke.m`: dựng `DTMFApp('off')` → `EfKeys.Value='0912345'` → `BtnGenPushed` → lặp 3 phương pháp → `BtnDecodePushed` → `verifyEqual(app.LblDecoded.Text,'0912345')`, `verifyEmpty(app.S.lastError)`
+- [x] `classdef DTMFApp < handle`, constructor nhận `visible` (`'off'` cho test)
+- [x] Property: `UIFigure, PnlKeypad, Btn1..Btn9, Btn0, BtnStar, BtnHash, AxWave, AxSpec, AxBars, DdMethod, SldSNR, EfKeys, BtnGen, BtnDecode, BtnPlay, LblDecoded, TxtLog, S`
+- [x] 12 nút keypad dùng **chung một callback** `Btn1Pushed` đọc `event.Source.Text`
+- [x] `DdMethod.ItemsData = {'fft','goertzel','filterbank'}`
+- [x] `SldSNR.Limits = [-5 30]`, dùng `ValueChanged` (**không** `ValueChanging`)
+- [x] `TxtLog.Editable = 'off'`, `Value` kiểu cell
+- [x] Mỗi callback **≤ 3 dòng**: đọc UI → `dtmf_run` → `ui_refresh`. Phần tính toán nằm trong các method private `docUI`, `sinhTinHieu`, `congNhieu`, `xoaKetQua` — callback chỉ điều phối
+- [x] `app/ui/ui_play.m` gọi `sound()`, bọc `if usejava('jvm')` để test headless không treo
+- [x] `tests/test_app_smoke.m`: dựng `DTMFApp('off')` → `EfKeys.Value='0912345'` → `BtnGenPushed` → lặp 3 phương pháp → `BtnDecodePushed` → `verifyEqual(app.LblDecoded.Text,'0912345')`, `verifyEmpty(app.S.lastError)`
+- [x] ⚠️ **Chữ ký callback là `(app, event)` — HAI tham số**, đúng dạng App Designer tự sinh và đúng `docs/ui_naming.md` §3. Vì vậy lệnh kiểm chứng gọi `a.BtnGenPushed([])` chứ **không** phải `a.BtnGenPushed([],[])` như bản kế hoạch cũ ghi (đã sửa 23/09/2026). Giữ hai tham số là điều kiện để sau này dán nguyên thân callback sang `.mlapp` mà không phải sửa dòng nào — xem ghi chú cuối mục
+- [x] ⚠️ **Sáu callback để `public`**, khác App Designer (mặc định `private`): MATLAB không có API công khai nào để "bấm" một `uibutton` bằng code, nên test phải gọi thẳng callback. Không mở `public` thì cả Buổi 9 không test tự động được, tức mất đúng thứ làm nên phương án B
+- [x] Bấm phím thì kêu luôn: `Btn1Pushed` gọi `phatPhim` (sinh tone một phím rồi `ui_play`). Method này **thoát sớm khi `UIFigure.Visible == "off"`** — quyết định "giao diện ẩn thì không phát tiếng" nằm ở `DTMFApp`, không nằm trong `ui_play`
 
 **Bẫy**
 - `CONTRACTS.md` dòng 31 cho phép âm thanh trong `app/ui/*.m` — nên đặt `sound()` trong `ui_play.m` chứ **không viết thẳng trong callback**.
 - Không đặt bất kỳ phép tính DSP nào trong callback; sai luật kiến trúc là mất điểm khi chấm code.
+- ⚠️ **`usejava('jvm')` KHÔNG đủ để chặn âm thanh khi chạy `matlab -batch`** — batch vẫn có JVM. Chốt thật là `UIFigure.Visible == "off"` ở tầng `DTMFApp`; `ui_play` chỉ giữ hai tuyến phòng vệ còn lại (thiếu JVM, và `try/catch` quanh `sound` cho máy không có thiết bị âm thanh).
+- ⚠️ **Bấm "Phát tín hiệu" phải xóa kết quả giải mã cũ** (`xoaKetQua`). Thiếu bước này, đổi chuỗi phím rồi bấm Phát mà nhãn `LblDecoded` còn nguyên chuỗi cũ thì người xem tưởng máy vừa giải mã đúng chuỗi mới. Đây là lỗi hiểu nhầm chứ không phải lỗi kỹ thuật — và nó xảy ra ngay trước mắt người chấm. Kiểm thử đột biến: bỏ `xoaKetQua` → `test_generateClearsThePreviousResult` đỏ.
+- ⚠️ **Không so `x` trước/sau để chứng minh thanh SNR không sinh lại tín hiệu.** `dtmf_generate` tất định nên sinh lại cùng chuỗi phím cho đúng cùng một mảng — bản test đầu tiên xanh cả khi `congNhieu` cố tình gọi lại `dtmf_generate`. Ca thật phải gõ chuỗi mới vào `EfKeys` **mà chưa bấm Phát**, rồi kéo thanh trượt: nếu `x` bị sinh lại thì tín hiệu đổi sau lưng người dùng trong khi `meta` vẫn của chuỗi cũ, làm dạng sóng và nhãn phím trên `AxWave` lệch nhau mà không có lỗi nào.
+- `docUI` chuẩn hóa `reshape(char(EfKeys.Value), 1, [])` là để giữ luật §2 "mọi giá trị rỗng là 1×0", **không** phải để chặn lỗi: đã đo, `dtmf_generate('')` với `''` cỡ 0×0 chạy bình thường vì khối `arguments` của MATLAB nhận mọi mảng rỗng cho `(1,:)`.
 
 **Kiểm chứng**
 ```bash
 # headless
-"$MLB" -batch "cd('D:\PROJECT\DMTF'); addpath(genpath('src')); addpath(genpath('app')); a=DTMFApp('off'); a.EfKeys.Value='0912345'; a.BtnGenPushed([],[]); a.DdMethod.Value='goertzel'; a.BtnDecodePushed([],[]); fprintf('Decoded=%s err=[%s]\n',a.LblDecoded.Text,a.S.lastError); delete(a.UIFigure)"
+"$MLB" -batch "cd('D:\PROJECT\DMTF'); addpath(genpath('src')); addpath(genpath('app')); a=DTMFApp('off'); a.EfKeys.Value='0912345'; a.BtnGenPushed([]); a.DdMethod.Value='goertzel'; a.BtnDecodePushed([]); fprintf('Decoded=%s err=[%s]\n',a.LblDecoded.Text,a.S.lastError); delete(a)"
 # mắt người nhìn — bấm phím, nghe tiếng, kéo SNR
 "$MLB" -batch "cd('D:\PROJECT\DMTF'); addpath(genpath('src')); addpath(genpath('app')); DTMFApp('on'); uiwait"
 ```
-- [ ] Headless in `Decoded=0912345 err=[]`
-- [ ] Mở thật: bấm 12 phím đều kêu; kéo SNR ≥ 10 dB giải mã đúng; đổi 3 phương pháp đều chạy
+- [x] Headless in `Decoded=0912345 err=[]`
+- [x] `test_app_smoke` xanh 19/19; toàn bộ **162/162 PASS**
+- [ ] Mở thật: bấm 12 phím đều kêu; kéo SNR ≥ 10 dB giải mã đúng; đổi 3 phương pháp đều chạy ← **việc duy nhất còn lại của Buổi 9, phải có người ngồi trước máy**
+
+> ⚠️ **Đo được 23/09/2026 — ảnh hưởng thẳng tới hình H3.3 của Buổi 10.** `exportapp(app.UIFigure, ...)`
+> chạy trong `matlab -batch` với `Visible='off'` chụp **đủ cột trái** (bàn phím, ô phím, dropdown,
+> thanh SNR, ba nút, nhãn kết quả, nhật ký) nhưng **ba `uiaxes` ra trắng trơn**, chỉ còn ba dấu
+> `...` của thanh công cụ trục. Nội dung vẫn có thật — đếm được `AxWave` 15 đối tượng con,
+> `AxSpec` 8, `AxBars` 2 — chỉ là không lên được ảnh. Hai cách cho H3.3: chụp trong phiên MATLAB
+> **hiện hình** (`DTMFApp('on')` rồi `exportapp`), hoặc chụp **từng trục** bằng
+> `exportgraphics(app.AxWave, ...)`. Đừng phát hiện chuyện này vào đúng hôm dựng hình.
 
 > Nếu khoa bắt buộc nộp đúng file `.mlapp`: mở App Designer **một lần**, kéo thả component đặt tên theo `docs/ui_naming.md`, dán 6 thân callback từ `DTMFApp.m`. 1.5 h, và làm **sau Buổi 10** — vì ảnh chụp giao diện cho báo cáo lấy từ phương án B bằng `exportgraphics` là đủ.
 
@@ -570,7 +586,7 @@ dù hệ số y hệt. Chạy `make_coeffs` khi và chỉ khi đổi tham số t
 | H2.1 | Phổ FFT phím "5" + 8 bin | `ui_plot_spec` | ☐ |
 | H2.3 | Giản đồ cực–không 7 bộ chuẩn (14 nếu kể cả bộ hài) | `zplane(b, a)` của toolbox | ☐ |
 | H2.4 | Biểu đồ 8 cột + ngưỡng | `ui_plot_bars` — *"hình quan trọng nhất buổi demo"* | ☐ |
-| H3.3 | Ảnh chụp giao diện | `exportgraphics(app.UIFigure,...)` | ☐ |
+| H3.3 | Ảnh chụp giao diện | `exportapp` trong phiên **hiện hình**, hoặc `exportgraphics` từng trục — xem ghi chú cuối Buổi 9 | ☐ |
 | H4.1 | Độ chính xác theo SNR, 3 phương pháp | `bench.mat` | ☐ |
 | H4.2 | Heatmap ma trận nhầm lẫn | `bench.mat` | ☐ |
 | H4.3 | Histogram lý do loại khung theo SNR | `bench.mat` — vách 8 dB thành **phát hiện** | ☐ |
@@ -592,14 +608,14 @@ dù hệ số y hệt. Chạy `make_coeffs` khi và chỉ khi đổi tham số t
 ```bash
 MLB='C:\Program Files\MATLAB\R2026a\bin\matlab.exe'
 
-# 1. Toàn bộ test xanh (~60 ca sau Buổi 9)
+# 1. Toàn bộ test xanh (162 ca sau Buổi 9)
 "$MLB" -batch "cd('D:\PROJECT\DMTF'); addpath('tests'); run_all_tests"
 
 # 2. Pipeline đầu-cuối, 3 phương pháp, có nhiễu
 "$MLB" -batch "cd('D:\PROJECT\DMTF'); addpath(genpath('src')); [x,~,m]=dtmf_generate('0912345*#'); y=dtmf_addnoise(x,'snrDb',15); for mm={'fft','goertzel','filterbank'}, f=str2func(['dtmf_decode_' mm{1}]); k=f(y); r=dtmf_metrics(m.keys,k); fprintf('%-11s hat=%-12s acc=%.3f\n',mm{1},k,r.acc); end"
 
 # 3. GUI headless
-"$MLB" -batch "cd('D:\PROJECT\DMTF'); addpath(genpath('src')); addpath(genpath('app')); a=DTMFApp('off'); a.EfKeys.Value='0912345'; a.BtnGenPushed([],[]); a.BtnDecodePushed([],[]); fprintf('Decoded=%s err=[%s]\n',a.LblDecoded.Text,a.S.lastError); delete(a.UIFigure)"
+"$MLB" -batch "cd('D:\PROJECT\DMTF'); addpath(genpath('src')); addpath(genpath('app')); a=DTMFApp('off'); a.EfKeys.Value='0912345'; a.BtnGenPushed([]); a.BtnDecodePushed([]); fprintf('Decoded=%s err=[%s]\n',a.LblDecoded.Text,a.S.lastError); delete(a)"
 
 # 4. Sinh đủ hình
 "$MLB" -batch "cd('D:\PROJECT\DMTF'); addpath(genpath('src')); addpath(genpath('app')); addpath('scripts'); run_bench; make_figures; assert(numel(dir('results/figures/*.pdf'))>=8)"

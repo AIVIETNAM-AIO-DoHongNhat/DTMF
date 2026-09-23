@@ -4,7 +4,7 @@
 
 ## Tóm tắt
 
-DTMF (*Dual-Tone Multi-Frequency*, ITU-T Q.23) mã hóa mỗi phím điện thoại bằng tổng hai sóng sin: một tần số thuộc nhóm thấp (hàng) và một tần số thuộc nhóm cao (cột). Dự án xây dựng một bộ phát tín hiệu DTMF và **ba bộ giải mã**: FFT, thuật toán Goertzel và ngân hàng bộ lọc IIR. Cả ba bộ giải mã dùng chung một cách chia khung và một luật quyết định, nhờ vậy có thể so sánh công bằng độ chính xác của chúng khi SNR giảm dần. Kết quả được trình bày qua giao diện MATLAB App Designer.
+DTMF (*Dual-Tone Multi-Frequency*, ITU-T Q.23) mã hóa mỗi phím điện thoại bằng tổng hai sóng sin: một tần số thuộc nhóm thấp (hàng) và một tần số thuộc nhóm cao (cột). Dự án xây dựng một bộ phát tín hiệu DTMF và **ba bộ giải mã**: FFT, thuật toán Goertzel và ngân hàng bộ lọc IIR. Cả ba bộ giải mã dùng chung một cách chia khung và một luật quyết định, nhờ vậy có thể so sánh công bằng độ chính xác của chúng khi SNR giảm dần. Kết quả được trình bày qua một giao diện `uifigure` viết bằng mã (`app/DTMFApp.m`), nhờ vậy giao diện cũng nằm trong bộ unit test.
 
 
 ## Cơ sở lý thuyết
@@ -63,7 +63,7 @@ dtmf_segment → [đo phổ: FFT | Goertzel | ngân hàng bộ lọc] → dtmf_d
 src/gen/      Phát tín hiệu: dtmf_table, dtmf_generate, dtmf_addnoise
 src/decode/   Giải mã: FFT, Goertzel, ngân hàng bộ lọc
 src/util/     Chia khung, luật quyết định, gộp phím, đánh giá
-app/          dtmf_run (lớp trung gian) + app/ui/ (các hàm vẽ)
+app/          DTMFApp (giao diện) + dtmf_run (lớp trung gian) + app/ui/ (vẽ, phát tiếng)
 tests/        Unit test (matlab.unittest)
 scripts/      dev_harness.m (thử tay), make_coeffs.m (sinh hệ số bộ lọc)
 data/         wav/, mat/ - tập dữ liệu; coeffs.mat sinh tại chỗ, không nằm trong git
@@ -96,6 +96,17 @@ y               = dtmf_addnoise(x, 'snrDb', 15);     % AWGN, SNR = 15 dB
 [keysHat, info] = dtmf_decode_goertzel(y);
 m               = dtmf_metrics(meta.keys, keysHat);  % m.acc, m.editDist, m.confusion
 ```
+
+Mở giao diện:
+
+```matlab
+DTMFApp                 % bấm phím để nghe, "Phát tín hiệu" -> "Giải mã"
+```
+
+Giao diện là `app/DTMFApp.m` dạng `classdef` tự dựng `uifigure`, **không** phải `.mlapp`: file
+`.mlapp` là ZIP nhị phân, không diff, không merge và không chạy được trong `matlab -batch`. Nhờ
+vậy toàn bộ tầng giao diện nằm trong `run_all_tests` — `DTMFApp('off')` dựng cửa sổ ẩn, test gọi
+thẳng callback rồi đọc `app.LblDecoded.Text`. Giao diện ẩn thì không phát tiếng.
 
 Chạy toàn bộ test:
 

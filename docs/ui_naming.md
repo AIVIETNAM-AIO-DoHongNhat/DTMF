@@ -50,7 +50,7 @@ Label chú thích tĩnh (kiểu "SNR (dB)") không cần đặt tên.
 | `DdMethod` | DropDown | `ItemsData = {'fft','goertzel','filterbank'}` → `Value` khớp sẵn `S.method` |
 | `SldSNR` | Slider | `Limits = [-5 30]`, đơn vị dB, dùng `ValueChanged` (không dùng `ValueChanging`) |
 | `EfKeys` | EditField | Chuỗi phím cần phát |
-| `BtnGen` / `BtnDecode` / `BtnPlay` | Button | Phát tín hiệu / giải mã / nghe |
+| `BtnGen` / `BtnDecode` / `BtnPlay` | Button | Phát tín hiệu / giải mã / nghe. `BtnPlay` phát `S.y` (**đã cộng nhiễu**) qua `app/ui/ui_play.m` — đúng cái bộ giải mã nghe |
 
 **Hiển thị:**
 
@@ -64,7 +64,16 @@ Label chú thích tĩnh (kiểu "SNR (dB)") không cần đặt tên.
 Giữ nguyên tên App Designer tự sinh: `BtnDecodePushed`, `DdMethodValueChanged`, `SldSNRValueChanged`.
 Cả 12 nút bàn phím dùng **chung một callback** `Btn1Pushed`, lấy ký tự từ `event.Source.Text`.
 
+Chữ ký là `(app, event)` — **hai tham số**, y như App Designer sinh ra, để sau này dán nguyên thân
+callback sang `.mlapp` mà không phải sửa dòng nào. `DTMFApp.m` nối dây bằng
+`'ButtonPushedFcn', @(src, evt) app.Btn1Pushed(evt)`; gọi từ test là `app.BtnGenPushed([])`.
+
+Sáu callback để **`public`** (App Designer mặc định `private`): MATLAB không có API công khai nào
+để "bấm" một `uibutton` bằng code, nên `tests/test_app_smoke.m` phải gọi thẳng chúng.
+
 Mỗi callback tối đa ~3 dòng: đọc UI vào `app.S` → `dtmf_run` → `ui_refresh`. Không tính toán DSP trong callback.
+Phần việc dài hơn nằm ở các method `private` của `DTMFApp`: `docUI` (chiều UI → `S` duy nhất),
+`sinhTinHieu`, `congNhieu`, `xoaKetQua`, `phat`/`phatPhim`, `ghiNhatKy`.
 
 ```matlab
 function Btn1Pushed(app, event)
