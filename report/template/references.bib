@@ -4,28 +4,42 @@
 %
 % LUẬT BẮT BUỘC CỦA NHÓM:
 %   Mỗi mục dưới đây phải được người trích dẫn tự mở tài liệu gốc và
-%   điền đầy đủ thông tin thư mục + ghi số trang vào phần \cite trong văn.
+%   điền đầy đủ thông tin thư mục + ghi số trang vào chỗ trích dẫn trong văn.
 %   Các trường đánh dấu TODO là chỗ bắt buộc phải kiểm chứng, KHÔNG được
 %   đoán hoặc để AI sinh ra.
 % =========================================================
+%
+%   Ghi chú nội bộ (mục dùng ở đâu, việc còn phải kiểm chứng) đặt trong trường
+%   `annotation`: biblatex không in trường này, nên TODO không lọt ra bản PDF.
+%   Đừng dùng `note` cho ghi chú nội bộ, vì `note` được in nguyên văn.
 
 % ---------------------------------------------------------
 % Giáo trình tiếng Việt (trong thư mục docs/Tham khảo/)
 % ---------------------------------------------------------
 @book{xltinhieu_tap1,
-  author    = {TODO: điền tên tác giả},
-  title     = {Xử lý tín hiệu và lọc số, tập 1},
-  publisher = {TODO: điền nhà xuất bản},
-  year      = {TODO: điền năm},
-  note      = {Dùng cho Chương I và mục 2.1}
+  author    = {{Nguyễn Quốc Trung}},
+  title     = {Xử lý tín hiệu và lọc số, tập 1 (Chương trình cơ bản)},
+  publisher = {Nhà xuất bản Khoa học và Kỹ thuật},
+  location  = {Hà Nội},
+  year      = {2008},
+  annotation      = {Đối chiếu bản scan: tác giả, NXB ở bìa và trang tên sách;
+                     năm theo trang cuối (in xong và nộp lưu chiểu tháng 11/2008).
+                     Số trang theo Mục lục tr. 281-283: định nghĩa biến đổi Z
+                     tr. 77, cực và không tr. 89, định lý lấy mẫu tr. 195-200,
+                     độ ổn định trong miền Z tr. 130-132 (đã xem trang).}
 }
 
 @book{xltinhieu_tap2,
-  author    = {TODO: điền tên tác giả},
+  author    = {{Nguyễn Quốc Trung}},
   title     = {Xử lý tín hiệu và lọc số, tập 2},
-  publisher = {TODO: điền nhà xuất bản},
-  year      = {TODO: điền năm},
-  note      = {Dùng cho mục 2.3}
+  edition   = {Tái bản, có sửa chữa và bổ sung},
+  publisher = {Nhà xuất bản Khoa học và Kỹ thuật},
+  location  = {Hà Nội},
+  year      = {2003},
+  annotation      = {Đối chiếu bản scan: trang tên sách ghi "Hà Nội - 2003".
+                     Số trang theo Mục lục tr. 477-480: bộ lọc IIR tr. 7-9,
+                     biến đổi song tuyến tr. 21-30, độ nhạy tr. 178-183,
+                     FFT phân thời gian N = 2^gamma tr. 363-381.}
 }
 
 % ---------------------------------------------------------
@@ -37,23 +51,32 @@
                from Sampling to Filter Design},
   publisher = {TODO: kiểm chứng nhà xuất bản trên trang bìa},
   year      = {TODO: kiểm chứng năm xuất bản},
-  note      = {Dùng cho mục 2.2 và 2.3}
+  annotation      = {Dùng cho mục 2.2 và 2.3}
 }
 
 @book{marven_simple_dsp,
   author    = {Craig Marven and Gillian Ewers},
   title     = {A Simple Approach to Digital Signal Processing},
-  publisher = {TODO: kiểm chứng nhà xuất bản trên trang bìa},
-  year      = {TODO: kiểm chứng năm xuất bản},
-  note      = {Dùng cho mục 2.2}
+  series    = {Topics in Digital Signal Processing},
+  publisher = {John Wiley \& Sons},
+  location  = {New York},
+  year      = {1996},
+  isbn      = {0-471-15243-9},
+  annotation      = {Đối chiếu trang bản quyền. Số trang in: định lý lấy mẫu và
+                     chồng phổ tr. 34-36; FIR/IIR tr. 101-102; FFT tr. 138;
+                     Goertzel dùng cho DTMF tr. 143.}
 }
 
 @book{basic_dsp,
-  author    = {TODO: điền tên tác giả},
+  editor    = {Barbara Sawicka},
   title     = {Basic Digital Signal Processing},
-  publisher = {TODO: điền nhà xuất bản},
-  year      = {TODO: điền năm},
-  note      = {Dùng cho Chương I và mục 2.1}
+  publisher = {Bibliotex},
+  year      = {2023},
+  isbn      = {978-1-98468-491-2},
+  annotation      = {Đối chiếu trang bản quyền (e-book Edition 2023; bản in gốc
+                     của Intelliz Press). Số trang in: định lý lấy mẫu tr. 46-47;
+                     rò rỉ phổ và hàm cửa sổ tr. 130-133; cực trên đường tròn
+                     đơn vị cho dao động không suy giảm tr. 154; FIR/IIR tr. 217.}
 }
 
 % ---------------------------------------------------------
@@ -67,10 +90,9 @@
   institution = {International Telecommunication Union},
   type        = {Recommendation},
   number      = {Q.23},
-  year        = {TODO: kiểm chứng năm ban hành - help cũ của dtmf_table.m
-                 ghi 1988, chưa ai đối chiếu bản gốc},
   url         = {https://www.itu.int/rec/T-REC-Q.23/en},
-  note        = {Dùng cho mục 1.1.3}
+  annotation        = {Dùng cho mục 1.1.3. TODO: bổ sung năm ban hành - help cũ
+                 của \texttt{dtmf\_table.m} ghi 1988, chưa ai đối chiếu bản gốc}
 }
 
 @techreport{itu_q24,
@@ -80,9 +102,23 @@
   institution = {International Telecommunication Union},
   type        = {Recommendation},
   number      = {Q.24},
-  year        = {TODO: kiểm chứng năm ban hành},
   url         = {https://www.itu.int/rec/T-REC-Q.24/en},
-  note        = {Dùng cho mục 1.1.3 và 2.2.4}
+  annotation        = {Dùng cho mục 1.1.3 và 2.2.4. TODO: bổ sung năm ban hành,
+                 chưa ai đối chiếu bản gốc}
+}
+
+@standard{etsi_es201235_3,
+  author      = {{ETSI}},
+  title       = {ES 201 235-3 V1.3.1: Access and Terminals (AT); Specification
+                 of Dual-Tone Multi-Frequency (DTMF) Transmitters and
+                 Receivers; Part 3: Receivers},
+  organization = {European Telecommunications Standards Institute},
+  type        = {Final draft ETSI Standard},
+  date        = {2006-01},
+  url         = {https://www.etsi.org/deliver/etsi_es/201200_201299/20123503/01.03.01_50/es_20123503v010301m.pdf},
+  annotation  = {Đã mở bản gốc. Mục 4.2.1.3 (bộ thu số): tín hiệu phải được nhận
+                 là hợp lệ khi tổng các thành phần khác trong dải 500-3400 Hz
+                 thấp hơn mức âm nhóm thấp 20 dB. Dùng cho mốc SNR ở Chương 4.}
 }
 
 % ---------------------------------------------------------
@@ -97,8 +133,8 @@
   number  = {1},
   pages   = {34--35},
   year    = {1958},
-  note    = {Chuyển từ khối help của src/decode/goertzel_power.m;
-             TODO: mở bản gốc kiểm chứng số trang trước khi \cite}
+  annotation    = {Chuyển từ khối help của \texttt{src/decode/goertzel\_power.m};
+             TODO: mở bản gốc kiểm chứng số trang trước khi trích dẫn}
 }
 
 @book{proakis_dsp,
@@ -108,8 +144,8 @@
   edition   = {4},
   publisher = {Pearson},
   year      = {2007},
-  note      = {Dùng cho mục 2.2 (Goertzel); TODO: ghi số trang
-               chương tương ứng vào phần \cite trong văn}
+  annotation      = {Dùng cho mục 2.2 (Goertzel); TODO: ghi số trang
+               chương tương ứng vào chỗ trích dẫn trong văn}
 }
 
 % ---------------------------------------------------------
@@ -117,9 +153,11 @@
 % ---------------------------------------------------------
 @online{mathworks_goertzel,
   author  = {{The MathWorks, Inc.}},
-  title   = {goertzel --- Discrete Fourier transform with second-order
+  title   = {goertzel: Discrete Fourier transform with second-order
              Goertzel algorithm},
   url     = {https://www.mathworks.com/help/signal/ref/goertzel.html},
-  urldate = {TODO: điền ngày truy cập},
-  note    = {Dùng để đối chiếu kết quả ở mục 2.2.6}
+  urldate = {2026-09-24},
+  annotation    = {Dùng để đối chiếu kết quả ở mục 2.2.6. Ví dụ "Estimate
+             Telephone Keypad Frequencies" sinh 205 mẫu ở fs = 8 kHz (đã xem
+             trang ngày 24/9/2026) - dùng cho lựa chọn N = 205.}
 }

@@ -23,7 +23,7 @@ function S = dtmf_run(S)
 %   Input:
 %       S: struct trạng thái, cần .y (1×N double), .fs [Hz], .method
 %          ('fft' | 'goertzel' | 'filterbank'). Danh sách đầy đủ các trường
-%          của S nằm ở docs/ui_naming.md §4.
+%          của S nằm ở docs/ui_naming.md §5.
 %
 %   Output:
 %       S: chính struct đó, với năm trường được ghi

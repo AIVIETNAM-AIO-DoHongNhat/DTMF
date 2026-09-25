@@ -19,6 +19,12 @@
 % Mỗi hình ghi ra HAI bản cùng tên: .png 300 dpi để dán vào slide và Word, .pdf
 % vector để LaTeX dùng. Xem xuatHaiDinhDang ở cuối file.
 %
+% KHÔNG vẽ tiêu đề chung cho hình. Theo chuẩn trình bày bài báo khoa học, tên
+% và lời giải thích của hình nằm ở chú thích (caption) trong báo cáo; vẽ lặp lại
+% bên trong hình vừa tốn chỗ vừa sớm muộn lệch với chú thích. Chỉ giữ tên của
+% từng khung con (ví dụ "Nhiễu awgn", "FFT") vì đó là nhãn dữ liệu. Những con
+% số trước đây đặt ở phụ đề được in ra cửa sổ lệnh để đối chiếu với báo cáo.
+%
 % Tên file dùng GẠCH DƯỚI (H2_1.png) chứ không dùng dấu chấm (H2.1.png): LaTeX
 % cắt phần mở rộng ở dấu chấm ĐẦU TIÊN, nên \includegraphics{Figures/H2.1} đi
 % tìm một file tên "H2" có đuôi ".1". Mã hình trong báo cáo vẫn là H2.1.
@@ -174,6 +180,11 @@ fig = uifigure('Visible', 'off', 'Theme', 'light', 'Position', [100 100 w h]);
 try
     ax = uiaxes(fig, 'Position', [10 10 w-20 h-20], 'FontSize', 10);
     veFcn(ax);
+
+    % ui_plot_* đặt tiêu đề cho trục vì trong giao diện KHÔNG có chú thích nào
+    % khác. Trong báo cáo thì chú thích (caption) làm việc đó, nên bỏ tiêu đề đi
+    % để không nói một điều hai lần - xem ghi chú đầu file.
+    title(ax, '');
     xuatHaiDinhDang(ax, ten);
 catch ME
     delete(fig);
@@ -274,11 +285,7 @@ bw = (1 - r) * fs / pi;
 
 xlabel(ax, 'Phần thực');
 ylabel(ax, 'Phần ảo');
-% Phụ đề tách thành hai dòng. Một dòng dài hơn bề ngang figure bị CẮT CỤT ở hai
-% mép mà MATLAB không cảnh báo gì, và chữ mất là chữ đầu dòng.
-title(ax, sprintf('Vị trí cực và điểm không của %d bộ cộng hưởng', numel(bank)));
-subtitle(ax, {sprintf('r = %.2f, băng thông 3 dB ≈ %.1f Hz', r, bw), ...
-              sprintf('Cả %d bộ dùng chung hai điểm không tại z = ±1', numel(bank))});
+fprintf('  H2_3: %d bo, r = %.2f, BW 3 dB = %.2f Hz\n', numel(bank), r, bw);
 end
 
 
@@ -320,8 +327,8 @@ for iNoi = 1:numel(B.noises)
     end
 end
 
-title(tl, sprintf('Độ chính xác theo SNR, %d chuỗi %d phím, energyRatio = %.2f', ...
-    B.meta.nSeq, B.meta.keysLen, B.energyRatios(iEn)), 'FontWeight', 'bold');
+fprintf('  H4_1: %d chuoi %d phim, energyRatio = %.2f\n', ...
+    B.meta.nSeq, B.meta.keysLen, B.energyRatios(iEn));
 end
 
 
@@ -368,11 +375,10 @@ set(ax, 'XTick', 1:12, 'XTickLabel', num2cell(nhan), ...
         'TickLength', [0 0]);
 xlabel(ax, 'Phím giải mã được');
 ylabel(ax, 'Phím thật');
-title(ax, sprintf('Ma trận nhầm lẫn tại SNR = %g dB, nhiễu %s, gộp 3 phương pháp', ...
-    B.snrDb(iSnr), B.noises{iNoi}));
-subtitle(ax, {sprintf('Tổng %d phép sửa, trong đó %d lần thay phím nằm trong ma trận', ...
-                      tongEdit, nSub(iSnr)), ...
-              sprintf('%d lần chèn hoặc xóa không có ô nào để ghi', nIndel)});
+% Ba con số này là nội dung chú thích của H4.2 trong báo cáo. Đọc chúng ra
+% đây, KHÔNG gõ tay vào báo cáo từ trí nhớ.
+fprintf('  H4_2: SNR = %g dB, nhieu %s: %d phep sua = %d thay phim + %d chen/xoa\n', ...
+    B.snrDb(iSnr), B.noises{iNoi}, tongEdit, nSub(iSnr), nIndel);
 
 vMax = max(M(:));
 for i = 1:12
@@ -431,9 +437,6 @@ for iMet = 1:numel(B.methods)
     end
 end
 
-title(tl, sprintf('Kết cục của từng khung theo SNR, nhiễu %s', B.noises{iNoi}), ...
-    'FontWeight', 'bold');
-subtitle(tl, 'Phần "level" còn lại ở SNR cao là khung khoảng lặng và khung vắt qua biên tone');
 end
 
 
@@ -478,12 +481,10 @@ end
 
 grid(ax, 'on');
 box(ax, 'on');
-title(ax, 'Chi phí tính toán: đo được (cột) và lý thuyết (điểm)');
-% Ghi rõ đây là một lần chạy trên một máy. Cột thời gian chênh tới 3 lần giữa
-% các lần chạy trên cùng máy này; chỉ tỉ số giữa ba nhánh mới là kết quả.
-subtitle(ax, {sprintf('Quy về một giây âm thanh: FFT %.1f khung mỗi giây, hai nhánh kia %.1f', ...
-                      B.framesPerSec(1), B.framesPerSec(2)), ...
-              'Cột thời gian là một lần chạy trên một máy; chỉ tỉ số giữa ba nhánh mới ổn định'});
+% Cột thời gian chênh tới 3 lần giữa các lần chạy trên cùng một máy; chỉ tỉ số
+% giữa ba nhánh là kết quả. Điều đó phải được nói trong chú thích của H4.4.
+fprintf('  H4_4: ns moi phep nhan = [%.1f %.1f %.1f], ti so Goertzel/FFT = %.2f\n', ...
+    nsMoiPhep, nsMoiPhep(2)/nsMoiPhep(1));
 end
 
 
@@ -517,7 +518,4 @@ for iMet = 1:numel(B.methods)
     title(ax, tenDep{iMet});
 end
 
-title(tl, sprintf('Ảnh hưởng của ngưỡng năng lượng, nhiễu %s', B.noises{iNoi}), ...
-    'FontWeight', 'bold');
-subtitle(tl, 'energyRatio = 0.70 là giá trị đang dùng; đặt bằng 0 là bỏ hẳn điều kiện năng lượng');
 end

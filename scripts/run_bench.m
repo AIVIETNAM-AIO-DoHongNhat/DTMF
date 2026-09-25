@@ -144,9 +144,10 @@ hop    = struct('fft', 128, 'goertzel', 205, 'filterbank', 205);
 % thực mỗi phép) + |X|² tại 8 bin (2 phép mỗi bin).
 mulFft = frameN.fft + 4 * (frameN.fft/2) * log2(frameN.fft) + 2*8;
 
-% Goertzel: mỗi bin chạy N vòng, mỗi vòng ĐÚNG MỘT phép nhân thực (coeff*s1),
-% cộng 3 phép lúc quy ra công suất. 8 bin.
-mulGoe = 8 * (frameN.goertzel + 3);
+% Goertzel: mỗi bin chạy N vòng, mỗi vòng ĐÚNG MỘT phép nhân thực (c*s1), cộng
+% 4 phép ở đuôi khi quy ra công suất P = s1^2 + s2^2 - c*s1*s2, đếm lần lượt
+% s1^2, s2^2, c*s1 và (c*s1)*s2 - hệ số c đã tính sẵn ngoài vòng lặp. 8 bin.
+mulGoe = 8 * (frameN.goertzel + 4);
 
 % Ngân hàng bộ lọc: biquad trực tiếp dạng II cần numel(b)+numel(a)-1 = 5 phép
 % nhân mỗi mẫu, chạy trên 14 bộ; cộng 1 phép bình phương mỗi mẫu mỗi bộ khi lấy

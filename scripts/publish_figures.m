@@ -28,8 +28,10 @@ if ~isfolder(dstDir)
 end
 
 % Chép cả hai định dạng: .pdf cho LaTeX, .png cho slide và bản Word. Lọc theo
-% tiền tố H để không kéo theo file rác ai đó để quên trong results/figures.
-d = [dir(fullfile(srcDir, 'H*.pdf')); dir(fullfile(srcDir, 'H*.png'))];
+% tiền tố H (hình số liệu, make_figures) và bia_ (hình bìa, make_cover) để không
+% kéo theo file rác ai đó để quên trong results/figures.
+d = [dir(fullfile(srcDir, 'H*.pdf')); dir(fullfile(srcDir, 'H*.png')); ...
+     dir(fullfile(srcDir, 'bia_*.pdf')); dir(fullfile(srcDir, 'bia_*.png'))];
 if isempty(d)
     error('publish_figures:noFigures', ...
         'Khong co file H*.pdf hay H*.png nao trong %s. Chay make_figures truoc.', srcDir);

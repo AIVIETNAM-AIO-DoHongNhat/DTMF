@@ -1,0 +1,31 @@
+{
+  // Tự biên dịch LaTeX mỗi khi lưu file (Ctrl+S)
+  "latex-workshop.latex.autoBuild.run": "onSave",
+  "latex-workshop.latex.recipe.default": "first",
+  "latex-workshop.latex.recipes": [
+    {
+      "name": "latexmk (xelatex + biber)",
+      "tools": ["latexmk-xelatex"]
+    }
+  ],
+  "latex-workshop.latex.tools": [
+    {
+      "name": "latexmk-xelatex",
+      // Gọi latexmk.pl qua Perl đi kèm Git (MiKTeX không tìm thấy Perl trong PATH)
+      "command": "C:/Program Files/Git/usr/bin/perl.exe",
+      "args": [
+        "C:/Users/ADMIN/AppData/Local/Programs/MiKTeX/scripts/latexmk/latexmk.pl",
+        "-xelatex",
+        "-synctex=1",
+        "-interaction=nonstopmode",
+        "-file-line-error",
+        "%DOC%"
+      ],
+      "env": {}
+    }
+  ],
+  // Mở PDF trong tab VS Code, tự reload sau mỗi lần build
+  "latex-workshop.view.pdf.viewer": "tab",
+  // Không xoá file phụ (.aux, .bbl...) để lần build sau nhanh hơn
+  "latex-workshop.latex.autoClean.run": "never"
+}

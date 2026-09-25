@@ -31,6 +31,14 @@ function ui_plot_spec(ax, y, fs)
 frameN = 256;
 hop    = 128;
 
+% Rỗng tách riêng khỏi "ngắn": lúc giao diện vừa mở mà báo "ngắn hơn 256
+% mẫu" thì người dùng tưởng tín hiệu của mình có vấn đề.
+if isempty(y)
+    cla(ax);
+    title(ax, 'Chưa có tín hiệu');
+    return
+end
+
 if numel(y) < frameN
     cla(ax);
     title(ax, sprintf('Tín hiệu ngắn hơn %d mẫu, chưa đủ một cửa sổ để vẽ phổ đồ', frameN));

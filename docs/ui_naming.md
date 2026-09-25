@@ -50,30 +50,39 @@ Label chú thích tĩnh (kiểu "SNR (dB)") không cần đặt tên.
 | `DdMethod` | DropDown | `ItemsData = {'fft','goertzel','filterbank'}` → `Value` khớp sẵn `S.method` |
 | `SldSNR` | Slider | `Limits = [-5 30]`, đơn vị dB, dùng `ValueChanged` (không dùng `ValueChanging`) |
 | `EfKeys` | EditField | Chuỗi phím cần phát |
+| `BtnClear` | Button | Xóa trắng `EfKeys`, không đụng tín hiệu đang có |
 | `BtnGen` / `BtnDecode` / `BtnPlay` | Button | Phát tín hiệu / giải mã / nghe. `BtnPlay` phát `S.y` (**đã cộng nhiễu**) qua `app/ui/ui_play.m` — đúng cái bộ giải mã nghe |
 
 **Hiển thị:**
 
 | Tên | Loại | Nội dung |
 |---|---|---|
-| `LblDecoded` | Label | Chuỗi phím giải mã (`S.keysHat`) |
+| `LblSent` | Label | Chuỗi đã phát (`S.meta.keys`), đặt ngay trên `LblDecoded` để so từng cột ký tự; do `capNhatKetQua` ghi |
+| `LblDecoded` | Label | Chuỗi phím giải mã (`S.keysHat`); `ui_refresh` tô xanh khi khớp `S.meta.keys`, đỏ khi lệch |
+| `LblStatus` | Label | Một dòng trạng thái: chưa có tín hiệu / chưa giải mã / khớp k/k phím / lệch, kèm bộ giải mã và SNR; do `capNhatKetQua` ghi |
+| `LblSNR` | Label | Giá trị SNR đang chọn, cập nhật ngay trong lúc kéo (`SldSNRValueChanging`) |
 | `TxtLog` | TextArea | Nhật ký + lỗi; `Editable = 'off'`, `Value` là cell |
 
 ## 3. Callback
 
 Giữ nguyên tên App Designer tự sinh: `BtnDecodePushed`, `DdMethodValueChanged`, `SldSNRValueChanged`.
+`SldSNRValueChanging` chỉ cập nhật `LblSNR`, **không** giải mã - giải mã lại chỉ xảy ra lúc thả chuột.
 Cả 12 nút bàn phím dùng **chung một callback** `Btn1Pushed`, lấy ký tự từ `event.Source.Text`.
 
 Chữ ký là `(app, event)` — **hai tham số**, y như App Designer sinh ra, để sau này dán nguyên thân
 callback sang `.mlapp` mà không phải sửa dòng nào. `DTMFApp.m` nối dây bằng
 `'ButtonPushedFcn', @(src, evt) app.Btn1Pushed(evt)`; gọi từ test là `app.BtnGenPushed([])`.
 
-Sáu callback để **`public`** (App Designer mặc định `private`): MATLAB không có API công khai nào
+Tám callback để **`public`** (App Designer mặc định `private`): MATLAB không có API công khai nào
 để "bấm" một `uibutton` bằng code, nên `tests/test_app_smoke.m` phải gọi thẳng chúng.
 
 Mỗi callback tối đa ~3 dòng: đọc UI vào `app.S` → `dtmf_run` → `ui_refresh`. Không tính toán DSP trong callback.
 Phần việc dài hơn nằm ở các method `private` của `DTMFApp`: `docUI` (chiều UI → `S` duy nhất),
-`sinhTinHieu`, `congNhieu`, `xoaKetQua`, `phat`/`phatPhim`, `ghiNhatKy`.
+`sinhTinHieu`, `congNhieu`, `xoaKetQua`, `giaiMa`, `phat`/`phatPhim`, `ghiNhatKy`.
+
+Callback gọi `veLai(app)` thay vì gọi thẳng `ui_refresh(app)`: `veLai` = `ui_refresh` + `capNhatKetQua`.
+`LblSent` và `LblStatus` **không** nằm trong hợp đồng sáu thành phần của `ui_refresh` (CONTRACTS §8),
+nên `test_ui_smoke` vẫn dựng app giả đúng sáu thứ như cũ.
 
 ```matlab
 function Btn1Pushed(app, event)
@@ -87,7 +96,13 @@ function BtnDecodePushed(app, event)
 end
 ```
 
-## 4. Struct `app.S`
+## 4. Màu và phông chữ
+
+Mọi màu, phông và thang màu phổ đồ của giao diện nằm ở **một** chỗ: `app/ui/ui_theme.m`.
+`DTMFApp` dùng nó khi dựng component; `ui_refresh` dùng nó để tô lại ba trục **sau** khi `ui_plot_*` vẽ xong.
+`ui_plot_*` giữ màu riêng (cam) vì còn vẽ hình cho báo cáo và `test_ui_smoke` ghim màu đó - đừng sửa màu trong `ui_plot_*` để đổi giao diện.
+
+## 5. Struct `app.S`
 
 Một property `S` duy nhất, không rải biến rời rạc. Tên trường theo `CONTRACTS.md`:
 
