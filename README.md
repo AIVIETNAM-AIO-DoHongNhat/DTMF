@@ -72,8 +72,9 @@ y               = dtmf_addnoise(x, 'snrDb', 15);     % AWGN, SNR = 15 dB
 [keysHat, info] = dtmf_decode_goertzel(y);
 m               = dtmf_metrics(meta.keys, keysHat);  % m.acc, m.editDist, m.confusion
 
-DTMFApp          % giao diện: bấm phím để nghe, "Phát tín hiệu" -> "Giải mã"
-run_all_tests    % 162 ca
+DTMFApp          % giao diện: chọn nguồn Tổng hợp (① Phát tín hiệu -> ② Giải mã)
+                 % hoặc Micro (Giải mã trực tiếp / Ghi âm rồi giải mã)
+run_all_tests    % 189 ca
 ```
 
 Sinh lại số liệu và toàn bộ hình cho báo cáo (khoảng một phút):
@@ -94,7 +95,8 @@ publish_figures  % -> report/template/Figures/, chép một chiều
 src/gen/      dtmf_table, dtmf_generate, dtmf_addnoise
 src/decode/   FFT, Goertzel, ngân hàng bộ lọc
 src/util/     chia khung, luật quyết định, gộp phím, đánh giá
-app/          DTMFApp (giao diện) · dtmf_run (lớp trung gian) · ui/ (vẽ, phát tiếng)
+app/          DTMFApp (giao diện) · dtmf_run, dtmf_listen (lớp trung gian: khối, luồng)
+              · ui/ (vẽ, phát tiếng, mở micro)
 tests/        unit test (matlab.unittest)
 scripts/      dev_harness · make_coeffs · run_bench · make_figures · publish_figures
 data/         wav/, mat/ — coeffs.mat sinh tại chỗ, không nằm trong git
@@ -120,6 +122,10 @@ xuất hiện trong `tests/test_goertzel.m` với vai trò phép đối chứng 
   callback rồi đọc `app.LblDecoded.Text`.
 - Hàm trong `src/` không được gọi `figure`, `plot`, `disp`, `sound`, `input`. Vẽ và phát âm
   thanh chỉ nằm trong `app/ui/*.m` và ba script `dev_harness`, `run_bench`, `make_figures`.
+- Micro mở bằng `audiorecorder` của MATLAB gốc (không cần Audio Toolbox). Chế độ nghe trực
+  tiếp đưa từng đoạn 50 ms qua `dtmf_listen`, hàm này gọi lại đúng bộ giải mã khối nên luồng
+  và khối cho cùng kết quả (`tests/test_listen.m`); phím hiện ra 40–90 ms sau lúc âm bắt đầu
+  (độ trễ thuật toán), 44–134 ms khi tính cả chu kỳ đọc micro 50 ms.
 - Làm việc trực tiếp trên nhánh `main`; chỉ commit khi `run_all_tests` pass hết.
 
 ## Tài liệu

@@ -40,8 +40,11 @@ m = dtmf_metrics(keysTrue, keysHat)  % .acc .editDist .confusion (12x12)
   này, nên hàm trả `''` (`0×0`) làm ca round-trip chuỗi rỗng báo sai dù giải mã đúng. Trong
   test kiểm rỗng bằng `verifyEmpty` + `verifyClass`, không dùng `verifyEqual(x, '')`.
 - Hàm trong `src/` **không được** gọi `figure`, `plot`, `disp`, `sound`, `input`.
-- `app/dtmf_run.m` là lớp trung gian **duy nhất** cho phần TÍNH TOÁN: chỉ nó được gọi
-  `src/decode/*` và `src/util/*`. `app/ui/*.m` chỉ vẽ cái đã có sẵn trong `S` - xem §6(h).
+- `app/dtmf_run.m` (giải mã **khối**) và `app/dtmf_listen.m` (giải mã **luồng**, chế độ
+  nghe micro trực tiếp) là hai lớp trung gian **duy nhất** cho phần TÍNH TOÁN: chỉ chúng
+  được gọi `src/decode/*` và `src/util/*`. `app/ui/*.m` chỉ vẽ cái đã có sẵn trong `S` - xem
+  §6(h). `dtmf_listen` không có vòng đo công suất hay vòng gộp phím riêng: nó đưa từng cửa
+  sổ ngắn qua đúng bộ giải mã khối và gộp phím bằng `dtmf_debounce` - xem §7.9.
   Ngoại lệ đúng một hàm: **`dtmf_table()` được phép gọi từ `app/ui/*.m`**, vì đó là bảng
   hằng số chứ không phải phép tính, và chép tay 7 tần số vào mỗi hàm vẽ thì sớm muộn lệch
   với `src/gen/dtmf_table.m`.
@@ -76,6 +79,8 @@ m = dtmf_metrics(keysTrue, keysHat)  % .acc .editDist .confusion (12x12)
 - **`filterDesigner` không dùng để sinh hệ số nộp bài.** `design_bpf_bank` phải dựng bộ lọc
   bằng công thức cộng hưởng.
 - Môi trường: MATLAB + Signal Processing Toolbox. Không phụ thuộc toolbox nào khác.
+- Micro mở bằng **`audiorecorder`** (MATLAB gốc), **không** dùng `audioDeviceReader` (Audio
+  Toolbox) - xem `app/ui/ui_mic.m`.
 
 ## 4. Quy ước help và comment
 
@@ -490,6 +495,46 @@ Kiểm thử đột biến trên `dtmf_metrics` (9 đột biến, mỗi đột b
 ĐỎ**. Đột biến "truy vết ưu tiên XÓA trước CHÉO" ban đầu **lọt lưới** - ca `'121'/'212'` không
 bắt được vì đường đi của nó bắt đầu bằng một phép xóa ở cả hai luật; phải thêm ca `'12'/'3'`.
 
+### 7.9 Giải mã theo luồng (`dtmf_listen`) - chế độ nghe micro trực tiếp
+
+Đo 29/09/2026. Mỗi lần gọi, `dtmf_listen` ghép **H mẫu lịch sử + các khung mới vừa đủ
+mẫu** thành một cửa sổ, trừ trung bình cửa sổ, đưa qua đúng `dtmf_decode_<method>` với
+`frameN`/`hop` của phương pháp đó, rồi bỏ H/hop khung lịch sử ở đầu. `H` = bội của `hop`
+gần 100 ms nhất về phía trên (820 mẫu cho 205/205, 896 cho 256/128): đủ cho bộ cộng hưởng
+chạy hết quá độ (`5τ = 62,2 ms`, §7.6) trước khung đầu tiên được giữ. Không có H thì mỗi
+lần gọi nhánh ngân hàng bộ lọc lại khởi động từ trạng thái 0 - đúng lỗi "lọc riêng từng
+khung" của §7.6.
+
+Phím được báo ngay khi dải đủ `minRun` khung: `dtmf_debounce` chạy trên [dải đang mở dựng
+lại bằng `repmat`, khung mới], bỏ ký tự đầu nếu dải đang mở đã báo ở lần gọi trước.
+
+**Luồng = khối.** Chặt tín hiệu thành đoạn dài ngẫu nhiên 1..1500 mẫu: 3 phương pháp × SNR
+{sạch, 20, 10, 6 dB} × 8 chuỗi 10 phím, lề đầu ngẫu nhiên → **0/96** ca lệch chuỗi phím
+hay số khung so với giải mã khối. Đoạn 1 mẫu và một đoạn duy nhất cho cùng phán quyết
+từng khung.
+
+**Độ trễ báo phím**, tính từ lúc âm bắt đầu, quét 81 vị trí của âm so với lưới khung (đo lại 29/09/2026):
+
+| Phương pháp | FFT | Goertzel | Ngân hàng bộ lọc |
+|---|:--:|:--:|:--:|
+| Đoạn 50 mẫu (độ trễ thuật toán) | 40-61 ms | 49-74 ms | 65-90 ms |
+| Đoạn 400 mẫu (chu kỳ đọc 50 ms của app) | 44-93 ms | 68-117 ms | 84-134 ms |
+
+Với đoạn 50 mẫu cả ba báo phím **trước khi âm 100 ms tắt**; trong app (đoạn 400 mẫu) thì chậm thêm tối đa một chu kỳ đọc. Goertzel khớp cận lý thuyết: khung trọn đầu
+tiên bắt đầu muộn nhất 204 mẫu sau âm, cộng 2 khung, cộng một đoạn. Thời gian tính mỗi lần
+gọi 2-4 ms, nhỏ hơn nhiều so với chu kỳ tick 50 ms của micro.
+
+**Giao diện:** một lần `ui_refresh` với 3 s tín hiệu tốn 0,4-0,5 s khi cửa sổ hiện, nên
+`DTMFApp` chỉ vẽ lại ba trục mỗi giây một lần; phím mới chỉ đổi nhãn (~20 ms) nên vẫn hiện
+ngay.
+
+**Thử vòng loa laptop → micro laptop là phép thử KHÔNG đáng tin.** Phát `'0912345'` ra loa
+rồi thu bằng micro dạng mảng Realtek của cùng máy: lần đầu thu được âm nhưng hai hàng
+697/770 Hz yếu hơn cột 14-21 dB (loa nhỏ yếu tần số thấp) nên gần hết khung trượt luật twist
+(Q.24: thuận ≤ 4 dB); ba lần sau không thu được âm nào (`rho` lớn nhất 0,19 - chỉ là nhiễu
+nền), nhiều khả năng do bộ khử tiếng vọng của micro. Thử demo bằng một điện thoại thật đặt
+gần micro; đọc được 0 phím thì dòng trạng thái kể lý do loại khung.
+
 ## 8. Cấu trúc thư mục
 
 ```
@@ -500,8 +545,8 @@ DMTF/
 │  │            goertzel_power.m  dtmf_decode_goertzel.m
 │  │            design_bpf_bank.m dtmf_decode_filterbank.m
 │  └─ util/     dtmf_segment.m  dtmf_decide.m  dtmf_debounce.m  dtmf_metrics.m
-├─ app/         dtmf_run.m   DTMFApp.m
-│  └─ ui/       ui_plot_wave.m ui_plot_spec.m ui_plot_bars.m ui_refresh.m ui_play.m
+├─ app/         dtmf_run.m   dtmf_listen.m   DTMFApp.m
+│  └─ ui/       ui_plot_wave.m ui_plot_spec.m ui_plot_bars.m ui_refresh.m ui_play.m ui_mic.m
 ├─ tests/       test_generate.m test_goertzel.m run_all_tests.m  (+ các test bổ sung)
 ├─ scripts/     dev_harness.m  make_coeffs.m  run_bench.m  make_figures.m
 ├─ data/        wav/  mat/      (coeffs.mat sinh tại chỗ, .gitignore - xem §6(b))

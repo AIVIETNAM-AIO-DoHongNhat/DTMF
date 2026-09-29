@@ -41,6 +41,10 @@
 %   \begin{trichdan}Nguyên văn...\end{trichdan}~\cite[tr.~25]{xltinhieu_tap1}
 \newenvironment{trichdan}{\begin{quote}\itshape}{\end{quote}}
 
+% Số thứ tự bước khoanh tròn, như trên nút của giao diện (① ②). Không gõ thẳng
+% ký tự Unicode: TeX Gyre Termes không có nhóm U+2460 nên chữ bị mất trong PDF.
+\newcommand{\buoc}[1]{\textcircled{\footnotesize #1}}
+
 % Sơ đồ khối vẽ bằng draw.io (đen trắng). Nạp Figures/<tên>.pdf nếu đã xuất;
 % chưa có thì in khung chờ để tài liệu vẫn biên dịch được.
 %   \hinhdrawio[độ rộng]{tên file}{chú thích}{nhãn}
@@ -131,16 +135,21 @@
 
 % Tóm tắt trình bày dạng nhãn đầu đoạn (thụt lề như đoạn văn), không phải tiêu đề.
 % Nhãn "Tóm tắt:" và "Từ khóa:" in đậm; nội dung in đứng như văn bản thường.
-\textbf{Tóm tắt:} Đề tài xây dựng trên MATLAB một phần mềm phát tín hiệu DTMF theo
-khuyến nghị ITU-T Q.23 và giải mã bằng ba phương pháp: biến đổi Fourier nhanh (FFT),
-thuật toán Goertzel và ngân hàng bộ lọc cộng hưởng. Ba phương pháp dùng chung một
-luật quyết định và được so sánh về độ chính xác giải mã dưới nhiễu cũng như chi phí
-tính toán. Kết quả cho thấy ngân hàng bộ lọc chịu nhiễu tốt nhất, Goertzel cần ít
-phép tính nhất, và giới hạn chịu nhiễu của cả ba chủ yếu do luật quyết định chi phối.
+\textbf{Tóm tắt:} Tín hiệu DTMF mã hoá mỗi phím điện thoại bằng hai tần số, và bộ thu phải nhận
+đúng phím ngay cả khi đường truyền có nhiễu. Để tìm phương pháp giải mã phù hợp,
+đề tài xây dựng trên MATLAB một phần mềm phát tín hiệu DTMF theo tiêu chuẩn
+ITU-T Q.23 và giải mã bằng ba phương pháp: biến đổi Fourier nhanh (FFT), thuật
+toán Goertzel và ngân hàng bộ lọc cộng hưởng. Ba phương pháp dùng chung một quy
+tắc quyết định nên khác biệt về kết quả chỉ đến từ cách đo năng lượng cũng như về độ chính xác giải mã khi có nhiễu và về khối lượng tính toán.
+Kết quả cho thấy không có phương pháp nào quá vượt trội, ngân
+hàng bộ lọc chịu nhiễu tốt nhất trong khi Goertzel cần ít phép tính nhất. Do đó,
+Goertzel phù hợp với thiết bị ít tài nguyên, còn ngân hàng bộ lọc phù hợp với
+môi trường nhiều nhiễu. Ngoài tín hiệu tổng hợp, phần mềm còn giải mã trực tiếp âm
+DTMF thu từ micro, phím hiện ra khoảng 0,1~s sau khi âm bắt đầu.
 
 \medskip
 \textbf{Từ khóa:} DTMF, thuật toán Goertzel, biến đổi Fourier nhanh, bộ lọc IIR,
-giải mã tín hiệu, độ bền nhiễu.
+giải mã tín hiệu, nhiễu.
 
 \medskip
 \textbf{Mã nguồn:} \url{https://github.com/AIVIETNAM-AIO-DoHongNhat/DTMF}
@@ -206,60 +215,69 @@ BW           & Băng thông $-3\dB$ của bộ lọc \\
 
 Mỗi lần người dùng bấm phím để chọn dịch vụ trên tổng đài, nhập mã xác thực hay
 điều khiển thiết bị từ xa qua điện thoại, phím bấm đó được truyền đi bằng hệ báo
-hiệu DTMF (\emph{Dual-Tone Multi-Frequency}), chuẩn hoá trong khuyến nghị ITU-T
-Q.23~\cite{itu_q23}. Mỗi phím được mã hoá thành tổng của hai âm hình sin, một thuộc
-nhóm tần số thấp và một thuộc nhóm tần số cao, rồi truyền ngay trên kênh thoại như
+hiệu DTMF (\emph{Dual-Tone Multi-Frequency}), chuẩn hoá theo tiêu chuẩn ITU-T
+Q.23~\cite{itu_q23}. Mỗi phím được mã hoá thành tổng của hai âm hình sin bao gồm một thuộc
+nhóm tần số thấp và một thuộc nhóm tần số cao rồi truyền ngay trên kênh thoại như
 một tín hiệu âm thanh thông thường.
 
-Chính việc dùng chung kênh thoại đặt ra yêu cầu khắt khe cho phía thu. Tín hiệu đến
-tổng đài hay hệ thống trả lời tương tác (IVR) có thể đã bị suy hao và lẫn nhiễu,
-trong khi các phím được bấm liên tiếp với độ dài khác nhau. Bộ thu phải khôi phục
-đúng chuỗi phím từ tín hiệu đó, vì chỉ cần nhận sai hoặc bỏ sót một phím là thao
+Chính việc dùng chung kênh thoại đặt ra yêu cầu khắt khe cho phía thu. Bộ thu ở tổng đài
+hoặc hệ thống trả lời tương tác (IVR) phải đồng thời việc tín hiệu có thể đã bị suy giảm, lẫn nhiễu 
+và thời lượng bấm của các phím không đồng đều. Việc phải khôi phục
+đúng chuỗi phím từ tín hiệu đó là rất quan trọng vì chỉ cần nhận sai hoặc bỏ sót một phím là thao
 tác của người dùng thất bại.
 
-Dưới góc độ xử lý tín hiệu số, bài toán quy về hai bước: đo năng lượng tại bảy tần
-số đã biết trước, rồi quyết định khung tín hiệu có chứa phím hay không. Bước đo có
-thể thực hiện theo ba cách dựa trên ba cơ sở toán học khác nhau. Biến đổi Fourier
-nhanh (FFT) tính toàn bộ phổ rồi chỉ giữ lại vài bin cần dùng; thuật toán Goertzel
-chỉ tính đúng những bin đó; ngân hàng bộ lọc cộng hưởng lọc tín hiệu liên tục trong
+Dưới góc độ xử lý tín hiệu số, quy trình sẽ bắt đầu từ đo năng lượng tại bảy tần
+số đã biết trước rồi quyết định khung tín hiệu có chứa phím hay không. Bước đo có
+thể thực hiện theo ba cách dựa trên ba cơ sở toán học khác nhau: (i) Biến đổi Fourier
+nhanh (FFT) tính toàn bộ phổ rồi chỉ giữ lại vài bin cần dùng; (ii) Thuật toán Goertzel
+chỉ tính đúng những bin đó; (iii) Ngân hàng bộ lọc cộng hưởng lọc tín hiệu liên tục trong
 miền thời gian. Mỗi cách có một điểm cân bằng riêng giữa chi phí tính toán, độ phân
 giải tần số và khả năng chịu nhiễu.
 
 Tuy nhiên, khi mỗi phương pháp được xây dựng riêng lẻ với tham số và luật quyết
-định của riêng nó, khó xác định chênh lệch về kết quả đến từ bản thân phương pháp
-hay từ cách ra quyết định. Vì vậy, đề tài xây dựng cả ba bộ giải mã trên cùng một
-luật quyết định và so sánh chúng trên cùng một bộ dữ liệu có kiểm soát mức nhiễu,
-từ đó chỉ ra phương pháp phù hợp với từng điều kiện ứng dụng.
+định của riêng nó, việc xác định chênh lệch về kết quả đến từ bản thân phương pháp
+hay từ cách ra quyết định sẽ trở nên khó khăn. Vì vậy, đề tài xây dựng cả ba bộ giải mã trên cùng một
+luật quyết định và so sánh chúng trên cùng một bộ dữ liệu có kiểm soát mức nhiễu rồi chỉ ra phương pháp phù hợp với từng điều kiện ứng dụng.
 
 \unsubsection{2. Mục tiêu đề tài}
 
 \begin{itemize}
-  \item Xây dựng bộ phát tín hiệu DTMF tuân theo khuyến nghị ITU-T Q.23 cho 12
+  \item Xây dựng bộ phát tín hiệu DTMF theo tiêu chuẩn ITU-T Q.23 cho 12
         phím chuẩn, có khả năng cộng nhiễu ở mức SNR xác định để tạo dữ liệu
         kiểm thử có nhãn.
   \item Xây dựng ba bộ giải mã độc lập dựa trên DFT/FFT, thuật toán Goertzel và
         ngân hàng bộ lọc cộng hưởng, dùng chung cách chia khung và luật quyết
         định để bảo đảm so sánh công bằng.
-  \item So sánh định lượng ba phương pháp về độ chính xác, độ bền nhiễu và chi
+  \item So sánh định lượng ba phương pháp về độ chính xác, khả năng chịu nhiễu và chi
         phí tính toán trên cùng một bộ dữ liệu, từ đó chỉ ra phương pháp phù
         hợp với từng điều kiện ứng dụng.
-  \item Xây dựng phần mềm mô phỏng có giao diện trực quan, cho phép phát, nghe,
-        giải mã tín hiệu và quan sát kết quả phân tích của từng phương pháp.
+  \item Xây dựng phần mềm mô phỏng có giao diện trực quan cho phép phát, nghe,
+        giải mã tín hiệu tổng hợp hoặc âm thu trực tiếp từ micro, và quan sát
+        kết quả phân tích của từng phương pháp.
 \end{itemize}
 
 \unsubsection{3. Đối tượng, phạm vi và phương pháp nghiên cứu}
 
 \begin{itemize}
-  \item \emph{Đối tượng nghiên cứu:} tín hiệu DTMF theo khuyến nghị ITU-T Q.23
+  \item \emph{Đối tượng nghiên cứu:} tín hiệu DTMF theo tiêu chuẩn ITU-T Q.23
         và ba phương pháp ước lượng công suất phổ dùng để giải mã tín hiệu
-        này: biến đổi Fourier rời rạc (DFT/FFT), thuật toán Goertzel và ngân
+        này gồm biến đổi Fourier rời rạc (DFT/FFT), thuật toán Goertzel và ngân
         hàng bộ lọc cộng hưởng.
-  \item \emph{Phạm vi nghiên cứu:} 12 phím chuẩn ($0$-$9$, $*$, $\#$); cột
-        1633~Hz (phím A-D) không được xét vì không có trên thiết bị thông dụng,
-        và việc bổ sung chỉ thêm một tần số vào bảng tra. Tần số lấy mẫu cố định
-        $\fs = 8000$~Hz như kênh thoại số. Hệ thống xử lý theo khối (nạp toàn bộ
-        tín hiệu rồi mới chia khung) để ba phương pháp dùng chung cách chia
-        khung; vì vậy chưa đánh giá được độ trễ thời gian thực.
+  \item \emph{Phạm vi nghiên cứu:}
+        \begin{itemize}[label=+]
+          \item Đề tài xét 12 phím chuẩn ($0$-$9$, $*$, $\#$), cột 1633~Hz ứng
+                với các phím A-D bị lược bỏ vì không có trên thiết bị thông
+                dụng.
+          \item Tần số lấy mẫu được cố định ở $\fs = 8000$~Hz (bằng với tốc độ lấy
+                mẫu của kênh thoại số).
+          \item Ba bộ giải mã được cài đặt theo khối, tức là nạp toàn bộ tín
+                hiệu rồi mới chia khung, để dùng chung một cách chia khung và so
+                sánh được với nhau. Chế độ thu từ micro giải mã theo luồng bằng
+                cách đưa từng cửa sổ ngắn qua chính ba bộ giải mã này
+                (mục~\ref{sub:luong}). Mọi đánh giá định lượng ở
+                Chương~\ref{sec:thuc-nghiem} dùng dữ liệu tổng hợp; tín hiệu
+                thu qua micro chỉ được thử định tính.
+        \end{itemize}
   \item \emph{Phương pháp nghiên cứu:} đề tài kết hợp hai phương pháp bổ trợ
         nhau:
         \begin{itemize}
@@ -271,7 +289,7 @@ từ đó chỉ ra phương pháp phù hợp với từng điều kiện ứng d
                 với nhiễu AWGN và nhiễu ù 50~Hz ở SNR từ $-5$ đến $30\dB$. Dữ
                 liệu tổng hợp cho nhãn chính xác, mức nhiễu điều khiển được và
                 kết quả tái lập được bằng một lệnh; phần mềm được kiểm chứng
-                bằng 162 ca kiểm thử tự động.
+                bằng 189 ca kiểm thử tự động.
         \end{itemize}
 \end{itemize}
 
@@ -287,7 +305,7 @@ ngân hàng bộ lọc.
 
 Chương~\ref{sec:phan-mem}: Thiết kế và xây dựng phần mềm phát và giải mã DTMF.
 
-Chương~\ref{sec:thuc-nghiem}: Thực nghiệm đánh giá độ chính xác, độ bền nhiễu và
+Chương~\ref{sec:thuc-nghiem}: Thực nghiệm đánh giá độ chính xác, khả năng chịu nhiễu và
 chi phí tính toán.
 
 Chương~\ref{sec:ket-luan}: Kết luận và hướng phát triển.
@@ -305,15 +323,14 @@ Chương~\ref{sec:ket-luan}: Kết luận và hướng phát triển.
 
 \subsubsection{Nguyên lý âm kép và bảng tần số chuẩn}
 
-Mỗi phím DTMF phát đồng thời hai âm hình sin: một tần số thuộc nhóm thấp, xác
-định hàng của phím, và một tần số thuộc nhóm cao, xác định cột
-(Bảng~\ref{tab:tanso}). Bàn phím $4 \times 3$ do đó chỉ cần $4 + 3 = 7$ tần số
-để mã hoá 12 phím.
-
-Dùng hai âm giúp chống nhận nhầm: tiếng nói hay tạp âm có thể mạnh tại một tần
-số chuẩn, nhưng hiếm khi mạnh đồng thời tại đúng một tần số mỗi nhóm trong khi
-các tần số còn lại yếu. Luật quyết định (mục~\ref{sss:luat-quyet-dinh}) dựa trên
-tính chất này.
+DTMF mã hoá mỗi phím bằng một cặp tần số xác định theo vị trí của phím trên ma
+trận bàn phím $4 \times 3$: hàng ứng với tần số $f_{1}$ thuộc nhóm thấp
+(697-941~Hz), cột ứng với tần số $f_{2}$ thuộc nhóm cao (1209-1477~Hz)
+(Bảng~\ref{tab:tanso}). Tín hiệu của một phím là tổng hai dao động hình sin tại
+$f_{1}$ và $f_{2}$; chẳng hạn phím \texttt{5} ứng với cặp $(770, 1336)$~Hz. Cách mã
+hoá theo toạ độ này biểu diễn 12 phím bằng $4 + 3 = 7$ tần số, đồng thời tách bài
+toán nhận dạng 12 lớp ở phía thu thành hai bài toán độc lập: xác định thành phần
+trội trong mỗi nhóm tần số.
 
 \begin{table}[H]
 \centering
@@ -330,6 +347,14 @@ tính chất này.
 \bottomrule
 \end{tabular}
 \end{table}
+
+Cấu trúc âm kép còn giúp phân biệt tín hiệu báo hiệu với tiếng nói và tạp âm
+truyền chung kênh thoại. Các tín hiệu này có thể có năng lượng lớn tại một tần số
+chuẩn, nhưng hiếm khi đồng thời có đúng một thành phần trội trong mỗi nhóm, với
+cường độ tương đương nhau và vượt hẳn các tần số còn lại. Đây là cơ sở của luật
+quyết định chung cho ba bộ giải mã (mục~\ref{sss:luat-quyet-dinh}). Hiệu lực của
+luật này phụ thuộc vào việc bảy tần số không gây can nhiễu lẫn nhau, được phân tích
+ở mục~\ref{sss:chon-tan-so}.
 
 \subsubsection{Cơ sở lựa chọn bộ bảy tần số}
 \label{sss:chon-tan-so}
@@ -606,7 +631,7 @@ Căn cứ chọn ngưỡng:
   \item Giới hạn twist: lấy trực tiếp từ ITU-T Q.24.
   \item $\rho \ge 0{,}70$: cách xa giá trị trên khung chỉ có nhiễu trắng (đo trên
         2000 khung bằng Goertzel, trung bình $0{,}0685$, lớn nhất $0{,}2423$);
-        ảnh hưởng lên độ bền nhiễu được khảo sát ở mục~\ref{sss:nguong-rho}.
+        ảnh hưởng lên khả năng chịu nhiễu được khảo sát ở mục~\ref{sss:nguong-rho}.
 \end{itemize}
 
 Điều kiện 4 là điều kiện duy nhất phụ thuộc thang đo của $E_{j}$; bốn điều kiện
@@ -1204,10 +1229,13 @@ Phần mềm được tổ chức thành bốn lớp (Hình~\ref{fig:kien-truc})
 từ trên xuống, không có chiều ngược lại.
 \begin{enumerate}
   \item Lớp giao diện (\texttt{app/DTMFApp.m}, \texttt{app/ui/}): dựng cửa sổ, vẽ
-        đồ thị và phát âm thanh; không chứa phép xử lý tín hiệu.
-  \item Lớp điều phối (\texttt{app/dtmf\_run.m}): cầu nối duy nhất giữa giao diện
-        và bộ giải mã; trừ giá trị trung bình, chọn bộ giải mã, chuẩn bị số liệu
-        hiển thị và chuyển lỗi thành thông báo.
+        đồ thị, phát âm thanh và thu âm từ micro; không chứa phép xử lý tín hiệu.
+  \item Lớp điều phối (\texttt{app/dtmf\_run.m}, \texttt{app/dtmf\_listen.m}):
+        cầu nối duy nhất giữa giao diện và bộ giải mã. \texttt{dtmf\_run} giải mã
+        cả tín hiệu một lần (theo khối), \texttt{dtmf\_listen} giải mã dần từng
+        đoạn micro (theo luồng, mục~\ref{sub:luong}). Cả hai trừ giá trị trung
+        bình, chọn bộ giải mã, chuẩn bị số liệu hiển thị và chuyển lỗi thành
+        thông báo.
   \item Lớp xử lý (\texttt{src/decode/}, \texttt{src/util/}): ba bộ giải mã và các
         hàm dùng chung.
   \item Lớp dữ liệu (\texttt{src/gen/}): bảng tần số, bộ phát tín hiệu và bộ cộng
@@ -1235,7 +1263,7 @@ DMTF/                   & \\
 \TRbar\TRmid decode/    & \TRc{ba bộ giải mã và ngân hàng bộ lọc} \\
 \TRbar\TRend util/      & \TRc{phân khung, quyết định, gộp phím, đánh giá} \\
 \TRmid app/             & \TRc{giao diện và lớp điều phối} \\
-\TRbar\TRend ui/        & \TRc{hàm vẽ và hàm phát âm thanh} \\
+\TRbar\TRend ui/        & \TRc{hàm vẽ, phát âm thanh và mở micro} \\
 \TRmid tests/           & \TRc{kiểm thử tự động} \\
 \TRmid scripts/         & \TRc{chạy thực nghiệm và sinh hình} \\
 \TRmid data/            & \TRc{dữ liệu và hệ số bộ lọc} \\
@@ -1276,37 +1304,137 @@ Bảng~\ref{tab:ham-chinh}.
 \texttt{design\_bpf\_bank} & $\fs$, $r$ & Hệ số 14 bộ lọc & Thiết kế ngân hàng bộ lọc \\
 \texttt{dtmf\_decide}      & Công suất 8 bin & Hàng, cột, độ tin cậy, nhãn loại & Luật quyết định \\
 \texttt{dtmf\_debounce}    & Hàng, cột của mọi khung & Chuỗi phím & Gộp khung thành phím \\
-\texttt{dtmf\_run}         & Trạng thái ứng dụng & Trạng thái kèm kết quả, thông báo lỗi & Điều phối giải mã \\
+\texttt{dtmf\_run}         & Trạng thái ứng dụng & Trạng thái kèm kết quả, thông báo lỗi & Điều phối giải mã theo khối \\
+\texttt{dtmf\_listen}      & Trạng thái luồng, đoạn mẫu micro mới & Trạng thái kèm phím mới, số liệu hiển thị & Điều phối giải mã theo luồng \\
 \texttt{dtmf\_metrics}     & Chuỗi đúng, chuỗi giải mã & Độ chính xác, khoảng cách sửa, ma trận nhầm lẫn & Đánh giá \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
+\subsection{Giải mã trực tiếp từ micro}
+\label{sub:luong}
+
+Âm thanh micro được đọc bằng \texttt{audiorecorder} của MATLAB, cứ 50~ms một lần
+(400 mẫu). Không thể giải mã từng đoạn này một cách độc lập vì hai lý do. Thứ
+nhất, một khung có thể nằm vắt qua hai đoạn. Thứ hai, bộ cộng hưởng của ngân hàng
+bộ lọc sẽ khởi động lại từ trạng thái 0 ở đầu mỗi đoạn, đúng trường hợp làm khung
+mất hơn một nửa năng lượng ở mục~\ref{sss:on-dinh}. Hàm \texttt{dtmf\_listen} giữ
+một bộ đệm và xử lý mỗi đoạn mới theo bốn bước:
+\begin{enumerate}
+  \item Đếm số khung mới đã đủ mẫu, ký hiệu $m$; nếu $m = 0$ thì chỉ lưu mẫu vào
+        bộ đệm.
+  \item Dựng một cửa sổ gồm $H$ mẫu lịch sử ngay trước khung mới đầu tiên và $m$
+        khung mới. $H$ là bội của bước nhảy gần 100~ms nhất về phía trên (820 mẫu
+        khi khung 205 mẫu, 896 mẫu khi bước nhảy 128 mẫu), dài hơn quá độ
+        $5\tau = 62{,}2$~ms của bộ cộng hưởng.
+  \item Trừ giá trị trung bình của cửa sổ, đưa cửa sổ qua đúng bộ giải mã khối đang
+        chọn, rồi bỏ các khung thuộc phần lịch sử.
+  \item Gộp khung thành phím bằng chính hàm \texttt{dtmf\_debounce}, áp lên dải
+        khung còn dở từ lần trước nối với $m$ khung mới. Phím được báo ngay khi
+        dải đủ hai khung, không phải đợi âm tắt.
+\end{enumerate}
+
+Vì không có vòng đo công suất hay luật gộp khung riêng, giải mã theo luồng cho cùng
+kết quả với giải mã theo khối. Chặt tín hiệu thành các đoạn dài ngẫu nhiên từ 1 đến
+1500 mẫu, kết quả trùng khớp cả chuỗi phím lẫn số khung ở toàn bộ 96 trường hợp
+(3 phương pháp, 4 mức SNR từ không nhiễu đến $6\dB$, 8 chuỗi 10 phím). Do đó các
+kết quả ở Chương~\ref{sec:thuc-nghiem} cũng áp dụng cho chế độ này.
+Bảng~\ref{tab:do-tre} ghi độ trễ tính từ lúc âm bắt đầu đến lúc phím được báo.
+
+\begin{table}[H]
+\centering
+\caption{Độ trễ báo phím ở chế độ giải mã trực tiếp, tính từ lúc âm bắt đầu, quét
+81 vị trí của âm so với lưới khung; chưa gồm độ trễ bộ đệm của thiết bị âm thanh.}
+\label{tab:do-tre}
+\small
+\begin{tabular}{l c c c}
+\toprule
+\textbf{Độ dài đoạn đọc} & \textbf{DFT/FFT} & \textbf{Goertzel} & \textbf{Ngân hàng bộ lọc} \\
+\midrule
+50 mẫu (độ trễ của thuật toán)      & 40-61 ms & 49-74 ms  & 65-90 ms \\
+400 mẫu (chu kỳ đọc 50 ms của phần mềm) & 44-93 ms & 68-117 ms & 84-134 ms \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Với đoạn ngắn, cả ba phương pháp báo phím trước khi âm 100~ms kết thúc. Độ trễ của
+Goertzel khớp với ước lượng: khung trọn đầu tiên trong âm bắt đầu muộn nhất 204 mẫu
+sau âm, cần thêm hai khung (410 mẫu) để đủ luật gộp, tổng cộng không quá 614 mẫu,
+tức $76{,}8$~ms. FFT nhanh hơn nhờ bước nhảy 128 mẫu; ngân hàng bộ lọc chậm hơn vì
+quá độ làm các khung đầu của âm chưa đạt ngưỡng năng lượng. Trong phần mềm, micro
+được đọc 50~ms một lần nên phím hiện ra chậm thêm tối đa một chu kỳ đọc, trung bình
+68-109~ms sau khi âm bắt đầu. Thời gian tính cho mỗi đoạn chỉ 2-4~ms, nhỏ hơn nhiều
+so với chu kỳ đọc.
+
 \subsection{Giao diện người dùng}
 
-Giao diện gồm hai cột (Hình~\ref{fig:h33}). Cột trái là vùng điều khiển: bàn phím
-12 nút, ô nhập chuỗi, chọn phương pháp, thanh trượt SNR, các nút phát, giải mã,
-nghe, nhãn kết quả và ô nhật ký lỗi. Cột phải gồm dạng sóng, phổ đồ STFT và biểu
-đồ công suất tám bin.
+Giao diện gồm một dòng tiêu đề và hai cột bên dưới (Hình~\ref{fig:h33}). Cột trái
+là vùng điều khiển, chia thành ba thẻ đánh số theo đúng thứ tự thao tác:
+\begin{enumerate}
+  \item[01] \emph{Thiết lập}: chọn nguồn tín hiệu (\emph{Tổng hợp} hoặc
+        \emph{Micro}) và bộ giải mã (FFT, Goertzel, ngân hàng bộ lọc). Bộ giải mã
+        dùng chung cho cả hai nguồn.
+  \item[02] Thẻ của nguồn đang chọn; thẻ của nguồn còn lại được ẩn, nên trên màn
+        hình chỉ có các nút của một quy trình.
+        \begin{itemize}
+          \item \emph{Tín hiệu tổng hợp}: ô nhập chuỗi kèm nút \emph{Xóa}, bàn phím
+                $4 \times 3$ có ghi tần số hàng và cột ở mép như bảng tần số của
+                khuyến nghị Q.23 (bấm phím nào thì ký tự hiện lên ô nhập và âm của
+                phím đó phát ra loa), thanh trượt SNR từ $-5$ đến $30\dB$, và hai
+                nút đánh số theo thứ tự bấm: \buoc{1}~\emph{Phát tín hiệu},
+                \buoc{2}~\emph{Giải mã}.
+          \item \emph{Thu từ micro}: nút \emph{Giải mã trực tiếp}
+                (mục~\ref{sub:luong}) và nút \emph{Ghi âm rồi giải mã} (thu tối
+                đa 20~s, dừng thì giải mã cả bản ghi và vẽ đủ ba đồ thị), mỗi nút
+                kèm một câu chú thích về trường hợp nên dùng.
+        \end{itemize}
+  \item[03] \emph{Kết quả}: chuỗi đã phát đặt ngay trên chuỗi đọc được, cùng phông
+        đơn cách để so được từng ký tự, kèm nút \emph{Nghe} phát lại đúng tín hiệu
+        mà bộ giải mã nhận; dòng trạng thái bên dưới báo khớp hay lệch bao nhiêu
+        phím, kèm bộ giải mã và SNR đang dùng.
+\end{enumerate}
 
-Lưu đồ thao tác ở Hình~\ref{fig:luu-do}. Nút \emph{Phát tín hiệu} dựng $x[n]$ và
-cộng nhiễu thành $y[n]$; nút \emph{Nghe} phát đúng $y[n]$ mà bộ giải mã nhận. Đổi
-phương pháp thì giải mã lại trên cùng $y[n]$; đổi SNR thì cộng lại nhiễu vào cùng
-$x[n]$. Nhờ vậy có thể so sánh ba phương pháp và các mức nhiễu trên cùng tín hiệu
-gốc.
+Để người dùng biết cần bấm nút nào, nút của bước tiếp theo được tô màu nhấn: chưa
+có tín hiệu hoặc chuỗi phím vừa được sửa thì là \buoc{1}, đã phát mà chưa giải mã
+thì là \buoc{2}. Nút chưa dùng được bị khóa, và dòng trạng thái nhắc lại bằng chữ,
+chẳng hạn ``bấm \buoc{2} để giải mã''. Với nguồn micro không có chuỗi gốc để so, nên dòng
+trạng thái báo số phím đọc được; nếu không đọc được phím nào, nó liệt kê lý do loại
+khung (\texttt{twist}, \texttt{level}) để người dùng biết âm thu được bị lệch biên độ
+hay quá nhỏ.
 
-\hinhdrawio[0.62]{SD_luu_do_ung_dung}{Lưu đồ một lượt thao tác trên giao
-diện.}{fig:luu-do}
+Ô nhật ký lỗi ở cuối cột. Cột phải gồm ba khung nhìn cùng một tín hiệu theo ba
+miền: (A) dạng sóng trong miền thời gian, (B) phổ đồ STFT trong miền thời gian --
+tần số, và (C) biểu đồ công suất tám bin của khung quyết định. Khung vẽ của (A) và
+(B) được căn thẳng lề trái, phải với nhau, nên một thời điểm trên dạng sóng nằm
+đúng phía trên thời điểm đó trên phổ đồ.
+
+Lưu đồ thao tác ở Hình~\ref{fig:luu-do}. Với nguồn tổng hợp, nút \buoc{1} dựng
+$x[n]$ và cộng nhiễu thành $y[n]$; nút \emph{Nghe} phát đúng $y[n]$ mà bộ giải mã
+nhận. Đổi phương pháp thì giải mã lại trên cùng $y[n]$; đổi SNR thì cộng lại nhiễu
+vào cùng $x[n]$ và giải mã lại ngay khi thả thanh trượt. Nhờ vậy có thể so sánh ba
+phương pháp và các mức nhiễu trên cùng tín hiệu gốc. Với nguồn micro, $y[n]$ là bản
+ghi (chế độ ghi âm) hoặc 3~s cuối của luồng micro (chế độ giải mã trực tiếp). Ở chế
+độ giải mã trực tiếp, phím mới hiện ra ngay, còn ba khung đồ thị chỉ được vẽ lại
+mỗi giây một lần vì mỗi lần vẽ lại tốn 0,4-0,5~s.
+
+\hinhdrawio[0.95]{SD_luu_do_ung_dung}{Lưu đồ một lượt thao tác trên giao diện.
+Nhánh ghi âm dùng chung bước giải mã \texttt{dtmf\_run} với nhánh tổng hợp; nhánh
+giải mã trực tiếp lặp lại mỗi 50~ms cho tới khi người dùng nhấn
+Dừng.}{fig:luu-do}
 
 Biểu đồ tám bin hiển thị đúng các giá trị $E_{j}$ mà luật quyết định dùng, kèm
-đường ngưỡng hài bậc hai; hai cột vượt ngưỡng là hàng và cột được chọn, nên người
-dùng đọc được trực tiếp lý do của quyết định.
+đường ngưỡng hài bậc hai; hai cột vượt ngưỡng là hàng và cột được chọn. Dòng phụ
+đề ghi số thứ tự và thời điểm của khung, cặp tần số tìm được và phím tương ứng,
+nên người dùng đọc được trực tiếp lý do của quyết định.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=\linewidth]{Figures/H3_3}
-  \caption{Giao diện phần mềm sau khi phát chuỗi ``0912345'' và giải mã bằng
-  Goertzel. Ô nhật ký trống do lần chạy không phát sinh lỗi.}
+  \caption{Giao diện phần mềm với nguồn tổng hợp, sau khi phát chuỗi ``0912345'' ở
+  SNR $20\dB$ và giải mã bằng Goertzel: chuỗi đọc được khớp 7/7 phím; không nút
+  nào được tô màu nhấn vì lượt thao tác đã xong. Khung (C) hiển thị khung
+  14/39 tại $t = 0{,}346$~s, cặp $697 + 1209$~Hz ứng với phím ``1''. Ô nhật ký
+  trống do lần chạy không phát sinh lỗi.}
   \label{fig:h33}
 \end{figure}
 
@@ -1317,13 +1445,13 @@ sinh tệp nhị phân không so sánh được giữa các phiên bản. Nhờ 
 \subsection{Kiểm thử}
 \label{sub:kiem-thu}
 
-Phần mềm được kiểm tra bằng 162 ca kiểm thử tự động trên khung kiểm thử của
+Phần mềm được kiểm tra bằng 189 ca kiểm thử tự động trên khung kiểm thử của
 MATLAB, chia năm nhóm (Bảng~\ref{tab:kiem-thu}), chạy bằng một lệnh
 \texttt{run\_all\_tests} và phải đạt trước khi gộp mã.
 
 \begin{table}[H]
 \centering
-\caption{Phân bố 162 ca kiểm thử tự động theo nhóm chức năng.}
+\caption{Phân bố 189 ca kiểm thử tự động theo nhóm chức năng.}
 \label{tab:kiem-thu}
 \small
 \begin{tabularx}{\linewidth}{@{}>{\RaggedRight\arraybackslash}p{3.6cm} c
@@ -1338,10 +1466,12 @@ Hàm dùng chung & 41 & Chia khung, năm điều kiện và nhãn loại của l
 Lõi Goertzel và ba bộ giải mã & 45 & Giá trị kiểm chứng $P = 64$, đối chứng với
   hàm thư viện, giải mã đúng 12 phím, phím lặp ở mọi cách căn lề khung, bất biến
   theo biên độ, độ lợi, cực, điểm không và băng thông của bộ lọc \\
-Tích hợp và điều phối & 15 & Chuỗi phát-giải mã đầy đủ, chọn phương pháp, trừ
-  giá trị trung bình, bắt lỗi không ném ngoại lệ \\
-Giao diện & 49 & Dựng giao diện ở chế độ ẩn, gọi từng hàm xử lý sự kiện, kiểm
-  tra nội dung hiển thị \\
+Tích hợp và điều phối & 27 & Chuỗi phát-giải mã đầy đủ, chọn phương pháp, trừ
+  giá trị trung bình, bắt lỗi không ném ngoại lệ; giải mã theo luồng khớp giải mã
+  theo khối với đoạn dài ngẫu nhiên, báo phím trước khi âm kết thúc \\
+Giao diện & 64 & Dựng giao diện ở chế độ ẩn, gọi từng hàm xử lý sự kiện, kiểm
+  tra nội dung hiển thị; chọn nguồn, tô nút của bước tiếp theo, hai chế độ micro
+  với âm thanh tổng hợp đưa vào thay cho micro \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -1356,7 +1486,7 @@ dụ, phép thử phím lặp quét mọi cách căn lề giữa âm và lưới
 % ---------------------------------------------------------
 % IV. KẾT QUẢ THỰC NGHIỆM VÀ ĐÁNH GIÁ
 % ---------------------------------------------------------
-\section{THỰC NGHIỆM ĐÁNH GIÁ ĐỘ CHÍNH XÁC, ĐỘ BỀN NHIỄU VÀ CHI PHÍ TÍNH TOÁN}
+\section{THỰC NGHIỆM ĐÁNH GIÁ ĐỘ CHÍNH XÁC, khả năng chịu nhiễu VÀ CHI PHÍ TÍNH TOÁN}
 \label{sec:thuc-nghiem}
 
 \subsection{Thiết lập thí nghiệm và tiêu chí đánh giá}
@@ -1456,7 +1586,7 @@ với Goertzel và 0 với ngân hàng bộ lọc.
 $0$-$7{,}5\dB$. Đây là hệ quả của ngưỡng tỷ lệ năng lượng: khi nhiễu kéo $\rho$
 xuống dưới $0{,}70$, các khung bị loại đồng loạt thay vì bị giải mã sai từng phím.
 
-\emph{Thứ ba, ngân hàng bộ lọc có độ bền nhiễu cao nhất.} Tại $2{,}5\dB$, phương
+\emph{Thứ ba, ngân hàng bộ lọc có khả năng chịu nhiễu cao nhất.} Tại $2{,}5\dB$, phương
 pháp này đạt $0{,}958$ so với $0{,}158$ của FFT (AWGN), và $1{,}000$ so với
 $0{,}000$ (nhiễu ù). Nguyên nhân không nằm ở khả năng loại nhiễu: trên nhiễu trắng
 thuần, phần nhiễu lọt vào tử số của $\rho$ đều khoảng $7\%$ với cả ba phương pháp
@@ -1541,7 +1671,7 @@ trí vùng chuyển tiếp:
   \label{fig:h45}
 \end{figure}
 
-Ngưỡng 0,70 vì vậy đánh đổi một phần độ bền nhiễu lấy khả năng loại khung không
+Ngưỡng 0,70 vì vậy đánh đổi một phần khả năng chịu nhiễu lấy khả năng loại khung không
 phải DTMF; lợi ích này chưa đo được do bộ dữ liệu không có tiếng nói. Đề tài giữ
 ngưỡng 0,70 vì trong dải làm việc SNR $\ge 10\dB$ nó không làm giảm độ chính xác.
 
@@ -1643,10 +1773,13 @@ Không phương pháp nào vượt trội trên mọi tiêu chí (Bảng~\ref{ta
         chữ ký hàm và chung luật quyết định; lõi Goertzel và ngân hàng bộ lọc được
         tự cài đặt.
   \item Ba phương pháp được so sánh trên 5400 điều kiện. Cả ba đạt độ chính xác
-        tuyệt đối từ SNR $7{,}5\dB$; ngân hàng bộ lọc có độ bền nhiễu cao nhất;
+        tuyệt đối từ SNR $7{,}5\dB$; ngân hàng bộ lọc có khả năng chịu nhiễu cao nhất;
         Goertzel có chi phí thấp nhất, $65\,249$ phép nhân mỗi giây âm thanh.
-  \item Phần mềm có giao diện trực quan và được kiểm tra bằng 162 ca kiểm thử tự
-        động, bao gồm cả tầng giao diện.
+  \item Phần mềm có giao diện trực quan với hai nguồn tín hiệu, tổng hợp và micro.
+        Chế độ giải mã trực tiếp từ micro dùng lại đúng ba bộ giải mã, cho kết
+        quả trùng với giải mã theo khối và hiện phím khoảng 0,1~s sau khi âm bắt
+        đầu. Phần mềm được kiểm tra bằng 189 ca kiểm thử tự động, bao gồm cả tầng
+        giao diện.
 \end{itemize}
 
 Ngoài các mục tiêu đề ra, đề tài rút ra bốn kết luận về kỹ thuật:
@@ -1664,10 +1797,14 @@ Ngoài các mục tiêu đề ra, đề tài rút ra bốn kết luận về k�
 \subsection{Hạn chế}
 
 \begin{itemize}
-  \item \emph{Chưa xử lý thời gian thực:} hệ thống xử lý theo khối, chưa được đánh
-        giá với các ràng buộc về độ trễ và bộ đệm.
-  \item \emph{Chỉ dùng dữ liệu tổng hợp:} méo phi tuyến, suy hao không đều theo
-        tần số, mất gói và tiếng vọng của kênh thực chưa được mô phỏng.
+  \item \emph{Chỉ đánh giá định lượng trên dữ liệu tổng hợp:} méo phi tuyến, suy
+        hao không đều theo tần số, mất gói và tiếng vọng của kênh thực chưa được
+        mô phỏng. Tín hiệu thu qua micro mới được thử định tính. Khi phát ra loa
+        máy tính xách tay rồi thu lại bằng micro của chính máy đó, hai âm hàng
+        697 và 770~Hz yếu hơn âm cột 14-21~dB do loa nhỏ phát kém tần số thấp,
+        vượt giới hạn twist thuận $4\dB$ của Q.24, nên phần lớn khung bị loại.
+        Ở những lần thử sau, micro không thu được âm nào, nhiều khả năng do bộ
+        khử tiếng vọng của thiết bị thu.
   \item \emph{Chưa đo khả năng chống nhận nhầm:} bộ dữ liệu không có tiếng nói,
         nên điều kiện hài bậc hai hầu như không được kích hoạt
         (Hình~\ref{fig:h43}) và lợi ích của ngưỡng 0,70 chưa đo được.
@@ -1694,6 +1831,9 @@ nêu trên:
         chỉnh ngưỡng, đồng thời bổ sung tiếng nói thực vào bộ kiểm thử để đo tỷ lệ
         nhận nhầm, bổ sung kiểm tra hài bậc ba và độ ổn định tần số đỉnh theo thời
         gian.
+  \item \emph{Đánh giá trên đường truyền âm học.} Thu âm DTMF từ nhiều loại điện
+        thoại qua micro để đo twist và SNR thực tế, rồi bù đáp ứng tần số của loa
+        và micro, hoặc đặt giới hạn twist riêng cho chế độ thu qua không khí.
   \item \emph{Tuân thủ đầy đủ ITU-T Q.24.} Kiểm tra tường minh dung sai
         $\pm 1{,}5\%$ và $\pm 3{,}5\%$, khảo sát twist khác không, và dùng bước
         nhảy nhỏ hơn độ dài khung để nhận được âm 40~ms.

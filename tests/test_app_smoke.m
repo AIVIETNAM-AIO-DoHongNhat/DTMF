@@ -43,7 +43,8 @@ app = newApp(testCase);
 bp  = banPhim();
 ten = [bp(:, 1)', {'UIFigure', 'PnlKeypad', 'AxWave', 'AxSpec', 'AxBars', ...
                    'EfKeys', 'DdMethod', 'SldSNR', 'BtnGen', 'BtnDecode', ...
-                   'BtnPlay', 'LblDecoded', 'TxtLog'}];
+                   'BtnPlay', 'LblDecoded', 'TxtLog', 'BtnSrcGen', 'BtnSrcMic', ...
+                   'PnlMic', 'BtnRecord', 'BtnListen'}];
 for t = ten
     testCase.verifyTrue(isprop(app, t{1}), sprintf('Thiếu property %s.', t{1}));
     testCase.verifyTrue(isvalid(app.(t{1})), sprintf('%s không dựng được.', t{1}));
@@ -240,6 +241,260 @@ app = appDaSinh(testCase, '59', 25);
 
 testCase.verifyWarningFree(@() app.BtnPlayPushed([]));
 testCase.verifyTrue(all(strlength(string(app.TxtLog.Value)) == 0));
+end
+
+% ------------------------------------------------------------------ micro
+%
+% Chạy ẩn thì app KHÔNG mở micro (lý do như sound() ở trên), nên các ca dưới
+% đây đưa âm thanh tổng hợp vào qua hai lối vào công khai: nhanMauMic (tick
+% của chế độ nghe) và napBanGhi (bản ghi khi dừng ghi âm). Bản thân phép giải
+% mã theo luồng được thử kỹ ở test_listen; ở đây chỉ thử phần điều phối.
+
+function test_micButtonsExistAndStartIdle(testCase)
+app = newApp(testCase);
+
+for t = {'BtnRecord', 'BtnListen'}
+    testCase.verifyTrue(isvalid(app.(t{1})), t{1});
+    testCase.verifyNotEmpty(app.(t{1}).ButtonPushedFcn, t{1});
+    testCase.verifyEqual(char(app.(t{1}).Enable), 'on', t{1});
+end
+end
+
+function test_listenModeShowsKeysWhileFeeding(testCase)
+% Bấm "Giải mã trực tiếp", đưa tín hiệu vào từng đoạn 50 ms như tick thật:
+% phím phải hiện ra NGAY trong lúc nghe, trước khi bấm dừng. Trong lúc nghe,
+% không đổi được nguồn và nút micro còn lại bị khóa.
+app = newApp(testCase);
+app.BtnSrcPushed(struct('Source', app.BtnSrcMic));
+app.BtnListenPushed([]);
+
+testCase.verifyEqual(char(app.BtnSrcGen.Enable), 'off');
+testCase.verifyEqual(char(app.BtnRecord.Enable), 'off');
+testCase.verifyEqual(char(app.BtnListen.Enable), 'on');
+testCase.verifyEqual(char(app.BtnPlay.Enable), 'off');
+
+y = dtmf_generate('0912345');
+for i = 1:400:numel(y)
+    app.nhanMauMic(y(i:min(i+399, end)));
+end
+testCase.verifyEqual(app.LblDecoded.Text, '0912345');
+
+app.BtnListenPushed([]);
+testCase.verifyEqual(char(app.BtnSrcGen.Enable), 'on');
+testCase.verifyEqual(char(app.BtnRecord.Enable), 'on');
+testCase.verifyEqual(app.LblDecoded.Text, '0912345');
+end
+
+function test_listenLabelKeepsOnlyTheLastTwelveKeys(testCase)
+% Nhãn "Đọc được" chỉ vừa ~12 ký tự; nghe lâu thì phải thấy phím MỚI NHẤT,
+% không phải 12 phím đầu còn phím mới bị cắt khỏi mép phải.
+app = newApp(testCase);
+app.BtnListenPushed([]);
+
+keys = '0123456789*#0123';
+y = dtmf_generate(keys);
+for i = 1:400:numel(y)
+    app.nhanMauMic(y(i:min(i+399, end)));
+end
+testCase.verifyEqual(app.LblDecoded.Text, keys(end-11:end));
+testCase.verifySubstring(app.LblStatus.Text, sprintf('%d phím', numel(keys)));
+end
+
+function test_methodChangeWhileListeningKeepsKeys(testCase)
+app = newApp(testCase);
+app.BtnListenPushed([]);
+y = dtmf_generate('12');
+for i = 1:400:numel(y)
+    app.nhanMauMic(y(i:min(i+399, end)));
+end
+
+app.DdMethod.Value = 'filterbank';
+app.DdMethodValueChanged([]);
+y = dtmf_generate('3');
+for i = 1:400:numel(y)
+    app.nhanMauMic(y(i:min(i+399, end)));
+end
+
+testCase.verifyEqual(app.LblDecoded.Text, '123');
+testCase.verifySubstring(app.LblStatus.Text, 'Ngân hàng bộ lọc');
+end
+
+function test_samplesAreIgnoredWhenNotListening(testCase)
+% Tick muộn tới sau khi đã bấm dừng không được làm đổi kết quả.
+app = newApp(testCase);
+testCase.verifyWarningFree(@() app.nhanMauMic(dtmf_generate('5')));
+testCase.verifyEmpty(app.LblDecoded.Text);
+end
+
+function test_recordingIsDecodedAndKeptWhenSnrMoves(testCase)
+% Bản ghi micro không có tín hiệu sạch x: kéo thanh SNR mà cộng lại nhiễu từ
+% x rỗng thì bản ghi biến mất ngay trước mắt người chấm.
+app = newApp(testCase);
+y = dtmf_addnoise(dtmf_generate('0912345'), 'snrDb', 20);
+app.napBanGhi(y);
+
+testCase.verifyEqual(app.LblDecoded.Text, '0912345');
+testCase.verifyEqual(app.LblSent.Text, '(micro)');
+
+app.SldSNR.Value = 0;
+app.SldSNRValueChanged([]);
+testCase.verifyEqual(app.S.y, y);
+testCase.verifyEqual(app.LblDecoded.Text, '0912345');
+end
+
+function test_silentRecordingExplainsWhyNothingWasRead(testCase)
+% Đọc được 0 phím thì dòng trạng thái phải kể lý do loại khung - manh mối
+% đầu tiên khi tập demo với loa điện thoại.
+app = newApp(testCase);
+rng(2026);
+app.napBanGhi(0.001 * randn(1, 8000));
+
+testCase.verifyEmpty(app.LblDecoded.Text);
+testCase.verifySubstring(app.LblStatus.Text, 'level');
+end
+
+function test_statusListsEveryRejectReason(testCase)
+% Hai lý do cùng lúc - ca thường gặp nhất với loa điện thoại: khoảng lặng
+% cho 'level', âm lệch biên độ 15 dB (ngoài giới hạn +4 dB của Q.24) cho
+% 'twist'. Lần đầu viết, dòng trạng thái ném lỗi đúng ở ca này (29/09/2026).
+app = newApp(testCase);
+[x, ~, ~] = dtmf_generate('5', 'twistDb', 15);
+app.napBanGhi([zeros(1, 2000), x, zeros(1, 2000)]);
+
+testCase.verifyEmpty(app.S.lastError);
+testCase.verifySubstring(app.LblStatus.Text, 'level');
+testCase.verifySubstring(app.LblStatus.Text, 'twist');
+end
+
+function test_recordButtonTogglesWithoutDeviceWhenHidden(testCase)
+% Chạy ẩn: bấm ghi rồi bấm dừng không mở micro, không ném lỗi, và trả mọi
+% nút về như cũ.
+app = newApp(testCase);
+app.BtnSrcPushed(struct('Source', app.BtnSrcMic));
+
+app.BtnRecordPushed([]);
+testCase.verifyEqual(char(app.BtnListen.Enable), 'off');
+testCase.verifyEqual(char(app.BtnSrcGen.Enable), 'off');
+
+testCase.verifyWarningFree(@() app.BtnRecordPushed([]));
+testCase.verifyEqual(char(app.BtnListen.Enable), 'on');
+testCase.verifyEqual(char(app.BtnSrcGen.Enable), 'on');
+end
+
+% ------------------------------------------------- nguồn và bước tiếp theo
+%
+% Thiết kế lại 29/09/2026 vì năm nút của hai quy trình nằm chung một chỗ và
+% người dùng không biết khi nào bấm nút nào. Ba luật được ghim ở đây: (1) chỉ
+% thẻ của nguồn đang chọn được hiện; (2) nút của bước cần bấm TIẾP THEO được
+% tô màu nhấn (đọc qua FontWeight = 'bold'); (3) nút chưa dùng được bị khóa.
+
+function test_sourceTabsShowOnlyTheirControls(testCase)
+app = newApp(testCase);
+
+testCase.verifyEqual(char(app.PnlKeypad.Visible), 'on');
+testCase.verifyEqual(char(app.PnlMic.Visible), 'off');
+testCase.verifyEqual(char(app.BtnSrcGen.FontWeight), 'bold');
+
+app.BtnSrcPushed(struct('Source', app.BtnSrcMic));
+testCase.verifyEqual(char(app.PnlKeypad.Visible), 'off');
+testCase.verifyEqual(char(app.PnlMic.Visible), 'on');
+testCase.verifyEqual(char(app.BtnSrcMic.FontWeight), 'bold');
+testCase.verifyEqual(char(app.BtnSrcGen.FontWeight), 'normal');
+
+app.BtnSrcPushed(struct('Source', app.BtnSrcGen));
+testCase.verifyEqual(char(app.PnlKeypad.Visible), 'on');
+testCase.verifyEqual(char(app.PnlMic.Visible), 'off');
+end
+
+function test_switchingSourceClearsTheOldResult(testCase)
+% Kết quả của nguồn cũ còn treo trên màn hình sau khi đổi nguồn thì thẻ Kết
+% quả nói về một tín hiệu không còn liên quan tới thẻ 02 đang hiện. Chuỗi phím
+% thì GIỮ: quay lại nguồn tổng hợp là bấm ① được ngay.
+app = appDaSinh(testCase, '0912345', 25);
+app.BtnDecodePushed([]);
+
+app.BtnSrcPushed(struct('Source', app.BtnSrcMic));
+testCase.verifyEmpty(app.S.y);
+testCase.verifyEmpty(app.LblDecoded.Text);
+
+app.BtnSrcPushed(struct('Source', app.BtnSrcGen));
+testCase.verifyEqual(app.EfKeys.Value, '0912345');
+testCase.verifyEqual(char(app.BtnGen.FontWeight), 'bold');
+end
+
+function test_nextStepButtonIsHighlighted(testCase)
+% Đi hết một vòng tổng hợp và kiểm nút nào được tô ở mỗi bước.
+app = newApp(testCase);
+
+% Ô phím trống: chưa có gì để phát hay giải mã, không nút nào được tô.
+testCase.verifyEqual(char(app.BtnGen.Enable), 'off');
+testCase.verifyEqual(char(app.BtnDecode.Enable), 'off');
+testCase.verifyEqual(char(app.BtnPlay.Enable), 'off');
+
+% Gõ phím (ValueChanging tới TRƯỚC khi Value đổi): bước tiếp theo là ①.
+app.EfKeysValueChanging(struct('Value', '59'));
+testCase.verifyEqual(char(app.BtnGen.Enable), 'on');
+testCase.verifyEqual(char(app.BtnGen.FontWeight), 'bold');
+testCase.verifyEqual(char(app.BtnDecode.FontWeight), 'normal');
+
+% Đã phát: bước tiếp theo là ②, và nghe được.
+app.EfKeys.Value = '59';
+app.BtnGenPushed([]);
+testCase.verifyEqual(char(app.BtnGen.FontWeight), 'normal');
+testCase.verifyEqual(char(app.BtnDecode.FontWeight), 'bold');
+testCase.verifyEqual(char(app.BtnDecode.Enable), 'on');
+testCase.verifyEqual(char(app.BtnPlay.Enable), 'on');
+testCase.verifySubstring(app.LblStatus.Text, '②');
+
+% Đã giải mã: xong một vòng, không nút nào cần tô.
+app.BtnDecodePushed([]);
+testCase.verifyEqual(char(app.BtnGen.FontWeight), 'normal');
+testCase.verifyEqual(char(app.BtnDecode.FontWeight), 'normal');
+
+% Sửa chuỗi phím sau khi phát: tín hiệu cũ không còn khớp, lại là ①.
+app.Btn1Pushed(struct('Source', app.Btn0));
+testCase.verifyEqual(char(app.BtnGen.FontWeight), 'bold');
+end
+
+function test_methodChangeWithoutSignalKeepsNextStep(testCase)
+% Đổi bộ giải mã khi chưa có tín hiệu thì chỉ ghi nhận lựa chọn. Giải mã một
+% tín hiệu rỗng sẽ đánh dấu "đã giải mã" và tắt màu nhấn của nút ② sau đó.
+app = newApp(testCase);
+app.DdMethod.Value = 'fft';
+app.DdMethodValueChanged([]);
+
+app.EfKeys.Value = '59';
+app.BtnGenPushed([]);
+testCase.verifyEqual(char(app.BtnDecode.FontWeight), 'bold');
+testCase.verifyEqual(app.S.method, 'fft');
+end
+
+function test_sourceCannotChangeWhileMicIsOn(testCase)
+% Đổi nguồn là xóa kết quả, mà micro vẫn đang đổ mẫu vào. Kể cả khi callback
+% bị gọi thẳng (nút đã khóa), nguồn cũng không được đổi.
+app = newApp(testCase);
+app.BtnSrcPushed(struct('Source', app.BtnSrcMic));
+app.BtnListenPushed([]);
+
+app.BtnSrcPushed(struct('Source', app.BtnSrcGen));
+testCase.verifyEqual(char(app.PnlMic.Visible), 'on');
+
+app.BtnListenPushed([]);
+end
+
+function test_generateAfterMicReturnsToSyntheticMode(testCase)
+% Sau khi dùng micro, bấm "Phát tín hiệu" phải quay về so đúng/sai với chuỗi
+% đã phát như bình thường.
+app = newApp(testCase);
+app.napBanGhi(dtmf_generate('59'));
+
+app.EfKeys.Value = '0912345';
+app.SldSNR.Value = 25;
+app.BtnGenPushed([]);
+app.BtnDecodePushed([]);
+
+testCase.verifyEqual(app.LblSent.Text, '0912345');
+testCase.verifySubstring(app.LblStatus.Text, 'Khớp');
 end
 
 % ------------------------------------------------------------------- lỗi

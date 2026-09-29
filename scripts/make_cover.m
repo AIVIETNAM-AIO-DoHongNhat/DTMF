@@ -3,7 +3,7 @@
 %
 % Hình gồm năm khung, đọc từ trái sang phải, trên xuống dưới:
 %   (a) phổ đồ STFT của chuỗi "0912345" có nhiễu AWGN, SNR 20 dB (hàng trên);
-%   (b) bàn phím 4x3 với cặp tần số (hàng, cột) của phím "5";
+%   (b) ma trận tần số 4x3, dải hàng và cột của phím "5" tô nhạt;
 %   (c)-(e) cùng một khung của phím "5" đo bằng ba phương pháp của đề tài.
 % Mọi đường cong đều tính bằng chính các hàm trong src/ (dtmf_generate,
 % dtmf_addnoise, goertzel_power, design_bpf_bank), không vẽ tay.
@@ -55,10 +55,13 @@ tl = tiledlayout(fig, 2, 4, 'TileSpacing', 'compact', 'Padding', 'compact');
 
 try
     vePhoDo(nexttile(tl, 1, [1 4]), y, meta, fs, fStd, xLim, C);
-    veBanPhim(nexttile(tl, 5), T, fOn, C);
+    axPhim = nexttile(tl, 5);
+    veBanPhim(axPhim, T, fOn, C);
     veFft(nexttile(tl, 6), x5, fs, fStd, fOn, xLim, C);
     veGoertzel(nexttile(tl, 7), x5, fs, fStd, fOn, xLim, C);
     veNganHang(nexttile(tl, 8), fs, fStd, fOn, xLim, C);
+    drawnow;
+    canBanPhim(axPhim);
 
     ten = fullfile(outDir, 'bia_minh_hoa');
     exportgraphics(fig, [ten '.png'], 'Resolution', 300, 'BackgroundColor', 'white');
@@ -74,49 +77,80 @@ fprintf('Da ghi %s.png va .pdf\n', ten);
 %% ===================== Hàm phụ =====================
 
 function veBanPhim(ax, T, fOn, C)
-%VEBANPHIM Bàn phím 4x3; hàng/cột của phím đang xét nối với nhãn tần số
+%VEBANPHIM Ma trận tần số 4x3: lưới nét mảnh, dải nhạt đánh dấu hàng và cột
+% của phím đang xét, giao điểm tô đậm. Tỉ lệ khung chỉnh sau ở canBanPhim.
 hold(ax, 'on');
-axis(ax, 'equal');
 axis(ax, 'off');
-xlim(ax, [-1.45 3.05]);
-ylim(ax, [-0.1 5.0]);
 [rOn, cOn] = find(T.keys == '5');
+nhat = 0.90*[1 1 1] + 0.10*C.nhan;          % dải hàng/cột đang xét
+y0 = @(r) 4 - r;                            % đáy ô hàng r (hàng 1 ở trên cùng)
+
+% Dải hàng và cột kéo ra tới nhãn tần số để mắt dóng được từ nhãn vào ô
+rectangle(ax, 'Position', [-0.62, y0(rOn), 3.62, 1], 'FaceColor', nhat, 'EdgeColor', 'none');
+rectangle(ax, 'Position', [cOn-1, 0, 1, 4.42], 'FaceColor', nhat, 'EdgeColor', 'none');
+rectangle(ax, 'Position', [cOn-1, y0(rOn), 1, 1], 'FaceColor', C.nhan, 'EdgeColor', 'none');
+
+% Lưới: đường trong mảnh, khung ngoài đậm hơn một chút
+for k = 1:2
+    plot(ax, [k k], [0 4], '-', 'Color', C.luoi, 'LineWidth', 0.6);
+end
+for k = 1:3
+    plot(ax, [0 3], [k k], '-', 'Color', C.luoi, 'LineWidth', 0.6);
+end
+rectangle(ax, 'Position', [0 0 3 4], 'EdgeColor', C.phu, 'LineWidth', 0.8);
 
 for r = 1:4
     for c = 1:3
         on = (r == rOn && c == cOn);
-        mau = [1 1 1];
-        if on
-            mau = C.nhan;
-        end
-        rectangle(ax, 'Position', [c-0.95, 4-r+0.05, 0.9, 0.9], 'Curvature', 0.18, ...
-            'FaceColor', mau, 'EdgeColor', C.nhan, 'LineWidth', 1.2);
-        mauChu = C.nhan;
-        if on
-            mauChu = [1 1 1];
-        end
-        text(ax, c-0.5, 4-r+0.5, T.keys(r, c), 'HorizontalAlignment', 'center', ...
-            'FontSize', 13, 'FontWeight', 'bold', 'Color', mauChu);
+        text(ax, c-0.5, y0(r)+0.5, T.keys(r, c), 'HorizontalAlignment', 'center', ...
+            'VerticalAlignment', 'middle', 'FontSize', 11, ...
+            'FontWeight', ifelse(on, 'bold', 'normal'), ...
+            'Color', ifelse(on, [1 1 1], C.chu));
     end
 end
 
 for r = 1:4
-    on = T.rowHz(r) == fOn(1);
-    text(ax, -0.15, 4-r+0.5, sprintf('%d', T.rowHz(r)), ...
-        'HorizontalAlignment', 'right', 'FontSize', 8, ...
+    on = r == rOn;
+    text(ax, -0.12, y0(r)+0.5, sprintf('%d', T.rowHz(r)), ...
+        'HorizontalAlignment', 'right', 'VerticalAlignment', 'middle', 'FontSize', 8, ...
         'FontWeight', ifelse(on, 'bold', 'normal'), 'Color', ifelse(on, C.nhan, C.phu));
 end
 for c = 1:3
-    on = T.colHz(c) == fOn(2);
-    text(ax, c-0.5, 4.3, sprintf('%d', T.colHz(c)), ...
-        'HorizontalAlignment', 'center', 'FontSize', 8, ...
+    on = c == cOn;
+    text(ax, c-0.5, 4.2, sprintf('%d', T.colHz(c)), ...
+        'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle', 'FontSize', 8, ...
         'FontWeight', ifelse(on, 'bold', 'normal'), 'Color', ifelse(on, C.nhan, C.phu));
 end
-text(ax, 1.5, 4.8, 'Nhóm cao, cột (Hz)', 'HorizontalAlignment', 'center', ...
-    'FontSize', 7.5, 'FontAngle', 'italic', 'Color', C.phu);
-text(ax, -1.2, 2.0, 'Nhóm thấp, hàng (Hz)', 'HorizontalAlignment', 'center', ...
-    'Rotation', 90, 'FontSize', 7.5, 'FontAngle', 'italic', 'Color', C.phu);
-title(ax, '(b) Phím “5” = 770 Hz + 1336 Hz', 'FontWeight', 'normal', 'Color', C.chu);
+text(ax, 1.5, 4.62, 'Nhóm cao (Hz)', 'HorizontalAlignment', 'center', ...
+    'VerticalAlignment', 'middle', 'Color', C.phu);
+text(ax, -0.95, 2, 'Nhóm thấp (Hz)', 'HorizontalAlignment', 'center', ...
+    'VerticalAlignment', 'middle', 'Rotation', 90, 'Color', C.phu);
+title(ax, '(b) Phím “5” = 770 + 1336 Hz', 'FontWeight', 'normal', 'Color', C.chu);
+end
+
+
+function canBanPhim(ax)
+%CANBANPHIM Chọn giới hạn trục sao cho ô vuông mà khung vẫn lấp đầy ô lưới.
+% Dùng axis equal thì MATLAB thu khung lại, tiêu đề (b) tụt thấp hơn (c)-(e).
+% Gọi sau khi mọi ô đã vẽ xong vì bố cục tiledlayout phụ thuộc cả hàng.
+xNd = [-1.08 3.04];                         % nội dung cần hiện: nhãn + lưới
+yNd = [-0.04 4.80];
+u = ax.Units;
+ax.Units = 'pixels';
+p = ax.InnerPosition;
+ax.Units = u;
+tiLe = p(3) / p(4);                         % rộng/cao của khung, theo pixel
+w = diff(xNd);
+h = diff(yNd);
+if w/h < tiLe                               % khung bè ngang: nới x, căn giữa
+    w2 = h * tiLe;
+    xlim(ax, mean(xNd) + [-w2 w2]/2);
+    ylim(ax, yNd);
+else                                        % khung cao: nới y xuống dưới, giữ sát tiêu đề
+    h2 = w / tiLe;
+    xlim(ax, xNd);
+    ylim(ax, [yNd(2)-h2, yNd(2)]);
+end
 end
 
 
