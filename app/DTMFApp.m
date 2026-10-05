@@ -1,24 +1,36 @@
 classdef DTMFApp < handle
-%DTMFAPP Giao diện phát và giải mã DTMF: bàn phím, thanh SNR, ba bộ giải mã
-% Bấm số như bấm điện thoại, nghe tiếng, rồi xem máy đọc lại đúng những phím đó
+%DTMFAPP Giao diện phát và giải mã DTMF theo ba bước: tín hiệu gốc, kênh nhiễu, giải mã
+% Đi đúng đường tín hiệu đi: tạo x[n] rồi xem phổ, cộng nhiễu thành y[n] rồi xem phổ, sau cùng mới tìm phím
 %   APP = DTMFAPP() mở giao diện. APP = DTMFAPP('off') dựng giao diện ẩn để
 %   chạy tự động trong matlab -batch; lúc ẩn thì không phát ra tiếng.
 %
+%   Bố cục: dòng tiêu đề kèm chọn nguồn, ba thẻ bước xếp dọc, thanh trạng
+%   thái. Mỗi thẻ bước gồm cột điều khiển bên trái và hai trục bên phải -
+%   miền thời gian rồi miền tần số - của ĐÚNG tín hiệu ở bước đó:
+%       Bước 1  Tín hiệu gốc   bàn phím, nút Tạo tín hiệu  ->  x[n] và phổ của x[n]
+%       Bước 2  Kênh nhiễu     loại nhiễu, SNR, nút Cộng nhiễu  ->  y[n] và phổ
+%                              y[n] chồng phổ x[n]
+%       Bước 3  Giải mã        bộ giải mã, nút Giải mã  ->  năng lượng 8 bin theo khung,
+%                        khung quyết định, chuỗi phím đọc được
+%
 %   Các bước hoạt động:
 %       1. Constructor dựng struct trạng thái S mặc định, dựng toàn bộ
-%          component theo docs/ui_naming.md, rồi gọi ui_refresh một lần để
-%          ba trục có nội dung ngay khi cửa sổ hiện lên.
+%          component theo docs/ui_naming.md, rồi vẽ một lần để sáu trục có
+%          tiêu đề hướng dẫn ngay khi cửa sổ hiện lên.
 %       2. Mỗi callback làm đúng ba việc: đọc UI vào S, gọi lớp tính toán
-%          (dtmf_run, hoặc sinhTinHieu cho nhánh phát), rồi ui_refresh(app).
+%          (taoTinHieu, congNhieu hoặc dtmf_run), rồi veLai(app).
 %       3. Không một phép tính DSP nào nằm trong callback - luật CONTRACTS §2
 %          và §6(h). Callback chỉ điều phối.
-%       4. Hai nguồn tín hiệu, chọn ở thẻ 01; thẻ 02 chỉ hiện nút của nguồn
-%          đang chọn, và capNhatNut tô màu nhấn cho nút của bước cần bấm tiếp.
-%          Tổng hợp: ① Phát tín hiệu -> ② Giải mã. Micro: "Giải mã trực tiếp"
-%          đưa từng đoạn micro qua dtmf_listen và hiện phím ngay khi nhận
-%          ra; "Ghi âm rồi giải mã" thu tới khi bấm lần nữa rồi giải mã cả
-%          bản ghi bằng dtmf_run. Chạy ẩn thì không mở micro - test đưa mẫu
-%          vào qua nhanMauMic và napBanGhi.
+%       4. Đổi tham số của một bước ĐÃ làm thì chạy lại bước đó và các bước đã
+%          làm sau nó: kéo SNR sau khi đã cộng nhiễu thì cộng lại nhiễu vào
+%          cùng x[n], rồi giải mã lại nếu đã giải mã. Bước CHƯA làm thì chỉ ghi
+%          nhận tham số - không bước nào tự chạy khi người dùng chưa bấm nút.
+%       5. Nguồn micro: bước 1 là thu âm ("Giải mã trực tiếp" đưa từng đoạn
+%          micro qua dtmf_listen; "Ghi âm rồi giải mã" thu tới khi bấm lần nữa
+%          rồi giải mã cả bản ghi bằng dtmf_run). Bản ghi chính là y[n] ở bước
+%          2, và bước 2 không cộng thêm nhiễu vì bản ghi đã mang nhiễu thật.
+%          Chạy ẩn thì không mở micro - test đưa mẫu vào qua nhanMauMic và
+%          napBanGhi.
 %
 %   Input:
 %       visible: 'on' (mặc định) hoặc 'off'. Ẩn dùng cho unit test và cho
@@ -30,15 +42,17 @@ classdef DTMFApp < handle
 %   Example:
 %       app = DTMFApp('off');
 %       app.EfKeys.Value = '0912345';
-%       app.BtnGenPushed([]);
-%       app.BtnDecodePushed([]);
-%       app.LblDecoded.Text     % '0912345'
+%       app.BtnGenPushed([]);       % bước 1: x[n]
+%       app.BtnNoisePushed([]);     % bước 2: y[n] = x[n] + w[n]
+%       app.BtnDecodePushed([]);    % bước 3: giải mã y[n]
+%       app.LblDecoded.Text         % '0912345'
 
     properties (Access = public)
         UIFigure    matlab.ui.Figure
 
-        % Nguồn tín hiệu: hai nút dạng tab. PnlKeypad và PnlMic là thẻ 02 của
-        % hai nguồn, chồng lên nhau ở cùng một ô lưới - chỉ một cái hiện.
+        % Nguồn tín hiệu: hai nút dạng tab ở dòng tiêu đề. PnlKeypad và PnlMic
+        % là phần điều khiển của bước 1 cho hai nguồn, chồng lên nhau ở cùng
+        % một ô lưới - chỉ một cái hiện.
         BtnSrcGen   matlab.ui.control.Button
         BtnSrcMic   matlab.ui.control.Button
         PnlKeypad   matlab.ui.container.Panel
@@ -60,23 +74,36 @@ classdef DTMFApp < handle
         Btn0        matlab.ui.control.Button
         BtnHash     matlab.ui.control.Button
 
+        % Sáu trục, hai trục mỗi bước - xem ui_refresh.
+        AxWaveX     matlab.ui.control.UIAxes
+        AxPsdX      matlab.ui.control.UIAxes
         AxWave      matlab.ui.control.UIAxes
-        AxSpec      matlab.ui.control.UIAxes
+        AxPsd       matlab.ui.control.UIAxes
+        AxMap       matlab.ui.control.UIAxes
         AxBars      matlab.ui.control.UIAxes
 
+        % Bước 1
         EfKeys      matlab.ui.control.EditField
         BtnClear    matlab.ui.control.Button
-        DdMethod    matlab.ui.control.DropDown
-        SldSNR      matlab.ui.control.Slider
-        LblSNR      matlab.ui.control.Label
         BtnGen      matlab.ui.control.Button
-        BtnDecode   matlab.ui.control.Button
-        BtnPlay     matlab.ui.control.Button
+        BtnPlayX    matlab.ui.control.Button
         BtnRecord   matlab.ui.control.Button
         BtnListen   matlab.ui.control.Button
 
+        % Bước 2
+        DdNoise     matlab.ui.control.DropDown
+        SldSNR      matlab.ui.control.Slider
+        LblSNR      matlab.ui.control.Label
+        BtnNoise    matlab.ui.control.Button
+        BtnPlay     matlab.ui.control.Button
+
+        % Bước 3
+        DdMethod    matlab.ui.control.DropDown
+        BtnDecode   matlab.ui.control.Button
         LblSent     matlab.ui.control.Label
         LblDecoded  matlab.ui.control.Label
+
+        % Thanh trạng thái
         LblStatus   matlab.ui.control.Label
         TxtLog      matlab.ui.control.TextArea
 
@@ -87,9 +114,8 @@ classdef DTMFApp < handle
 
     properties (Access = private)
         % Tín hiệu hiện tại đã qua bộ giải mã chưa. Không suy được từ S: sau
-        % "Phát tín hiệu" và sau một lần giải mã không ra phím nào, S.keysHat
-        % cùng rỗng và S.iSel cùng bằng 0 - nhưng dòng trạng thái phải nói hai
-        % điều khác nhau. Không nằm trong S vì dtmf_run không cần biết.
+        % "Cộng nhiễu" và sau một lần giải mã không ra phím nào, S.keysHat
+        % cùng rỗng - nhưng dòng trạng thái phải nói hai điều khác nhau.
         DaGiaiMa    logical = false
 
         % Micro. CheDoMic: '' (tắt) | 'ghi' (ghi âm rồi giải mã) | 'nghe' (giải
@@ -99,7 +125,7 @@ classdef DTMFApp < handle
         DaDoc       double = 0      % số mẫu đã lấy khỏi Mic từ lúc record()
         MocVe                       % tic của lần vẽ gần nhất trong chế độ micro
 
-        % S.y hiện tại đến từ micro chứ không phải dtmf_generate: không có x
+        % S.y hiện tại đến từ micro chứ không phải dtmf_addnoise: không có x
         % để cộng lại nhiễu, không có chuỗi đã phát để so.
         NguonMic    logical = false
 
@@ -109,12 +135,19 @@ classdef DTMFApp < handle
         % phải báo tổng số phím đã nghe được.
         L           struct
         TuLuong     logical = false
+
+        % Ba thẻ bước: viền thẻ, số bước ở góc, dòng thông tin bên phải. Viền
+        % thẻ của bước cần làm tiếp tô màu nhấn; số bước tô màu nhấn khi bước
+        % đó đã có kết quả.
+        TheBuoc
+        LblSo
+        LblInfo
     end
 
     properties (Constant, Access = private)
         % Chu kỳ tick của micro [s]: 50 ms = 400 mẫu, gần hai khung Goertzel.
         CHU_KY_MIC = 0.05
-        % Chu kỳ vẽ lại ba trục khi nghe trực tiếp [s]. Một lần ui_refresh tốn
+        % Chu kỳ vẽ lại các trục khi nghe trực tiếp [s]. Một lần ui_refresh tốn
         % ~0.4 s (đo 29/09/2026, giao diện hiện), vẽ theo từng tick thì giao
         % diện đứng hình; phím mới vẫn hiện ngay vì chỉ đổi một nhãn (~20 ms).
         CHU_KY_VE  = 1.0
@@ -138,6 +171,7 @@ classdef DTMFApp < handle
                            'y',         zeros(1, 0), ...
                            'fs',        8000, ...
                            'meta',      [], ...
+                           'noise',     'awgn', ...
                            'snrDb',     20, ...
                            'method',    'goertzel', ...
                            'keysHat',   blanks(0), ...
@@ -148,8 +182,8 @@ classdef DTMFApp < handle
 
             dungGiaoDien(app, visible);
 
-            % Vẽ ngay để ba trục có tiêu đề "chưa có tín hiệu" thay vì ba ô
-            % trắng không rõ là đang hỏng hay đang chờ.
+            % Vẽ ngay để sáu trục có tiêu đề hướng dẫn thay vì sáu ô trắng
+            % không rõ là đang hỏng hay đang chờ.
             veLai(app);
         end
 
@@ -165,9 +199,9 @@ classdef DTMFApp < handle
 
         % ------------------------------------------------------------ callback
         %
-        % Cả mười hai callback dưới đây để PUBLIC, khác App Designer (mặc
-        % định private), vì unit test gọi thẳng chúng: không có API công khai
-        % nào để "bấm" một uibutton bằng code.
+        % Mọi callback dưới đây để PUBLIC, khác App Designer (mặc định
+        % private), vì unit test gọi thẳng chúng: không có API công khai nào
+        % để "bấm" một uibutton bằng code.
 
         function BtnSrcPushed(app, event)
         %BTNSRCPUSHED Callback dùng chung cho hai nút nguồn: tổng hợp / micro.
@@ -178,6 +212,8 @@ classdef DTMFApp < handle
             end
         end
 
+        % --- bước 1
+
         function Btn1Pushed(app, event)
         %BTN1PUSHED Callback dùng chung cho cả 12 nút bàn phím.
             app.EfKeys.Value = [app.EfKeys.Value, event.Source.Text];
@@ -186,44 +222,9 @@ classdef DTMFApp < handle
         end
 
         function EfKeysValueChanging(app, event)
-        %EFKEYSVALUECHANGING Gõ phím thì tô lại nút: chuỗi đã khác lần phát
-        % trước nghĩa là bước tiếp theo lại là ① Phát tín hiệu.
+        %EFKEYSVALUECHANGING Gõ phím thì tô lại nút: chuỗi đã khác lần tạo
+        % trước nghĩa là bước tiếp theo lại là Tạo tín hiệu.
             capNhatNut(app, event.Value);
-        end
-
-        function BtnGenPushed(app, ~)
-        %BTNGENPUSHED Sinh tín hiệu từ chuỗi phím đang gõ, chưa giải mã.
-            docUI(app);
-            sinhTinHieu(app);
-            veLai(app);
-        end
-
-        function BtnDecodePushed(app, ~)
-        %BTNDECODEPUSHED Giải mã tín hiệu hiện có bằng phương pháp đang chọn.
-            docUI(app);
-            giaiMa(app);
-            veLai(app);
-        end
-
-        function BtnPlayPushed(app, ~)
-        %BTNPLAYPUSHED Phát tín hiệu ĐÃ CỘNG NHIỄU - đúng cái bộ giải mã nghe.
-            phat(app, app.S.y);
-        end
-
-        function DdMethodValueChanged(app, ~)
-        %DDMETHODVALUECHANGED Đổi bộ giải mã thì giải mã lại ngay.
-        % Đang dùng micro thì không có tín hiệu cố định để giải mã lại - xem
-        % doiPhuongPhapMic. Chưa có tín hiệu thì chỉ ghi nhận lựa chọn: giải
-        % mã một tín hiệu rỗng sẽ đánh dấu "đã giải mã" và làm tắt màu nhấn
-        % của bước tiếp theo.
-            if ~isempty(app.CheDoMic)
-                doiPhuongPhapMic(app);
-            elseif ~isempty(app.S.y)
-                BtnDecodePushed(app, []);
-            else
-                docUI(app);
-                capNhatKetQua(app);
-            end
         end
 
         function BtnClearPushed(app, ~)
@@ -232,32 +233,76 @@ classdef DTMFApp < handle
             capNhatNut(app);
         end
 
+        function BtnGenPushed(app, ~)
+        %BTNGENPUSHED Bước 1: dựng x[n] từ chuỗi phím. Chưa cộng nhiễu, chưa giải mã.
+            docUI(app);
+            taoTinHieu(app);
+            veLai(app);
+        end
+
+        function BtnPlayXPushed(app, ~)
+        %BTNPLAYXPUSHED Phát x[n] - tín hiệu gốc, chưa có nhiễu.
+            phat(app, app.S.x);
+        end
+
+        % --- bước 2
+
+        function BtnNoisePushed(app, ~)
+        %BTNNOISEPUSHED Bước 2: y[n] = x[n] + w[n] theo loại nhiễu và SNR đang chọn.
+            docUI(app);
+            congNhieu(app);
+            veLai(app);
+        end
+
+        function BtnPlayPushed(app, ~)
+        %BTNPLAYPUSHED Phát y[n] - tín hiệu ĐÃ CỘNG NHIỄU, đúng cái bộ giải mã nghe.
+            phat(app, app.S.y);
+        end
+
         function SldSNRValueChanging(app, event)
         %SLDSNRVALUECHANGING Chỉ cập nhật nhãn số dB trong lúc đang kéo.
-        % KHÔNG giải mã ở đây: giải mã lại sau mỗi pixel kéo chuột làm giao
+        % KHÔNG cộng nhiễu ở đây: làm lại sau mỗi pixel kéo chuột thì giao
         % diện giật - việc đó để cho SldSNRValueChanged lúc thả chuột.
             hienSNR(app, event.Value);
         end
 
         function SldSNRValueChanged(app, ~)
-        %SLDSNRVALUECHANGED Đổi SNR thì cộng lại nhiễu rồi giải mã lại ngay.
-        % Dùng ValueChanged (thả chuột) chứ KHÔNG phải ValueChanging: giải mã
-        % lại sau mỗi pixel kéo chuột làm giao diện giật.
+        %SLDSNRVALUECHANGED Đổi SNR: nếu đã cộng nhiễu thì cộng lại và chạy lại các bước sau.
             hienSNR(app, app.SldSNR.Value);
+            doiKenh(app);
+        end
+
+        function DdNoiseValueChanged(app, ~)
+        %DDNOISEVALUECHANGED Đổi loại nhiễu: như đổi SNR.
+            doiKenh(app);
+        end
+
+        % --- bước 3
+
+        function BtnDecodePushed(app, ~)
+        %BTNDECODEPUSHED Bước 3: giải mã y[n] bằng bộ giải mã đang chọn.
             docUI(app);
-
-            % Âm thanh micro không có tín hiệu sạch x để cộng lại nhiễu; đi
-            % tiếp thì congNhieu thay bản ghi bằng một tín hiệu rỗng.
-            if app.NguonMic
-                capNhatKetQua(app);
-                return
-            end
-
-            if congNhieu(app)
-                giaiMa(app);
-            end
+            giaiMa(app);
             veLai(app);
         end
+
+        function DdMethodValueChanged(app, ~)
+        %DDMETHODVALUECHANGED Đổi bộ giải mã: đã giải mã rồi thì giải mã lại ngay.
+        % Chưa giải mã thì chỉ ghi nhận lựa chọn - bước 3 đợi người dùng bấm.
+        % Đang dùng micro thì không có tín hiệu cố định để giải mã lại - xem
+        % doiPhuongPhapMic.
+            if ~isempty(app.CheDoMic)
+                doiPhuongPhapMic(app);
+            elseif app.DaGiaiMa && ~isempty(app.S.y)
+                BtnDecodePushed(app, []);
+            else
+                docUI(app);
+                capNhatKetQua(app);
+                capNhatNut(app);
+            end
+        end
+
+        % --- micro
 
         function BtnRecordPushed(app, ~)
         %BTNRECORDPUSHED Bấm lần đầu thì ghi âm micro, bấm lần nữa thì dừng và giải mã.
@@ -287,7 +332,7 @@ classdef DTMFApp < handle
 
         function nhanMauMic(app, chunk)
         %NHANMAUMIC Đưa một đoạn mẫu micro vào bộ giải mã luồng rồi hiển thị.
-        % Có phím mới thì chỉ đổi thẻ Kết quả (~20 ms) để phím hiện ngay; ba
+        % Có phím mới thì chỉ đổi nhãn kết quả (~20 ms) để phím hiện ngay; các
         % trục vẽ lại tối đa mỗi CHU_KY_VE giây một lần.
             if ~strcmp(app.CheDoMic, 'nghe')
                 return
@@ -306,7 +351,7 @@ classdef DTMFApp < handle
         end
 
         function napBanGhi(app, y)
-        %NAPBANGHI Lấy một đoạn âm thanh thu từ micro làm tín hiệu hiện tại rồi giải mã.
+        %NAPBANGHI Lấy một đoạn âm thanh thu từ micro làm y[n] rồi giải mã.
             docUI(app);
             xoaKetQua(app);
             app.S.lastError = blanks(0);
@@ -328,57 +373,75 @@ classdef DTMFApp < handle
     methods (Access = private)
 
         function docUI(app)
-        %DOCUI Chép giá trị ba ô điều khiển vào S. Đây là chiều UI -> S duy nhất.
+        %DOCUI Chép giá trị các ô điều khiển vào S. Đây là chiều UI -> S duy nhất.
         % reshape(..., 1, []) giữ luật CONTRACTS §2 "mọi giá trị rỗng là 1×0":
         % ô phím vừa bị xóa trắng trả về '' tức 0×0. dtmf_generate nhận cả hai
         % cỡ nên đây KHÔNG phải chốt chặn lỗi, nhưng S.keys đi thẳng sang
         % meta.keys rồi tới các phép so chuỗi bằng isequal, mà isequal phân
         % biệt 0×0 với 1×0 - chuẩn hóa ngay ở cửa vào là rẻ nhất.
             app.S.keys   = reshape(char(app.EfKeys.Value), 1, []);
-            app.S.method = app.DdMethod.Value;
+            app.S.noise  = app.DdNoise.Value;
             app.S.snrDb  = app.SldSNR.Value;
+            app.S.method = app.DdMethod.Value;
 
             % Thanh trượt có thể bị đặt bằng code (test, make_figures) mà
             % không qua ValueChanging - nhãn dB phải khớp giá trị thật.
             hienSNR(app, app.S.snrDb);
         end
 
-        function sinhTinHieu(app)
-        %SINHTINHIEU Dựng x từ S.keys rồi cộng nhiễu thành y.
+        function taoTinHieu(app)
+        %TAOTINHIEU Bước 1: dựng x từ S.keys. Xóa y và kết quả cũ - chúng thuộc x cũ.
             xoaKetQua(app);
             app.S.lastError = blanks(0);
-
             app.NguonMic = false;
+            app.S.y = zeros(1, 0);
 
             try
                 [app.S.x, ~, app.S.meta] = dtmf_generate(app.S.keys, 'fs', app.S.fs);
-                app.S.y = dtmf_addnoise(app.S.x, 'snrDb', app.S.snrDb, 'fs', app.S.fs);
             catch ME
                 % Ký tự lạ trong ô phím là chuyện thường ngày, không phải sự
                 % cố. Xóa luôn tín hiệu cũ: giữ lại thì màn hình vẽ một dạng
                 % sóng KHÔNG khớp chuỗi phím đang hiện, gây hiểu nhầm nặng.
                 app.S.x    = zeros(1, 0);
-                app.S.y    = zeros(1, 0);
                 app.S.meta = [];
                 app.S.lastError = ME.message;
             end
         end
 
         function ok = congNhieu(app)
-        %CONGNHIEU Dựng lại y từ x theo S.snrDb, giữ nguyên x và meta.
-        % Dùng khi chỉ thanh SNR đổi: sinh lại x là vô ích và làm mất đi tính
-        % "cùng một tín hiệu gốc, chỉ khác mức nhiễu" của phần demo.
+        %CONGNHIEU Bước 2: dựng y từ x theo S.noise và S.snrDb, giữ nguyên x và meta.
+        % Đổi SNR chỉ gọi lại hàm này, không sinh lại x: giữ tính "cùng một tín
+        % hiệu gốc, chỉ khác mức nhiễu" của phần demo.
             xoaKetQua(app);
             app.S.lastError = blanks(0);
 
             try
-                app.S.y = dtmf_addnoise(app.S.x, 'snrDb', app.S.snrDb, 'fs', app.S.fs);
+                app.S.y = dtmf_addnoise(app.S.x, 'snrDb', app.S.snrDb, ...
+                    'type', app.S.noise, 'fs', app.S.fs);
                 ok = true;
             catch ME
                 app.S.y = zeros(1, 0);
                 app.S.lastError = ME.message;
                 ok = false;
             end
+        end
+
+        function doiKenh(app)
+        %DOIKENH Tham số kênh vừa đổi: cộng lại nhiễu, giải mã lại nếu đã giải mã.
+        % Micro: không có x để cộng lại nhiễu - đi tiếp thì congNhieu thay bản
+        % ghi bằng một tín hiệu rỗng. Chưa cộng nhiễu: bước 2 chưa làm thì chỉ
+        % ghi nhận tham số, đợi người dùng bấm Cộng nhiễu.
+            docUI(app);
+            if app.NguonMic || isempty(app.S.y)
+                capNhatKetQua(app);
+                return
+            end
+
+            daGiai = app.DaGiaiMa;
+            if congNhieu(app) && daGiai
+                giaiMa(app);
+            end
+            veLai(app);
         end
 
         function xoaKetQua(app)
@@ -394,24 +457,77 @@ classdef DTMFApp < handle
         end
 
         function giaiMa(app)
-        %GIAIMA Chạy dtmf_run và ghi nhận là tín hiệu hiện tại đã được giải mã.
+        %GIAIMA Bước 3: chạy dtmf_run và ghi nhận là tín hiệu hiện tại đã được giải mã.
             app.S = dtmf_run(app.S);
             app.DaGiaiMa = true;
             app.TuLuong  = false;
         end
 
         function veLai(app)
-        %VELAI Vẽ lại ba trục qua ui_refresh, rồi cập nhật thẻ Kết quả.
-        % Thẻ Kết quả nằm NGOÀI ui_refresh vì hợp đồng của hàm đó chỉ gồm sáu
-        % thành phần (CONTRACTS §8) - test_ui_smoke dựng app giả đúng sáu thứ.
+        %VELAI Vẽ lại sáu trục qua ui_refresh, rồi tiêu đề, kết quả và nút.
+        % Tiêu đề trục, nhãn kết quả và dòng trạng thái nằm NGOÀI ui_refresh
+        % vì chúng phụ thuộc trạng thái của app (nguồn, bước đã làm) mà hợp
+        % đồng của ui_refresh không có - CONTRACTS §8.
             ui_refresh(app);
+            datTieuDe(app);
             capNhatKetQua(app);
             capNhatNut(app);
         end
 
+        function datTieuDe(app)
+        %DATTIEUDE Tiêu đề sáu trục: có nội dung thì nói đây là tín hiệu nào, trống
+        % thì nói phải bấm gì để có. ui_plot_* đặt tiêu đề chung chung vì chúng
+        % không biết mình đang vẽ x[n] hay y[n].
+            S   = app.S;
+            mic = app.NguonMic;
+            coX = ~isempty(S.x);
+            coY = ~isempty(S.y);
+
+            % Bước 1
+            if mic
+                tieuDe(app.AxWaveX, 'Nguồn micro: x[n] nằm ở thiết bị phát, không thu được');
+                tieuDe(app.AxPsdX,  'Không có x[n]');
+            elseif coX
+                tieuDe(app.AxWaveX, 'Dạng sóng x[n]');
+                tieuDe(app.AxPsdX,  'Phổ công suất của x[n]');
+            else
+                tieuDe(app.AxWaveX, 'Chưa có x[n]   ·   gõ chuỗi phím rồi bấm Tạo tín hiệu');
+                tieuDe(app.AxPsdX,  'Chưa có x[n]');
+            end
+
+            % Bước 2
+            if coY && mic
+                tieuDe(app.AxWave, 'Dạng sóng y[n] thu từ micro');
+                tieuDe(app.AxPsd,  'Phổ công suất của y[n]');
+            elseif coY
+                tieuDe(app.AxWave, 'Dạng sóng y[n] = x[n] + w[n]');
+                tieuDe(app.AxPsd,  'Phổ công suất của y[n], nét xám là x[n]');
+            elseif mic
+                tieuDe(app.AxWave, 'Chưa thu   ·   chọn một cách thu ở bước 1');
+                tieuDe(app.AxPsd,  'Chưa có y[n]');
+            elseif coX
+                tieuDe(app.AxWave, 'Chưa có y[n]   ·   chọn nhiễu, SNR rồi bấm Cộng nhiễu');
+                tieuDe(app.AxPsd,  'Chưa có y[n]');
+            else
+                tieuDe(app.AxWave, 'Chưa có y[n]');
+                tieuDe(app.AxPsd,  'Chưa có y[n]');
+            end
+
+            % Bước 3 - có khung thì giữ tiêu đề của ui_plot_map / ui_plot_bars, vì
+            % chúng mang số liệu (số khung, ngưỡng).
+            if S.iSel < 1
+                if coY
+                    tieuDe(app.AxMap,  'Chưa giải mã   ·   chọn bộ giải mã rồi bấm Giải mã');
+                else
+                    tieuDe(app.AxMap,  'Chưa có tín hiệu để giải mã');
+                end
+                tieuDe(app.AxBars, 'Chưa có khung quyết định');
+            end
+        end
+
         function capNhatKetQua(app)
-        %CAPNHATKETQUA Ghi chuỗi đã phát và một dòng trạng thái đúng/sai.
-        % Chỉ so chuỗi và đếm ký tự - không phép tính DSP nào, luật §2.
+        %CAPNHATKETQUA Ghi chuỗi đã phát, dòng trạng thái và dòng thông tin mỗi bước.
+        % Chỉ so chuỗi và đếm nhãn - không phép tính DSP nào, luật §2.
             M = ui_theme();
             S = app.S;
 
@@ -421,28 +537,28 @@ classdef DTMFApp < handle
             end
             app.LblSent.Text = daPhat;
 
-            % S.method lạ (test cố tình gài) thì hiện nguyên văn, không ném lỗi.
-            k = find(strcmp(app.DdMethod.ItemsData, S.method), 1);
-            tenPP = char(string(S.method));
-            if ~isempty(k)
-                tenPP = app.DdMethod.Items{k};
-            end
-            boi = sprintf('%s   ·   SNR %.0f dB', tenPP, S.snrDb);
+            tenPP = tenMuc(app.DdMethod, S.method);
+            tenNh = tenNhieu(S.noise);
+            boi = sprintf('%s   ·   %s, SNR %.0f dB', tenPP, tenNh, S.snrDb);
 
-            % Chấm đặc = đã có kết luận (đúng/sai), chấm rỗng = đang chờ.
+            % Chấm đặc = đã có kết luận (đúng/sai), chấm rỗng = đang chờ một
+            % bước - kèm việc cần làm tiếp, cùng ý với viền thẻ và màu nút.
             if ~isempty(S.lastError)
-                txt = '●  Có lỗi, xem nhật ký';
+                txt = '●  Có lỗi, xem nhật ký bên phải';
                 mau = M.sai;
             elseif app.NguonMic
                 app.LblSent.Text = '(micro)';
                 [txt, mau] = trangThaiMic(app, tenPP, M);
-            elseif isempty(S.y)
-                % Chấm rỗng kèm việc cần làm tiếp - cùng ý với màu nhấn trên
-                % nút của capNhatNut, nói bằng chữ cho ai chưa để ý màu.
-                txt = '○  Chưa có tín hiệu   ·   gõ phím rồi bấm ①';
+            elseif isempty(S.x)
+                txt = '○  Bước 1   ·   gõ chuỗi phím hoặc bấm bàn phím, rồi bấm Tạo tín hiệu';
                 mau = M.chuMo;
+            elseif isempty(S.y)
+                txt = sprintf(['○  Đã tạo x[n] gồm %d phím   ·   bước 2   ·   chọn ' ...
+                    'loại nhiễu, SNR rồi bấm Cộng nhiễu'], numel(daPhat));
+                mau = M.chuPhu;
             elseif ~app.DaGiaiMa
-                txt = sprintf('○  Đã phát %d phím   ·   bấm ② để giải mã', numel(daPhat));
+                txt = sprintf(['○  Đã cộng nhiễu %s, SNR %.0f dB   ·   bước 3   ·   ' ...
+                    'chọn bộ giải mã rồi bấm Giải mã'], tenNh, S.snrDb);
                 mau = M.chuPhu;
             elseif isequal(S.keysHat, daPhat)
                 txt = sprintf('●  Khớp %d/%d phím   ·   %s', numel(daPhat), numel(daPhat), boi);
@@ -455,6 +571,51 @@ classdef DTMFApp < handle
 
             app.LblStatus.Text      = txt;
             app.LblStatus.FontColor = mau;
+
+            capNhatThongTin(app, daPhat, tenPP, tenNh);
+        end
+
+        function capNhatThongTin(app, daPhat, tenPP, tenNh)
+        %CAPNHATTHONGTIN Dòng thông tin ở góc phải mỗi thẻ bước: bước đó cho ra gì.
+        % S.fs hỏng (test cố tình gài một chuỗi) thì thời lượng hiện NaN chứ
+        % không ném lỗi: lỗi thật đã nằm ở S.lastError, chỗ này chỉ hiển thị.
+            S = app.S;
+            fs = NaN;
+            if isnumeric(S.fs) && isscalar(S.fs) && S.fs > 0
+                fs = S.fs;
+            end
+
+            if app.NguonMic
+                t1 = 'nguồn ngoài, không có x[n]';
+                if isempty(S.y)
+                    t2 = 'chưa thu';
+                elseif app.TuLuong || strcmp(app.CheDoMic, 'nghe')
+                    t2 = sprintf('micro, %.1f s gần nhất', numel(S.y) / fs);
+                else
+                    t2 = sprintf('bản ghi micro, %.1f s', numel(S.y) / fs);
+                end
+            else
+                t1 = 'chưa có';
+                if ~isempty(S.x)
+                    t1 = sprintf('%d phím   ·   %.3f s   ·   %d mẫu', ...
+                        numel(daPhat), numel(S.x) / fs, numel(S.x));
+                end
+                t2 = 'chưa cộng nhiễu';
+                if ~isempty(S.y)
+                    t2 = sprintf('%s   ·   SNR %.0f dB', tenNh, S.snrDb);
+                end
+            end
+
+            t3 = 'chưa giải mã';
+            if S.iSel >= 1 && isfield(S.info, 'reject')
+                n = numel(S.info.reject);
+                t3 = sprintf('%s   ·   nhận %d/%d khung', tenPP, ...
+                    nnz(strcmp(S.info.reject, 'none')), n);
+            end
+
+            app.LblInfo(1).Text = t1;
+            app.LblInfo(2).Text = t2;
+            app.LblInfo(3).Text = t3;
         end
 
         function [txt, mau] = trangThaiMic(app, tenPP, M)
@@ -476,7 +637,7 @@ classdef DTMFApp < handle
                     mau = M.nhan;
                 otherwise
                     if isempty(S.y)
-                        txt = '○  Chưa có tín hiệu   ·   chọn một cách thu ở thẻ 02';
+                        txt = '○  Chưa có tín hiệu   ·   chọn một cách thu ở bước 1';
                         mau = M.chuMo;
                     elseif app.TuLuong
                         txt = sprintf('●  Đã dừng nghe   ·   %d phím   ·   %s', ...
@@ -492,6 +653,125 @@ classdef DTMFApp < handle
                         mau = M.sai;
                     end
             end
+        end
+
+        function b = buocTiep(app, dangGo)
+        %BUOCTIEP Bước cần làm tiếp theo: 1, 2, 3, hoặc 0 khi đã xong một lượt.
+        % Nguồn tổng hợp:
+        %   - chưa có x, hoặc chuỗi phím đã sửa sau lần tạo  -> 1
+        %   - có x, chưa cộng nhiễu                            -> 2
+        %   - có y, chưa giải mã                               -> 3
+        % Micro: micro đang nghỉ và chưa có bản ghi -> 1, còn lại 0 (nút micro
+        % đang chạy tự đổi màu, xem kieuNutMic).
+            S = app.S;
+            if app.NguonMic
+                b = double(isempty(app.CheDoMic) && isempty(S.y));
+                return
+            end
+
+            daPhat = [];
+            if isstruct(S.meta) && isfield(S.meta, 'keys')
+                daPhat = S.meta.keys;
+            end
+
+            if isempty(S.x) || (~isempty(dangGo) && ~isequal(dangGo, daPhat))
+                b = 1;
+            elseif isempty(S.y)
+                b = 2;
+            elseif ~app.DaGiaiMa
+                b = 3;
+            else
+                b = 0;
+            end
+        end
+
+        function capNhatNut(app, dangGo)
+        %CAPNHATNUT Hiện điều khiển của nguồn đang chọn, tô nút và vạch mép thẻ
+        % của bước cần làm tiếp theo, khóa nút chưa dùng được.
+        % Mục đích: nhìn vào là biết bấm gì. Luật bước tiếp theo: buocTiep.
+        % Cộng nhiễu và Giải mã bị khóa khi bước trước chưa có kết quả; Tạo tín
+        % hiệu bị khóa khi ô chuỗi phím trống; Nghe bị khóa khi chưa có gì để nghe.
+        % dangGo: chữ trong ô chuỗi phím. Lúc đang gõ, EfKeys.Value CHƯA đổi
+        % (ValueChanging tới trước), nên EfKeysValueChanging truyền event.Value.
+            if nargin < 2
+                dangGo = app.EfKeys.Value;
+            end
+            dangGo = reshape(char(dangGo), 1, []);
+
+            M = ui_theme();
+            S = app.S;
+            mic  = app.NguonMic;
+            ranh = isempty(app.CheDoMic);
+            ghi  = strcmp(app.CheDoMic, 'ghi');
+            nghe = strcmp(app.CheDoMic, 'nghe');
+            bat  = @(v) matlab.lang.OnOffSwitchState(v);
+
+            % Nguồn. Đang dùng micro thì không cho đổi nguồn: đổi là xóa kết
+            % quả, mà micro vẫn đang đổ mẫu vào.
+            kieuTab(app.BtnSrcGen, ~mic, M);
+            kieuTab(app.BtnSrcMic, mic, M);
+            app.BtnSrcGen.Enable  = bat(ranh);
+            app.BtnSrcMic.Enable  = bat(ranh);
+            app.PnlKeypad.Visible = bat(~mic);
+            app.PnlMic.Visible    = bat(mic);
+
+            coX  = ~mic && ~isempty(S.x);
+            coY  = ~isempty(S.y);
+            buoc = buocTiep(app, dangGo);
+
+            % Bước 1
+            kieuNut(app.BtnGen, buoc == 1 && ~isempty(dangGo), M);
+            app.BtnGen.Enable   = bat(~isempty(dangGo));
+            app.BtnPlayX.Enable = bat(ranh && coX);
+
+            % Bước 2 - micro thì cả bước bị khóa: bản ghi đã mang nhiễu thật.
+            kieuNut(app.BtnNoise, buoc == 2, M);
+            app.BtnNoise.Enable = bat(coX);
+            app.DdNoise.Enable  = bat(~mic);
+            app.SldSNR.Enable   = bat(~mic);
+            app.BtnPlay.Enable  = bat(ranh && coY);
+
+            % Bước 3
+            kieuNut(app.BtnDecode, buoc == 3, M);
+            app.BtnDecode.Enable = bat(ranh && coY);
+
+            % Micro. Nút đang chạy đổi sang màu nhấn: nhìn là biết micro đang
+            % mở; nút micro còn lại bị khóa.
+            app.BtnRecord.Enable = bat(ranh || ghi);
+            app.BtnListen.Enable = bat(ranh || nghe);
+            kieuNutMic(app.BtnListen, nghe, 'Giải mã trực tiếp', 'Dừng nghe', M);
+            kieuNutMic(app.BtnRecord, ghi, 'Ghi âm rồi giải mã', 'Dừng ghi và giải mã', M);
+
+            % Thẻ bước: nhãn "BƯỚC k" màu nhấn khi bước đã có kết quả; vạch mép
+            % trái màu nhấn ở bước cần làm tiếp, còn lại trùng nền thẻ.
+            xong = [coX || (mic && coY), coY, app.DaGiaiMa];
+            for i = 1:3
+                if xong(i)
+                    app.LblSo(i).FontColor = M.nhan;
+                else
+                    app.LblSo(i).FontColor = M.chuMo;
+                end
+                if buoc == i
+                    app.TheBuoc(i).BackgroundColor = M.nhan;
+                else
+                    app.TheBuoc(i).BackgroundColor = M.the;
+                end
+            end
+        end
+
+        function doiNguon(app, mic)
+        %DOINGUON Chuyển sang nguồn khác và xóa kết quả của nguồn cũ.
+        % Xóa vì để lại thì các trục vẫn nói về một tín hiệu không còn liên
+        % quan gì tới điều khiển đang hiện. Ô chuỗi phím giữ nguyên: quay lại
+        % nguồn tổng hợp là bấm Tạo tín hiệu được ngay.
+            app.NguonMic = mic;
+            xoaKetQua(app);
+            app.S.lastError = blanks(0);
+            app.S.x    = zeros(1, 0);
+            app.S.y    = zeros(1, 0);
+            app.S.meta = [];
+            app.TuLuong = false;
+            veLai(app);
         end
 
         % ------------------------------------------------------------ micro
@@ -512,7 +792,7 @@ classdef DTMFApp < handle
         end
 
         function dungGhi(app)
-        %DUNGGHI Dừng ghi, lấy cả bản ghi làm tín hiệu rồi giải mã.
+        %DUNGGHI Dừng ghi, lấy cả bản ghi làm y[n] rồi giải mã.
             y = zeros(1, 0);
             if ~isempty(app.Mic)
                 try
@@ -660,9 +940,9 @@ classdef DTMFApp < handle
 
         function veNghe(app, veTruc)
         %VENGHE Chép kết quả của bộ giải mã luồng sang S rồi hiển thị.
-        % veTruc = true vẽ lại cả ba trục qua ui_refresh; false chỉ đổi thẻ
-        % Kết quả. Nhãn "Đọc được" chỉ vừa khoảng 12 ký tự ở cỡ chữ 24, nên
-        % chỉ hiện 12 phím cuối; số phím đầy đủ nằm ở dòng trạng thái.
+        % veTruc = true vẽ lại mọi trục qua veLai; false chỉ đổi nhãn kết quả.
+        % Nhãn "Đọc được" chỉ vừa khoảng 12 ký tự, nên chỉ hiện 12 phím cuối;
+        % số phím đầy đủ nằm ở dòng trạng thái.
         % KHÔNG chép L.lastError sang S: ui_refresh ghi S.lastError vào nhật
         % ký mỗi lần vẽ, tức mỗi giây một dòng trùng - nhanMauMic đã ghi rồi.
             app.S.y       = app.L.y;
@@ -683,74 +963,7 @@ classdef DTMFApp < handle
             end
         end
 
-        function capNhatNut(app, dangGo)
-        %CAPNHATNUT Hiện thẻ của nguồn đang chọn, tô nút của bước cần làm tiếp
-        % theo, khóa nút chưa dùng được.
-        % Mục đích: nhìn vào là biết bấm gì. Luật cho nguồn tổng hợp:
-        %   - chưa có tín hiệu, hoặc chuỗi phím đã sửa sau lần phát  -> ①
-        %   - đã phát, chưa giải mã                                   -> ②
-        %   - đã giải mã                                              -> không nút nào
-        % "② Giải mã" và "▶ Nghe" bị khóa khi chưa có gì để giải mã hay để nghe;
-        % "① Phát tín hiệu" bị khóa khi ô chuỗi phím trống.
-        % dangGo: chữ trong ô chuỗi phím. Lúc đang gõ, EfKeys.Value CHƯA đổi
-        % (ValueChanging tới trước), nên EfKeysValueChanging truyền event.Value.
-            if nargin < 2
-                dangGo = app.EfKeys.Value;
-            end
-            dangGo = reshape(char(dangGo), 1, []);
-
-            M = ui_theme();
-            S = app.S;
-            ranh = isempty(app.CheDoMic);
-            ghi  = strcmp(app.CheDoMic, 'ghi');
-            nghe = strcmp(app.CheDoMic, 'nghe');
-
-            % Nguồn. Đang dùng micro thì không cho đổi nguồn: đổi là xóa kết
-            % quả, mà micro vẫn đang đổ mẫu vào.
-            kieuTab(app.BtnSrcGen, ~app.NguonMic, M);
-            kieuTab(app.BtnSrcMic, app.NguonMic, M);
-            app.BtnSrcGen.Enable = matlab.lang.OnOffSwitchState(ranh);
-            app.BtnSrcMic.Enable = matlab.lang.OnOffSwitchState(ranh);
-            app.PnlKeypad.Visible = matlab.lang.OnOffSwitchState(~app.NguonMic);
-            app.PnlMic.Visible    = matlab.lang.OnOffSwitchState(app.NguonMic);
-
-            % Tổng hợp.
-            daPhat = [];
-            if isstruct(S.meta) && isfield(S.meta, 'keys')
-                daPhat = S.meta.keys;
-            end
-            coTin  = ~app.NguonMic && ~isempty(S.y);
-            khopGo = coTin && isequal(dangGo, daPhat);
-            kieuNut(app.BtnGen,    ~isempty(dangGo) && ~khopGo, M);
-            kieuNut(app.BtnDecode, khopGo && ~app.DaGiaiMa, M);
-            app.BtnGen.Enable    = matlab.lang.OnOffSwitchState(~isempty(dangGo));
-            app.BtnDecode.Enable = matlab.lang.OnOffSwitchState(coTin);
-
-            % Nghe lại: có tín hiệu (tổng hợp hay bản ghi) và micro đang nghỉ.
-            app.BtnPlay.Enable = matlab.lang.OnOffSwitchState(ranh && ~isempty(S.y));
-
-            % Micro. Nút đang chạy đổi sang màu nhấn: nhìn là biết micro đang
-            % mở; nút micro còn lại bị khóa.
-            app.BtnRecord.Enable = matlab.lang.OnOffSwitchState(ranh || ghi);
-            app.BtnListen.Enable = matlab.lang.OnOffSwitchState(ranh || nghe);
-            kieuNutMic(app.BtnListen, nghe, '◉  Giải mã trực tiếp', '■  Dừng giải mã trực tiếp', M);
-            kieuNutMic(app.BtnRecord, ghi, '●  Ghi âm rồi giải mã', '■  Dừng ghi và giải mã', M);
-        end
-
-        function doiNguon(app, mic)
-        %DOINGUON Chuyển sang nguồn khác và xóa kết quả của nguồn cũ.
-        % Xóa vì để lại thì thẻ Kết quả và ba trục vẫn nói về một tín hiệu
-        % không còn liên quan gì tới thẻ 02 đang hiện. Ô chuỗi phím giữ nguyên:
-        % quay lại nguồn tổng hợp là bấm ① được ngay.
-            app.NguonMic = mic;
-            xoaKetQua(app);
-            app.S.lastError = blanks(0);
-            app.S.x    = zeros(1, 0);
-            app.S.y    = zeros(1, 0);
-            app.S.meta = [];
-            app.TuLuong = false;
-            veLai(app);
-        end
+        % ------------------------------------------------------- phát, nhật ký
 
         function phatPhim(app, ch)
         %PHATPHIM Phát tiếng của ĐÚNG MỘT phím, để bấm tới đâu nghe tới đó.
@@ -782,7 +995,7 @@ classdef DTMFApp < handle
 
         function ghiNhatKy(app, dong)
         %GHINHATKY Nối một dòng vào cuối TxtLog.
-        % Không đi qua ui_refresh: mỗi lần bấm phím mà vẽ lại cả phổ đồ thì
+        % Không đi qua ui_refresh: mỗi lần bấm phím mà vẽ lại cả sáu trục thì
         % bàn phím trễ thấy rõ.
             cu = app.TxtLog.Value;
             if ~iscell(cu)
@@ -798,40 +1011,69 @@ classdef DTMFApp < handle
             app.TxtLog.Value = [cu(:); {dong}];
         end
 
+        function hienSNR(app, v)
+        %HIENSNR Ghi giá trị SNR đang chọn vào nhãn cạnh thanh trượt.
+            app.LblSNR.Text = sprintf('%.0f dB', v);
+        end
+
         % ------------------------------------------------------------ dựng hình
 
-
         function dungGiaoDien(app, visible)
-        %DUNGGIAODIEN Dựng cửa sổ: dòng tiêu đề trên cùng, dưới là hai cột.
-        % Cột trái đi đúng thứ tự thao tác, đánh số 01-02-03: nhập phím ->
-        % chọn tham số -> bấm nút -> đọc kết quả. Cột phải là ba trục của cùng
-        % một tín hiệu nhìn theo ba miền: thời gian, thời gian-tần số, và một
-        % khung quyết định. Màu và phông: app/ui/ui_theme.m.
+        %DUNGGIAODIEN Dựng cửa sổ: tiêu đề, ba thẻ bước xếp dọc, thanh trạng thái.
+        % Ba thẻ bước dùng CÙNG một cách chia cột (theBuoc), nên trục bên trái
+        % của cả ba thẻ - dạng sóng x[n], dạng sóng y[n], bản đồ khung - thẳng
+        % mép nhau tuyệt đối: một thời điểm ở hàng trên nằm đúng trên thời
+        % điểm đó ở hàng dưới. Màu và phông: app/ui/ui_theme.m.
             M = ui_theme();
 
             % 'Theme', 'light' là BẮT BUỘC, không phải sở thích. Từ R2025a
             % uifigure bám theme của hệ điều hành: máy để Windows ở chế độ tối
-            % thì cả giao diện lẫn ba trục ra nền ĐEN, và ảnh chụp H3.3 của báo
-            % cáo cũng đen theo. Ghim sáng để hình trên giấy, hình trên máy
+            % thì cả giao diện lẫn các trục ra nền ĐEN, và ảnh chụp H3.3 của
+            % báo cáo cũng đen theo. Ghim sáng để hình trên giấy, hình trên máy
             % chiếu và hình trên máy người chấm là cùng một hình.
             app.UIFigure = uifigure('Visible', visible, ...
                 'Theme', 'light', ...
                 'Name', 'DTMF - Phát và giải mã tín hiệu', ...
-                'Position', [60 40 1280 780], ...
+                'Position', viTriCuaSo(), ...
                 'Color', M.nen, ...
                 'CloseRequestFcn', @(src, evt) delete(app));
 
-            g = uigridlayout(app.UIFigure, [2 2]);
-            g.ColumnWidth     = {320, '1x'};
-            g.RowHeight       = {34, '1x'};
-            g.Padding         = [14 14 14 10];
+            % Tối giản: không viền, không khung trang trí. Ba thẻ trắng trên
+            % nền xám nhạt, tách nhau bằng khoảng trắng; mọi chú thích dài nằm
+            % trong tooltip thay vì nằm thường trực trên màn hình.
+            g = uigridlayout(app.UIFigure, [3 1]);
+            g.RowHeight       = {30, '1x', 30};
+            g.ColumnWidth     = {'1x'};
+            g.Padding         = [20 12 20 10];
             g.RowSpacing      = 12;
-            g.ColumnSpacing   = 12;
             g.BackgroundColor = M.nen;
 
-            dungTieuDe(g, M);
-            dungCotTrai(app, g, M);
-            dungCotPhai(app, g, M);
+            dungTieuDe(app, g, M);
+
+            % Bước 1 cao hơn hai bước kia vì phải chứa đủ bàn phím 4×3.
+            gb = uigridlayout(g, [3 1]);
+            gb.RowHeight       = {'1.2x', '1x', '1x'};
+            gb.ColumnWidth     = {'1x'};
+            gb.Padding         = [0 0 0 0];
+            gb.RowSpacing      = 12;
+            gb.BackgroundColor = M.nen;
+            gb.Layout.Row      = 2;
+
+            [p1, c1, s1, i1] = theBuoc(gb, 1, 'Tín hiệu gốc', ...
+                ['<i>x</i>[<i>n</i>] = <i>A</i> sin(2π<i>f</i><sub>R</sub><i>n</i>/<i>f</i><sub>s</sub>)' ...
+                 ' + <i>A</i> sin(2π<i>f</i><sub>C</sub><i>n</i>/<i>f</i><sub>s</sub>)'], M);
+            [p2, c2, s2, i2] = theBuoc(gb, 2, 'Kênh nhiễu', ...
+                '<i>y</i>[<i>n</i>] = <i>x</i>[<i>n</i>] + <i>w</i>[<i>n</i>]', M);
+            [p3, c3, s3, i3] = theBuoc(gb, 3, 'Giải mã', ...
+                'khung &rarr; <i>E</i><sub><i>j</i></sub> &rarr; luật quyết định &rarr; phím', M);
+            app.TheBuoc = [p1 p2 p3];
+            app.LblSo   = [s1 s2 s3];
+            app.LblInfo = [i1 i2 i3];
+
+            dungBuocNguon(app, c1, M);
+            dungBuocKenh(app, c2, M);
+            dungBuocGiaiMa(app, c3, M);
+            dungThanhTrangThai(app, g, M);
 
             % Phông chữ đặt MỘT lần cho mọi thứ có chữ, trừ những ô cố ý dùng
             % phông đơn cách (chuỗi phím, kết quả, nhật ký) - cột ký tự thẳng
@@ -844,110 +1086,54 @@ classdef DTMFApp < handle
             end
         end
 
-        function dungCotTrai(app, cha, M)
-        %DUNGCOTTRAI Ba thẻ đánh số theo thứ tự thao tác, nhật ký lỗi nhỏ ở đáy.
-        % 01 chọn nguồn và bộ giải mã. 02 là thẻ của ĐÚNG nguồn đang chọn -
-        % hai thẻ chồng lên nhau ở cùng một ô lưới, capNhatNut ẩn thẻ kia -
-        % nên lúc nào trên màn hình cũng chỉ có nút của một quy trình. 03 là
-        % kết quả, kèm nút nghe lại chính tín hiệu vừa phát hay vừa ghi.
-            gl = uigridlayout(cha, [4 1]);
-            gl.RowHeight       = {118, 338, 130, '1x'};
-            gl.ColumnWidth     = {'1x'};
-            gl.Padding         = [0 0 0 0];
-            gl.RowSpacing      = 12;
-            gl.BackgroundColor = M.nen;
-            gl.Layout.Row      = 2;
-            gl.Layout.Column   = 1;
+        function dungTieuDe(app, cha, M)
+        %DUNGTIEUDE Dòng tiêu đề: tên và thông số bên trái, chọn nguồn bên phải.
+        % Chọn nguồn đặt ở đây chứ không trong một thẻ bước vì nó đổi cách cả
+        % ba bước làm việc.
+            g = uigridlayout(cha, [1 4]);
+            g.ColumnWidth     = {'fit', 'fit', '1x', 200};
+            g.Padding         = [2 0 0 0];
+            g.ColumnSpacing   = 14;
+            g.BackgroundColor = M.nen;
+            g.Layout.Row      = 1;
 
-            dungTheThietLap(app, gl, M);
-            dungTheTongHop(app, gl, M);
-            dungTheMic(app, gl, M);
-            dungTheKetQua(app, gl, M);
+            uilabel(g, 'Text', 'Phát và giải mã tín hiệu DTMF', ...
+                'FontSize', 17, 'FontWeight', 'bold', 'FontColor', M.muc);
+            uilabel(g, 'Text', 'ITU-T Q.23   ·   fs = 8000 Hz', ...
+                'FontSize', 10, 'FontColor', M.chuMo);
 
-            % --- nhật ký: chỉ ghi lỗi, nên để nhỏ, không đánh số, nằm cuối
-            [pn, gc] = theCard(gl, '', 'Nhật ký lỗi', M);
-            pn.Layout.Row = 4;
-
-            app.TxtLog = uitextarea(gc, 'Editable', 'off', ...
-                'FontName', M.fontMono, 'FontSize', 10, 'FontColor', M.sai, ...
-                'BackgroundColor', M.the, ...
-                'Placeholder', 'Chưa có lỗi nào');
-            app.TxtLog.Layout.Row = 2;
-
-            capNhatNut(app);
-        end
-
-        function dungTheThietLap(app, gl, M)
-        %DUNGTHETHIETLAP Thẻ 01: nguồn tín hiệu (hai nút dạng tab) và bộ giải mã.
-        % Bộ giải mã nằm ở đây chứ không trong thẻ 02 vì nó dùng chung cho cả
-        % hai nguồn.
-            [p, gc] = theCard(gl, '01', 'Thiết lập', M);
-            p.Layout.Row = 1;
-
-            gt = uigridlayout(gc, [2 2]);
-            gt.RowHeight       = {30, 30};
-            gt.ColumnWidth     = {72, '1x'};
-            gt.Padding         = [0 0 0 0];
-            gt.RowSpacing      = 8;
-            gt.ColumnSpacing   = 8;
-            gt.BackgroundColor = M.the;
-            gt.Layout.Row      = 2;
-
-            nhanTinh(gt, 1, 'Nguồn', M);
-            gs = uigridlayout(gt, [1 2]);
+            gs = uigridlayout(g, [1 2]);
             gs.ColumnWidth     = {'1x', '1x'};
             gs.Padding         = [0 0 0 0];
-            gs.ColumnSpacing   = 4;
-            gs.BackgroundColor = M.the;
-            gs.Layout.Row = 1;  gs.Layout.Column = 2;
-
+            gs.ColumnSpacing   = 8;
+            gs.BackgroundColor = M.nen;
+            gs.Layout.Column   = 4;
             app.BtnSrcGen = uibutton(gs, 'Text', 'Tổng hợp', 'FontSize', 12, ...
-                'Tooltip', 'Gõ chuỗi phím, máy tự sinh tín hiệu DTMF có nhiễu rồi giải mã', ...
+                'Tooltip', 'Nguồn tổng hợp: gõ chuỗi phím, tạo x[n], cộng nhiễu thành y[n] rồi giải mã', ...
                 'ButtonPushedFcn', @(src, evt) app.BtnSrcPushed(evt));
             app.BtnSrcMic = uibutton(gs, 'Text', 'Micro', 'FontSize', 12, ...
-                'Tooltip', 'Giải mã âm DTMF thu từ micro, vd. bấm số trên điện thoại', ...
+                'Tooltip', 'Nguồn micro: giải mã âm DTMF thu được, vd. bấm số trên điện thoại', ...
                 'ButtonPushedFcn', @(src, evt) app.BtnSrcPushed(evt));
-
-            nhanTinh(gt, 2, 'Bộ giải mã', M);
-            app.DdMethod = uidropdown(gt, ...
-                'Items',     {'FFT', 'Goertzel', 'Ngân hàng bộ lọc'}, ...
-                'ItemsData', {'fft', 'goertzel', 'filterbank'}, ...
-                'Value',     app.S.method, ...
-                'FontColor', M.muc, 'BackgroundColor', M.the, ...
-                'Tooltip', 'Đổi bộ giải mã thì giải mã lại ngay', ...
-                'ValueChangedFcn', @(src, evt) app.DdMethodValueChanged(evt));
-            app.DdMethod.Layout.Row = 2;  app.DdMethod.Layout.Column = 2;
         end
 
-        function dungTheTongHop(app, gl, M)
-        %DUNGTHETONGHOP Thẻ 02 của nguồn tổng hợp: chuỗi phím, bàn phím, SNR,
-        % rồi hai nút đánh số theo đúng thứ tự bấm.
+        function dungBuocNguon(app, c, M)
+        %DUNGBUOCNGUON Thẻ 1: điều khiển của hai nguồn chồng lên nhau ở cột
+        % trái - capNhatNut ẩn cái không dùng - và hai trục của x[n].
         % Ô chuỗi phím nằm NGAY TRÊN bàn phím: bấm phím nào thấy ký tự hiện
-        % ra ở đó, không phải liếc sang thẻ khác. SNR nằm dưới bàn phím và
-        % trên nút ①, vì nó là tham số của bước phát chứ không phải bước giải.
-            [app.PnlKeypad, gc] = theCard(gl, '02', 'Tín hiệu tổng hợp', M);
-            app.PnlKeypad.Layout.Row = 2;
+        % ra ở đó. Nhãn tần số viền bàn phím: mỗi phím là một cặp hàng + cột.
+            app.PnlKeypad = uipanel(c, 'BorderType', 'none', 'BackgroundColor', M.the);
+            app.PnlKeypad.Layout.Row = 1;  app.PnlKeypad.Layout.Column = 1;
 
-            gs = uigridlayout(gc, [3 1]);
-            gs.RowHeight       = {'1x', 42, 36};
-            gs.ColumnWidth     = {'1x'};
-            gs.Padding         = [0 0 0 0];
-            gs.RowSpacing      = 10;
-            gs.BackgroundColor = M.the;
-            gs.Layout.Row      = 2;
-
-            kg = uigridlayout(gs, [6 4]);
-            kg.RowHeight       = [{30, 14}, repmat({'1x'}, 1, 4)];
+            kg = uigridlayout(app.PnlKeypad, [7 4]);
+            kg.RowHeight       = [{26, 12}, repmat({'1x'}, 1, 4), {28}];
             kg.ColumnWidth     = [{30}, repmat({'1x'}, 1, 3)];
             kg.Padding         = [0 0 0 0];
-            kg.RowSpacing      = 6;
-            kg.ColumnSpacing   = 6;
+            kg.RowSpacing      = 4;
+            kg.ColumnSpacing   = 5;
             kg.BackgroundColor = M.the;
-            kg.Layout.Row      = 1;
 
             app.EfKeys = uieditfield(kg, 'text', ...
                 'FontName', M.fontMono, 'FontSize', 15, 'FontColor', M.muc, ...
-                'Placeholder', 'vd. 0912345', ...
                 'ValueChangingFcn', @(src, evt) app.EfKeysValueChanging(evt));
             app.EfKeys.Layout.Row = 1;  app.EfKeys.Layout.Column = [1 3];
 
@@ -989,7 +1175,7 @@ classdef DTMFApp < handle
                     chuPhim = M.chuPhu;
                 end
                 app.(ten{i}) = uibutton(kg, 'Text', ky{i}, ...
-                    'FontSize', 18, ...
+                    'FontSize', 15, ...
                     'FontColor', chuPhim, 'BackgroundColor', nenPhim, ...
                     'Tooltip', sprintf('%d Hz + %d Hz', ...
                         T.rowHz(ceil(i / 3)), T.colHz(mod(i - 1, 3) + 1)), ...
@@ -998,241 +1184,292 @@ classdef DTMFApp < handle
                 app.(ten{i}).Layout.Column = mod(i - 1, 3) + 2;
             end
 
-            % SNR thẳng cột với cột nhãn tần số của bàn phím. Thanh trượt nằm
-            % ở mép trên hàng, vạch chia bên dưới: nhãn hai bên cũng canh trên
-            % để ba thứ thẳng một đường.
-            gt = uigridlayout(gs, [1 3]);
-            gt.ColumnWidth     = {30, '1x', 44};
-            gt.Padding         = [0 0 0 0];
-            gt.ColumnSpacing   = 6;
-            gt.BackgroundColor = M.the;
-            gt.Layout.Row      = 2;
+            gn = uigridlayout(kg, [1 2]);
+            gn.ColumnWidth     = {'1x', 64};
+            gn.Padding         = [0 0 0 0];
+            gn.ColumnSpacing   = 6;
+            gn.BackgroundColor = M.the;
+            gn.Layout.Row      = 7;
+            gn.Layout.Column   = [1 4];
+            app.BtnGen = uibutton(gn, 'Text', 'Tạo tín hiệu', 'FontSize', 12, ...
+                'Tooltip', 'Sinh tín hiệu DTMF sạch từ chuỗi phím, chưa có nhiễu', ...
+                'ButtonPushedFcn', @(src, evt) app.BtnGenPushed(evt));
+            app.BtnPlayX = uibutton(gn, 'Text', 'Nghe', 'FontSize', 11, ...
+                'FontColor', M.muc, 'BackgroundColor', M.the, ...
+                'Tooltip', 'Phát ra loa tín hiệu gốc, chưa có nhiễu', ...
+                'ButtonPushedFcn', @(src, evt) app.BtnPlayXPushed(evt));
 
-            l = nhanTinh(gt, 1, 'SNR', M);
+            dungTheMic(app, c, M);
+
+            app.AxWaveX = trucTrongO(c, 2, app.leThoiGian(), M);
+            app.AxPsdX  = trucTrongO(c, 3, app.lePho(), M);
+        end
+
+        function dungTheMic(app, c, M)
+        %DUNGTHEMIC Điều khiển bước 1 của nguồn micro: một dòng hướng dẫn, hai nút.
+        % Khi nào dùng nút nào nằm trong tooltip, không chiếm chỗ trên màn hình.
+        % Nghe trực tiếp đặt TRƯỚC vì đó là cách trình diễn chính; ghi âm là
+        % cách dự phòng khi cần xem đủ các đồ thị của cả bản ghi.
+            app.PnlMic = uipanel(c, 'BorderType', 'none', 'BackgroundColor', M.the);
+            app.PnlMic.Layout.Row = 1;  app.PnlMic.Layout.Column = 1;
+
+            gm = uigridlayout(app.PnlMic, [4 1]);
+            gm.RowHeight       = {34, 30, 30, '1x'};
+            gm.ColumnWidth     = {'1x'};
+            gm.Padding         = [0 0 0 0];
+            gm.RowSpacing      = 8;
+            gm.BackgroundColor = M.the;
+
+            uilabel(gm, 'WordWrap', 'on', 'FontSize', 11, 'FontColor', M.chuPhu, ...
+                'Text', 'Đặt điện thoại cách micro 5–10 cm và bật âm bàn phím.');
+
+            app.BtnListen = uibutton(gm, 'FontSize', 12, ...
+                'Tooltip', ['Nghe micro liên tục, phím hiện ra ngay khi nhận ra; ' ...
+                    'bấm lần nữa để dừng. Dùng để trình diễn trực tiếp.'], ...
+                'ButtonPushedFcn', @(src, evt) app.BtnListenPushed(evt));
+
+            app.BtnRecord = uibutton(gm, 'FontSize', 12, ...
+                'Tooltip', sprintf(['Ghi âm tối đa %d s; bấm lần nữa để dừng và giải ' ...
+                    'mã cả bản ghi. Đọc được 0 phím thì thanh trạng thái ghi lý do: ' ...
+                    'twist là hai âm lệch biên độ, level là âm quá nhỏ.'], app.GHI_TOI_DA), ...
+                'ButtonPushedFcn', @(src, evt) app.BtnRecordPushed(evt));
+        end
+
+        function dungBuocKenh(app, c, M)
+        %DUNGBUOCKENH Thẻ bước 2: loại nhiễu, SNR, nút Cộng nhiễu, và hai trục của y[n].
+        % Nút Nghe đứng cạnh nút Cộng nhiễu: nghe lại đúng cái bộ giải mã sắp nghe.
+            % Nút ngay dưới tham số, phần trống dồn xuống đáy - cùng kiểu với
+            % thẻ bước 3: tham số trên, nút hành động ngay dưới.
+            gk = uigridlayout(c, [4 2]);
+            gk.RowHeight       = {26, 40, 28, '1x'};
+            gk.ColumnWidth     = {70, '1x'};
+            gk.Padding         = [0 0 0 0];
+            gk.RowSpacing      = 6;
+            gk.ColumnSpacing   = 6;
+            gk.BackgroundColor = M.the;
+            gk.Layout.Row      = 1;
+            gk.Layout.Column   = 1;
+
+            nhanTinh(gk, 1, 'Loại nhiễu', M);
+            app.DdNoise = uidropdown(gk, ...
+                'Items',     {'Trắng Gauss (AWGN)', 'Ù điện lưới 50 Hz'}, ...
+                'ItemsData', {'awgn', 'hum50'}, ...
+                'Value',     app.S.noise, ...
+                'FontColor', M.muc, 'BackgroundColor', M.the, ...
+                'Tooltip', 'Dạng của w[n]; công suất do SNR quyết định', ...
+                'ValueChangedFcn', @(src, evt) app.DdNoiseValueChanged(evt));
+            app.DdNoise.Layout.Row = 1;  app.DdNoise.Layout.Column = 2;
+
+            % Thanh trượt nằm ở mép trên hàng, vạch chia bên dưới: nhãn hai bên
+            % cũng canh trên để ba thứ thẳng một đường.
+            l = nhanTinh(gk, 2, 'SNR', M);
             l.VerticalAlignment = 'top';
-            app.SldSNR = uislider(gt, ...
+            gs = uigridlayout(gk, [1 2]);
+            gs.ColumnWidth     = {'1x', 44};
+            gs.Padding         = [0 0 0 0];
+            gs.ColumnSpacing   = 6;
+            gs.BackgroundColor = M.the;
+            gs.Layout.Row      = 2;
+            gs.Layout.Column   = 2;
+            app.SldSNR = uislider(gs, ...
                 'Limits',          [-5 30], ...
                 'Value',           app.S.snrDb, ...
                 'MajorTicks',      -5:5:30, ...
                 'MinorTicks',      [], ...
                 'FontSize',        9, ...
                 'FontColor',       M.chuMo, ...
-                'Tooltip', 'Mức nhiễu của tín hiệu phát; thả chuột thì cộng lại nhiễu và giải mã lại', ...
+                'Tooltip', ['SNR = 10 log10(Px / Pw). Đã cộng nhiễu mà đổi SNR thì nhiễu ' ...
+                    'được cộng lại vào cùng x[n], các bước sau tự chạy lại.'], ...
                 'ValueChangingFcn', @(src, evt) app.SldSNRValueChanging(evt), ...
                 'ValueChangedFcn',  @(src, evt) app.SldSNRValueChanged(evt));
-            app.SldSNR.Layout.Row = 1;  app.SldSNR.Layout.Column = 2;
-
-            app.LblSNR = uilabel(gt, 'Text', blanks(0), ...
+            app.LblSNR = uilabel(gs, 'Text', blanks(0), ...
                 'FontSize', 12, 'FontWeight', 'bold', 'FontColor', M.nhan, ...
                 'HorizontalAlignment', 'right', 'VerticalAlignment', 'top');
-            app.LblSNR.Layout.Row = 1;  app.LblSNR.Layout.Column = 3;
             hienSNR(app, app.S.snrDb);
 
-            % Hai bước, đánh số đúng thứ tự bấm. Màu do capNhatNut đặt: nút
-            % của bước cần làm TIẾP THEO tô màu nhấn, nút kia nền trắng.
-            gb = uigridlayout(gs, [1 2]);
-            gb.ColumnWidth     = {'1x', '1x'};
-            gb.Padding         = [0 0 0 0];
-            gb.ColumnSpacing   = 8;
-            gb.BackgroundColor = M.the;
-            gb.Layout.Row      = 3;
-
-            app.BtnGen = uibutton(gb, 'Text', '①  Phát tín hiệu', 'FontSize', 12, ...
-                'Tooltip', 'Sinh tín hiệu DTMF từ chuỗi phím rồi cộng nhiễu theo SNR', ...
-                'ButtonPushedFcn', @(src, evt) app.BtnGenPushed(evt));
-            app.BtnDecode = uibutton(gb, 'Text', '②  Giải mã', 'FontSize', 12, ...
-                'Tooltip', 'Giải mã tín hiệu vừa phát bằng bộ giải mã đang chọn', ...
-                'ButtonPushedFcn', @(src, evt) app.BtnDecodePushed(evt));
-        end
-
-        function dungTheMic(app, gl, M)
-        %DUNGTHEMIC Thẻ 02 của nguồn micro: một dòng hướng dẫn, hai nút, mỗi
-        % nút một câu nói rõ khi nào dùng nó.
-        % Nghe trực tiếp đặt TRƯỚC vì đó là cách trình diễn chính; ghi âm là
-        % cách dự phòng khi cần xem đủ ba đồ thị của cả bản ghi.
-            [app.PnlMic, gc] = theCard(gl, '02', 'Thu từ micro', M);
-            app.PnlMic.Layout.Row = 2;
-
-            gm = uigridlayout(gc, [6 1]);
-            gm.RowHeight       = {34, 40, 30, 40, 30, '1x'};
-            gm.ColumnWidth     = {'1x'};
-            gm.Padding         = [0 0 0 0];
-            gm.RowSpacing      = 6;
-            gm.BackgroundColor = M.the;
-            gm.Layout.Row      = 2;
-
-            l = uilabel(gm, 'WordWrap', 'on', 'FontSize', 11, 'FontColor', M.chuPhu, ...
-                'Text', 'Đặt điện thoại cách micro 5–10 cm, bật âm bàn phím, rồi chọn một cách thu:');
-            l.Layout.Row = 1;
-
-            app.BtnListen = uibutton(gm, 'FontSize', 12, ...
-                'Tooltip', 'Nghe micro liên tục, hiện phím ngay khi nhận ra; bấm lần nữa để dừng', ...
-                'ButtonPushedFcn', @(src, evt) app.BtnListenPushed(evt));
-            app.BtnListen.Layout.Row = 2;
-            chuThich(gm, 3, 'Phím hiện ra ngay khi bấm. Dùng để trình diễn trực tiếp.', M);
-
-            app.BtnRecord = uibutton(gm, 'FontSize', 12, ...
-                'Tooltip', sprintf(['Ghi âm từ micro (tối đa %d s); bấm lần nữa để ' ...
-                    'dừng và giải mã bằng bộ giải mã đang chọn'], app.GHI_TOI_DA), ...
-                'ButtonPushedFcn', @(src, evt) app.BtnRecordPushed(evt));
-            app.BtnRecord.Layout.Row = 4;
-            chuThich(gm, 5, sprintf(['Thu tối đa %d s, dừng thì giải mã cả bản ghi ' ...
-                'và vẽ đủ ba đồ thị. Dùng khi cần phân tích.'], app.GHI_TOI_DA), M);
-
-            l = chuThich(gm, 6, ['Đọc được 0 phím? Dòng trạng thái ở thẻ Kết quả ghi lý do: ' ...
-                'twist - hai âm lệch biên độ (loa yếu tần số thấp), level - âm quá nhỏ ' ...
-                'hoặc lẫn tạp âm.'], M);
-            l.VerticalAlignment = 'bottom';
-        end
-
-        function dungTheKetQua(app, gl, M)
-        %DUNGTHEKETQUA Thẻ 03: chuỗi đã phát ngay trên chuỗi đọc được, cùng phông
-        % đơn cách để mắt so được từng cột ký tự.
-        % Nút "Nghe" đứng cạnh "Đã phát": nó phát lại đúng tín hiệu đang xét -
-        % tín hiệu tổng hợp ĐÃ cộng nhiễu, hoặc bản ghi micro. Màu chữ
-        % LblDecoded (đúng xanh / sai đỏ) do ui_refresh đặt; LblSent và
-        % LblStatus do capNhatKetQua đặt.
-            [pk, gc] = theCard(gl, '03', 'Kết quả', M);
-            pk.Layout.Row = 3;
-
-            gk = uigridlayout(gc, [3 3]);
-            gk.RowHeight       = {24, 34, 18};
-            gk.ColumnWidth     = {72, '1x', 74};
-            gk.Padding         = [0 0 0 0];
-            gk.RowSpacing      = 2;
-            gk.ColumnSpacing   = 8;
-            gk.BackgroundColor = M.the;
-            gk.Layout.Row      = 2;
-
-            nhanTinh(gk, 1, 'Đã phát', M);
-            app.LblSent = uilabel(gk, 'Text', blanks(0), ...
-                'FontName', M.fontMono, 'FontSize', 15, 'FontColor', M.chuPhu);
-            app.LblSent.Layout.Row = 1;  app.LblSent.Layout.Column = 2;
-
-            app.BtnPlay = uibutton(gk, 'Text', '▶  Nghe', 'FontSize', 11, ...
+            gn = uigridlayout(gk, [1 2]);
+            gn.ColumnWidth     = {'1x', 64};
+            gn.Padding         = [0 0 0 0];
+            gn.ColumnSpacing   = 6;
+            gn.BackgroundColor = M.the;
+            gn.Layout.Row      = 3;
+            gn.Layout.Column   = [1 2];
+            app.BtnNoise = uibutton(gn, 'Text', 'Cộng nhiễu', 'FontSize', 12, ...
+                'Tooltip', 'y[n] = x[n] + w[n], w[n] theo loại nhiễu và SNR đang chọn', ...
+                'ButtonPushedFcn', @(src, evt) app.BtnNoisePushed(evt));
+            app.BtnPlay = uibutton(gn, 'Text', 'Nghe', 'FontSize', 11, ...
                 'FontColor', M.muc, 'BackgroundColor', M.the, ...
-                'Tooltip', 'Phát ra loa đúng tín hiệu bộ giải mã đang xét (đã cộng nhiễu, hoặc bản ghi micro)', ...
+                'Tooltip', 'Phát ra loa đúng tín hiệu bộ giải mã nghe (đã cộng nhiễu, hoặc bản ghi micro)', ...
                 'ButtonPushedFcn', @(src, evt) app.BtnPlayPushed(evt));
-            app.BtnPlay.Layout.Row = 1;  app.BtnPlay.Layout.Column = 3;
 
-            nhanTinh(gk, 2, 'Đọc được', M);
-            app.LblDecoded = uilabel(gk, 'Text', blanks(0), ...
-                'FontName', M.fontMono, 'FontSize', 24, 'FontWeight', 'bold', ...
+            app.AxWave = trucTrongO(c, 2, app.leThoiGian(), M);
+            app.AxPsd  = trucTrongO(c, 3, app.lePho(), M);
+        end
+
+        function dungBuocGiaiMa(app, c, M)
+        %DUNGBUOCGIAIMA Thẻ bước 3: bộ giải mã, nút Giải mã, kết quả, và hai trục của bộ giải mã.
+        % Chuỗi đã phát nằm ngay trên chuỗi đọc được, cùng phông đơn cách để
+        % mắt so được từng cột ký tự. Màu chữ LblDecoded (đúng xanh / sai đỏ)
+        % do ui_refresh đặt; LblSent do capNhatKetQua đặt.
+            gd = uigridlayout(c, [5 2]);
+            gd.RowHeight       = {26, 28, '1x', 22, 32};
+            gd.ColumnWidth     = {70, '1x'};
+            gd.Padding         = [0 0 0 0];
+            gd.RowSpacing      = 6;
+            gd.ColumnSpacing   = 6;
+            gd.BackgroundColor = M.the;
+            gd.Layout.Row      = 1;
+            gd.Layout.Column   = 1;
+
+            nhanTinh(gd, 1, 'Bộ giải mã', M);
+            app.DdMethod = uidropdown(gd, ...
+                'Items',     {'FFT', 'Goertzel', 'Ngân hàng bộ lọc'}, ...
+                'ItemsData', {'fft', 'goertzel', 'filterbank'}, ...
+                'Value',     app.S.method, ...
+                'FontColor', M.muc, 'BackgroundColor', M.the, ...
+                'Tooltip', 'Đã giải mã rồi mà đổi bộ giải mã thì giải mã lại ngay', ...
+                'ValueChangedFcn', @(src, evt) app.DdMethodValueChanged(evt));
+            app.DdMethod.Layout.Row = 1;  app.DdMethod.Layout.Column = 2;
+
+            app.BtnDecode = uibutton(gd, 'Text', 'Giải mã', 'FontSize', 12, ...
+                'Tooltip', 'Tìm phím trong y[n] bằng bộ giải mã đang chọn', ...
+                'ButtonPushedFcn', @(src, evt) app.BtnDecodePushed(evt));
+            app.BtnDecode.Layout.Row = 2;  app.BtnDecode.Layout.Column = [1 2];
+
+            nhanTinh(gd, 4, 'Đã phát', M);
+            app.LblSent = uilabel(gd, 'Text', blanks(0), ...
+                'FontName', M.fontMono, 'FontSize', 14, 'FontColor', M.chuPhu);
+            app.LblSent.Layout.Row = 4;  app.LblSent.Layout.Column = 2;
+
+            nhanTinh(gd, 5, 'Đọc được', M);
+            app.LblDecoded = uilabel(gd, 'Text', blanks(0), ...
+                'FontName', M.fontMono, 'FontSize', 22, 'FontWeight', 'bold', ...
                 'FontColor', M.muc);
-            app.LblDecoded.Layout.Row = 2;  app.LblDecoded.Layout.Column = [2 3];
+            app.LblDecoded.Layout.Row = 5;  app.LblDecoded.Layout.Column = 2;
 
-            app.LblStatus = uilabel(gk, 'Text', blanks(0), ...
+            app.AxMap  = trucTrongO(c, 2, app.leThoiGian(), M);
+            app.AxBars = trucTrongO(c, 3, app.leThanh(), M);
+        end
+
+        function dungThanhTrangThai(app, cha, M)
+        %DUNGTHANHTRANGTHAI Thanh dưới cùng: một dòng trạng thái của cả quy
+        % trình bên trái, nhật ký lỗi bên phải. Nhật ký chỉ ghi lỗi nên để nhỏ.
+            gs = uigridlayout(cha, [1 2]);
+            gs.ColumnWidth     = {'1x', 420};
+            gs.RowHeight       = {'1x'};
+            gs.Padding         = [2 0 0 0];
+            gs.ColumnSpacing   = 16;
+            gs.BackgroundColor = M.nen;
+            gs.Layout.Row      = 3;
+
+            app.LblStatus = uilabel(gs, 'Text', blanks(0), ...
                 'FontSize', 11, 'FontColor', M.chuMo);
-            app.LblStatus.Layout.Row = 3;  app.LblStatus.Layout.Column = [1 3];
-        end
 
-        function dungCotPhai(app, cha, M)
-        %DUNGCOTPHAI Ba trục xếp dọc, mỗi trục một thẻ ghi rõ miền đang nhìn.
-        % Trục KHÔNG nằm trong uigridlayout mà đặt tay InnerPosition với CÙNG
-        % lề trái/phải (canTruc): khung vẽ của dạng sóng và phổ đồ thẳng mép
-        % nhau tuyệt đối, một thời điểm trên trục này nằm đúng dưới thời điểm
-        % đó trên trục kia. Trong grid, MATLAB tự co khung theo bề rộng nhãn
-        % tick - '0.5' hẹp hơn '3000' - nên hai trục lệch nhau; đặt
-        % PositionConstraint = 'innerposition' trong grid cũng không cứu được
-        % (đo 25/09/2026: khung vẽ bị ép còn một phần ba chiều cao thẻ).
-            gr = uigridlayout(cha, [3 1]);
-            gr.RowHeight       = {'1x', '1.15x', '1x'};
-            gr.ColumnWidth     = {'1x'};
-            gr.Padding         = [0 0 0 0];
-            gr.RowSpacing      = 12;
-            gr.BackgroundColor = M.nen;
-            gr.Layout.Row      = 2;
-            gr.Layout.Column   = 2;
-
-            so     = {'A', 'B', 'C'};
-            tieuDe = {'Miền thời gian', ...
-                      'Miền thời gian – tần số', ...
-                      'Khung quyết định'};
-            % [trái dưới phải trên] tính bằng pixel từ mép vùng vẽ của thẻ:
-            % chừa chỗ cho nhãn trục và tiêu đề trục. Trục C cao hơn ở trên vì
-            % có thêm một dòng phụ đề.
-            le = {[58 38 6 24], [58 38 6 24], [58 38 6 40]};
-
-            ax = cell(1, 3);
-            for i = 1:3
-                [p, gc] = theCard(gr, so{i}, tieuDe{i}, M);
-                p.Layout.Row = i;
-
-                % Một panel trơn làm nền cho trục. Tắt tự co giãn thì
-                % SizeChangedFcn mới được gọi.
-                v = uipanel(gc, 'BorderType', 'none', ...
-                    'BackgroundColor', M.the, 'AutoResizeChildren', 'off');
-                v.Layout.Row = 2;
-
-                ax{i} = uiaxes(v, 'Units', 'pixels', ...
-                    'PositionConstraint', 'innerposition');
-                v.SizeChangedFcn = @(src, ~) canTruc(ax{i}, src, le{i});
-                canTruc(ax{i}, v, le{i});
-            end
-
-            app.AxWave = ax{1};
-            app.AxSpec = ax{2};
-            app.AxBars = ax{3};
-        end
-
-        function hienSNR(app, v)
-        %HIENSNR Ghi giá trị SNR đang chọn vào nhãn cạnh thanh trượt.
-            app.LblSNR.Text = sprintf('%.0f dB', v);
+            app.TxtLog = uitextarea(gs, 'Editable', 'off', ...
+                'FontName', M.fontMono, 'FontSize', 10, 'FontColor', M.sai, ...
+                'BackgroundColor', M.nen, ...
+                'Placeholder', 'Nhật ký lỗi: chưa có lỗi nào');
         end
 
     end
 
+    methods (Static, Access = private)
+        % Lề khung vẽ [trái dưới phải trên], pixel từ mép vùng vẽ của ô: chừa
+        % chỗ cho nhãn trục và tiêu đề. Ba trục thời gian dùng CHUNG một lề để
+        % thẳng mép nhau; trục thanh cao hơn ở trên vì có thêm phụ đề.
+        function le = leThoiGian()
+            le = [58 34 8 22];
+        end
+        function le = lePho()
+            le = [52 34 8 22];
+        end
+        function le = leThanh()
+            le = [52 34 8 38];
+        end
+    end
+
 end
 
-function dungTieuDe(cha, M)
-%DUNGTIEUDE Dòng tiêu đề: vạch nhấn, tên, và thông số hệ thống canh phải.
-% Không dùng dải nền đậm: tiêu đề đứng trên nền cửa sổ như tên một bài báo,
-% để phần nặng màu nhất màn hình là dữ liệu chứ không phải khung trang trí.
-g = uigridlayout(cha, [1 3]);
-g.ColumnWidth     = {4, 'fit', '1x'};
-g.Padding         = [0 3 0 3];
-g.ColumnSpacing   = 10;
-g.BackgroundColor = M.nen;
-g.Layout.Row      = 1;
-g.Layout.Column   = [1 2];
+% ================================================================ hàm cục bộ
 
-uilabel(g, 'Text', '', 'BackgroundColor', M.nhan);
-uilabel(g, 'Text', 'Phát và giải mã tín hiệu DTMF', ...
-    'FontSize', 18, 'FontWeight', 'bold', 'FontColor', M.muc);
-uilabel(g, 'Text', ['ITU-T Q.23     fs = 8000 Hz     ' ...
-                    'FFT  ·  Goertzel  ·  Ngân hàng bộ lọc IIR'], ...
-    'FontSize', 10, 'FontColor', M.chuPhu, ...
+function pos = viTriCuaSo()
+%VITRICUASO Cửa sổ 1400×860, co lại cho vừa màn hình nhỏ, đặt giữa màn hình.
+% Màn hình 1920×1080 để Windows phóng 125% chỉ còn 1536×864 điểm ảnh logic,
+% trừ thanh tác vụ - cố định 860 là tràn đáy.
+scr = get(groot, 'ScreenSize');
+w = min(1400, max(1100, scr(3) - 80));
+h = min(860,  max(720,  scr(4) - 110));
+pos = [max(1, round((scr(3) - w) / 2)), max(40, round((scr(4) - h) / 2)), w, h];
+end
+
+function [vach, c, lblSo, lblInfo] = theBuoc(cha, hang, ten, congThuc, M)
+%THEBUOC Thẻ của bước thứ HANG: nền trắng trên nền xám, không viền.
+% Mép trái là một vạch 3 px - capNhatNut tô màu nhấn cho bước cần làm tiếp,
+% còn lại trùng màu nền thẻ nên không thấy. Dòng đầu: nhãn "BƯỚC k" chữ nhỏ,
+% tên bước, công thức, dòng thông tin canh phải. Thân: ba cột - điều khiển |
+% trục miền thời gian | trục miền tần số. Cả ba thẻ dùng ĐÚNG cách chia cột
+% này, nên trục cột 2 của ba thẻ thẳng mép nhau theo chiều dọc.
+p = uipanel(cha, 'BackgroundColor', M.the, 'BorderType', 'none');
+p.Layout.Row = hang;
+
+gv = uigridlayout(p, [1 2]);
+gv.ColumnWidth     = {3, '1x'};
+gv.RowHeight       = {'1x'};
+gv.Padding         = [0 0 0 0];
+gv.ColumnSpacing   = 0;
+gv.BackgroundColor = M.the;
+
+vach = uilabel(gv, 'Text', '', 'BackgroundColor', M.the);
+
+gp = uigridlayout(gv, [2 1]);
+gp.RowHeight       = {20, '1x'};
+gp.ColumnWidth     = {'1x'};
+gp.Padding         = [14 10 16 10];
+gp.RowSpacing      = 8;
+gp.BackgroundColor = M.the;
+
+gh = uigridlayout(gp, [1 4]);
+gh.ColumnWidth     = {'fit', 'fit', '1x', 'fit'};
+gh.RowHeight       = {'1x'};
+gh.Padding         = [0 0 0 0];
+gh.ColumnSpacing   = 12;
+gh.BackgroundColor = M.the;
+
+lblSo = uilabel(gh, 'Text', sprintf('BƯỚC %d', hang), 'FontSize', 9, ...
+    'FontWeight', 'bold', 'FontColor', M.chuMo);
+uilabel(gh, 'Text', ten, 'FontSize', 13, 'FontWeight', 'bold', 'FontColor', M.muc);
+uilabel(gh, 'Text', congThuc, 'Interpreter', 'html', 'FontSize', 11, 'FontColor', M.chuMo);
+lblInfo = uilabel(gh, 'Text', '', 'FontSize', 10, 'FontColor', M.chuPhu, ...
     'HorizontalAlignment', 'right');
+
+c = uigridlayout(gp, [1 3]);
+c.ColumnWidth     = {270, '1.4x', '1x'};
+c.RowHeight       = {'1x'};
+c.Padding         = [0 0 0 0];
+c.ColumnSpacing   = 24;
+c.BackgroundColor = M.the;
 end
 
-function [p, g] = theCard(cha, so, tieuDe, M)
-%THECARD Thẻ nền trắng viền mảnh; hàng 1 là nhãn mục, hàng 2 dành cho nội dung.
-% Nhãn mục tự vẽ bằng uilabel thay cho Title của uipanel: Title luôn kèm một
-% đường kẻ ngang và cỡ chữ cố định, trông như hộp thoại hơn là một mục báo cáo.
-% Số mục tô màu nhấn, tên mục in hoa màu xám.
-p = uipanel(cha, 'BackgroundColor', M.the, ...
-    'BorderType', 'line', 'BorderColor', M.vien, 'BorderWidth', 1);
+function ax = trucTrongO(c, cot, le, M)
+%TRUCTRONGO Một uiaxes đặt tay trong ô cột COT của thân thẻ bước.
+% Trục KHÔNG nằm thẳng trong uigridlayout mà trong một panel trơn, đặt tay
+% InnerPosition với lề LE: trong grid, MATLAB tự co khung vẽ theo bề rộng
+% nhãn tick - '0.5' hẹp hơn '3000' - nên hai trục chồng nhau lệch mép; đặt
+% PositionConstraint = 'innerposition' trong grid cũng không cứu được (đo
+% 25/09/2026: khung vẽ bị ép còn một phần ba chiều cao thẻ).
+v = uipanel(c, 'BorderType', 'none', ...
+    'BackgroundColor', M.the, 'AutoResizeChildren', 'off');
+v.Layout.Row = 1;  v.Layout.Column = cot;
 
-g = uigridlayout(p, [2 1]);
-g.RowHeight       = {16, '1x'};
-g.ColumnWidth     = {'1x'};
-g.Padding         = [14 12 14 12];
-g.RowSpacing      = 10;
-g.BackgroundColor = M.the;
+% Tắt tự co giãn thì SizeChangedFcn mới được gọi.
+ax = uiaxes(v, 'Units', 'pixels', 'PositionConstraint', 'innerposition');
 
-if isempty(so)
-    nhan = upper(tieuDe);
-else
-    nhan = sprintf('<span style="color:%s">%s</span>&nbsp;&nbsp;&nbsp;%s', ...
-        hex(M.nhan), so, upper(tieuDe));
-end
-uilabel(g, 'Text', nhan, 'Interpreter', 'html', ...
-    'FontSize', 10, 'FontWeight', 'bold', 'FontColor', M.chuPhu);
-end
+% Ẩn thanh công cụ "•••" ở góc trục: sáu trục là sáu cụm nút lơ lửng. Cuộn
+% chuột vẫn phóng to được; lần vẽ sau tự đặt lại giới hạn trục.
+ax.Toolbar.Visible = 'off';
 
-function s = hex(rgb)
-%HEX Đổi màu RGB [0..1] sang chuỗi '#RRGGBB' cho nhãn html.
-s = sprintf('#%02X%02X%02X', round(255 * rgb));
+v.SizeChangedFcn = @(src, ~) canTruc(ax, src, le);
+canTruc(ax, v, le);
 end
 
 function canTruc(ax, p, le)
@@ -1242,6 +1479,33 @@ function canTruc(ax, p, le)
 k = p.InnerPosition;
 ax.InnerPosition = [le(1), le(2), ...
                     max(k(3) - le(1) - le(3), 1), max(k(4) - le(2) - le(4), 1)];
+end
+
+function tieuDe(ax, s)
+%TIEUDE Đổi chữ tiêu đề trục mà giữ màu, cỡ, canh lề ui_refresh đã đặt.
+ax.Title.String = s;
+end
+
+function s = tenMuc(dd, giaTri)
+%TENMUC Tên hiển thị của một giá trị dropdown; giá trị lạ thì hiện nguyên văn.
+% S.method lạ (test cố tình gài) phải hiện ra được, không ném lỗi.
+s = char(string(giaTri));
+k = find(strcmp(dd.ItemsData, giaTri), 1);
+if ~isempty(k)
+    s = dd.Items{k};
+end
+end
+
+function s = tenNhieu(loai)
+%TENNHIEU Tên ngắn của loại nhiễu cho dòng trạng thái.
+switch loai
+    case 'awgn'
+        s = 'AWGN';
+    case 'hum50'
+        s = 'ù 50 Hz';
+    otherwise
+        s = char(string(loai));
+end
 end
 
 function l = nhanTinh(cha, hang, nhan, M)
@@ -1280,13 +1544,6 @@ if dangChon
 else
     set(nut, 'FontWeight', 'normal', 'FontColor', M.chuPhu, 'BackgroundColor', M.the);
 end
-end
-
-function l = chuThich(cha, hang, txt, M)
-%CHUTHICH Một câu chú thích nhỏ, tự xuống dòng, dưới một nút của thẻ micro.
-l = uilabel(cha, 'Text', txt, 'WordWrap', 'on', 'FontSize', 10, ...
-    'FontColor', M.chuMo, 'VerticalAlignment', 'top');
-l.Layout.Row = hang;
 end
 
 function s = demLyDo(S)

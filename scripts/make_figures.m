@@ -1,7 +1,7 @@
 %% make_figures.m
 % MAKE_FIGURES Dựng toàn bộ hình MATLAB của báo cáo vào results/figures/
 %
-% Nạp results/bench.mat (do scripts/run_bench.m sinh) rồi vẽ 9 hình. Script này
+% Nạp results/bench.mat (do scripts/run_bench.m sinh) rồi vẽ 10 hình. Script này
 % KHÔNG tính lại bất cứ số liệu thực nghiệm nào - chạy lại nó sau khi sửa màu
 % một cái hình không được làm đổi một con số nào trong báo cáo.
 %
@@ -71,6 +71,13 @@ iEnChot = find(B.energyRatios == 0.70, 1);           % ngưỡng đang dùng th�
 
 fprintf('Ve hinh vao %s\n', outDir);
 
+%% H1.1 - Vị trí cực quyết định đáp ứng tần số và tính ổn định
+% Hình minh hoạ lý thuyết, không lấy gì từ bench ngoài fs: ba cặp cực cùng góc,
+% chỉ khác bán kính, để người đọc thấy một mình bán kính đổi thì cái gì đổi theo.
+% Mặt vẽ cố ý nhỏ (780 x 234): hình in ở 0.9\linewidth, vẽ to hơn thì chữ 10 pt
+% co lại còn khoảng 5 pt trên giấy.
+xuatTruc(fullfile(outDir, 'H1_1'), @(fig) veCucMinhHoa(fig, fs, mauPp, OI), 780, 234);
+
 %% H2.1 - Phổ đồ STFT của phím "5", do chính ui_plot_spec vẽ
 x5 = dtmf_generate('5', 'fs', fs);
 xuatTrucUi(fullfile(outDir, 'H2_1'), @(ax) veSpecCoThang(ax, x5, fs), 760, 420);
@@ -99,8 +106,9 @@ app = DTMFApp('on');
 try
     app.EfKeys.Value   = '0912345';
     app.DdMethod.Value = 'goertzel';
-    app.BtnGenPushed([]);
-    app.BtnDecodePushed([]);
+    app.BtnGenPushed([]);       % bước 1: x[n]
+    app.BtnNoisePushed([]);     % bước 2: y[n] = x[n] + w[n], SNR mặc định 20 dB
+    app.BtnDecodePushed([]);    % bước 3
 
     % drawnow rồi pause rồi drawnow. Đo 23/09/2026: một lần trong nhiều lần
     % chạy, exportapp bắt được cửa sổ khi ba uiaxes CHƯA vẽ xong và cho ra ảnh
@@ -245,6 +253,99 @@ ui_plot_spec(ax, y, fs);
 
 cb = colorbar(ax);
 cb.Label.String = 'Công suất [dB]';
+end
+
+
+function veCucMinhHoa(fig, fs, mau, OI)
+%VECUCMINHHOA Ba cặp cực cùng góc, khác bán kính: đáp ứng biên độ và đáp ứng xung
+
+% Cùng dạng bộ cộng hưởng với design_bpf_bank (hai điểm không tại z = ±1), để
+% hình lý thuyết ở Chương 1 và hình H2_3 ở Chương 2 nói về cùng một loại bộ lọc.
+% f0 = fs/8 cho góc cực đúng 45 độ: cực không đè lên trục nào và dễ chỉ bằng mắt.
+f0 = fs / 8;
+w0 = 2*pi*f0/fs;
+rs = [0.70 0.90 1.00];
+tenR = {'r = 0,70', 'r = 0,90', 'r = 1,00'};
+nXung = 60;
+
+tl = tiledlayout(fig, 3, 3, 'TileSpacing', 'compact', 'Padding', 'compact');
+
+% (a) Mặt phẳng z. Tự vẽ vòng tròn thay vì gọi zplane: zplane tô mọi cực cùng
+% một màu, mà ở đây màu của cực phải khớp với màu đường ở hai khung bên cạnh.
+ax = nexttile(tl, 1, [3 1]);
+hold(ax, 'on');
+th = linspace(0, 2*pi, 361);
+plot(ax, cos(th), sin(th), '-', 'Color', OI.xam, 'LineWidth', 1.0);
+plot(ax, [0 1.12*cos(w0)], [0 1.12*sin(w0)], ':', 'Color', OI.xam, 'LineWidth', 1.0);
+text(ax, 0.30, 0.10, '\omega_0', 'Color', OI.xam);
+plot(ax, [-1 1], [0 0], 'o', 'Color', [0.15 0.15 0.15], 'MarkerSize', 7, 'LineWidth', 1.2);
+for i = 1:numel(rs)
+    plot(ax, rs(i)*cos(w0)*[1 1], rs(i)*sin(w0)*[1 -1], 'x', ...
+        'Color', mau(i, :), 'MarkerSize', 9, 'LineWidth', 2.0);
+
+    % Chú giải màu đặt ngay trong nửa trái còn trống của vòng tròn. Đây là chỗ
+    % duy nhất ghi đủ cả ba bán kính; khung (b) và (c) đọc theo màu này.
+    text(ax, -0.78, 0.30*(2 - i), ['× ' tenR{i}], 'Color', mau(i, :), ...
+        'FontSize', 8, 'FontWeight', 'bold');
+end
+hold(ax, 'off');
+xlim(ax, [-1.25 1.25]);
+ylim(ax, [-1.25 1.25]);
+pbaspect(ax, [1 1 1]);
+grid(ax, 'on');
+box(ax, 'on');
+xlabel(ax, 'Phần thực');
+ylabel(ax, 'Phần ảo');
+title(ax, '(a) Cực (×) và điểm không (○)');
+
+% (b) Đáp ứng biên độ, chuẩn hoá về đỉnh để so được độ nhọn. r = 1 KHÔNG vẽ:
+% cực nằm trên vòng tròn thì |H| tại f0 là vô hạn, không có đỉnh nào để chuẩn hoá.
+ax = nexttile(tl, 2, [3 1]);
+hold(ax, 'on');
+f = linspace(0, fs/2, 2001);
+zi = exp(-1j*2*pi*f/fs);
+for i = 1:2
+    H = abs((1 - zi.^2) ./ (1 - 2*rs(i)*cos(w0)*zi + rs(i)^2*zi.^2));
+    plot(ax, f, 20*log10(H / max(H)), '-', 'Color', mau(i, :), ...
+        'LineWidth', 1.6, 'DisplayName', tenR{i});
+end
+xline(ax, f0, ':', 'Color', OI.xam, 'LineWidth', 1.0, 'HandleVisibility', 'off');
+hold(ax, 'off');
+grid(ax, 'on');
+box(ax, 'on');
+xlim(ax, [0 fs/2]);
+ylim(ax, [-40 3]);
+xlabel(ax, 'Tần số [Hz]');
+ylabel(ax, 'Biên độ chuẩn hoá [dB]');
+title(ax, '(b) Đáp ứng biên độ');
+legend(ax, 'Location', 'northeast');
+
+% (c) Đáp ứng xung, mỗi bán kính một khung và CHUNG một thang dọc: điều cần
+% thấy là đường bao tắt nhanh, tắt chậm hay không tắt, nên ba khung phải so
+% được với nhau bằng mắt.
+for i = 1:numel(rs)
+    ax = nexttile(tl, 3*i);
+    h = filter([1 0 -1], [1 -2*rs(i)*cos(w0) rs(i)^2], [1 zeros(1, nXung)]);
+    stem(ax, 0:nXung, h, 'filled', 'Color', mau(i, :), 'MarkerSize', 2.5);
+    grid(ax, 'on');
+    box(ax, 'on');
+    xlim(ax, [0 nXung]);
+    % Không ghi nhãn r trong từng khung: khung chỉ cao vài chục điểm ảnh, nhãn
+    % nào cũng đè lên các mẫu. Bán kính đọc theo màu ở khung (a).
+    ylim(ax, [-2.6 2.6]);
+    yticks(ax, [-2 0 2]);
+    if i == 1
+        title(ax, '(c) Đáp ứng xung h[n]');
+    end
+    if i < numel(rs)
+        xticklabels(ax, {});
+    else
+        xlabel(ax, 'Chỉ số mẫu n');
+    end
+end
+
+fprintf('  H1_1: f0 = %g Hz (goc cuc %.0f do), r = [%s]\n', ...
+    f0, w0*180/pi, num2str(rs, '%.2f '));
 end
 
 

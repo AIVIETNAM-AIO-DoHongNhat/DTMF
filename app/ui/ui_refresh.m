@@ -1,23 +1,31 @@
 function ui_refresh(app)
 %UI_REFRESH Vẽ lại toàn bộ giao diện sau khi S đổi
-% Gọi ba hàm vẽ, hiện chuỗi phím đọc được, và dồn mọi lỗi vào ô nhật ký
-%   UI_REFRESH(APP) đọc APP.S rồi cập nhật AxWave, AxSpec, AxBars, LblDecoded
-%   và TxtLog. Đây là hàm DUY NHẤT được gọi sau mỗi lần S = dtmf_run(S).
+% Vẽ sáu trục của ba bước xử lý, hiện chuỗi phím đọc được, dồn mọi lỗi vào nhật ký
+%   UI_REFRESH(APP) đọc APP.S rồi cập nhật sáu trục, LblDecoded và TxtLog. Đây
+%   là hàm DUY NHẤT được gọi sau mỗi lần S đổi.
+%
+%   Sáu trục xếp theo ba bước, mỗi bước một cặp miền thời gian | miền tần số:
+%       ① AxWaveX, AxPsdX   tín hiệu gốc S.x
+%       ② AxWave,  AxPsd    tín hiệu sau kênh nhiễu S.y, phổ chồng phổ của S.x
+%       ③ AxMap,   AxBars   năng lượng 8 bin theo khung, và khung quyết định
 %
 %   Các bước hoạt động:
 %       1. Điền giá trị mặc định cho những trường S còn thiếu. Giao diện lúc
 %          mới mở chưa chạy dtmf_run lần nào nên chưa có .info, .iSel, .thr.
-%       2. Gọi ba hàm vẽ, MỖI hàm một try/catch riêng: một trục hỏng không
-%          được kéo theo hai trục kia.
-%       3. LblDecoded hiện S.keysHat.
-%       4. Nối mọi thông báo lỗi gom được vào cuối TxtLog.
+%       2. Gọi sáu hàm vẽ, MỖI hàm một try/catch riêng: một trục hỏng không
+%          được kéo theo các trục khác.
+%       3. Trang trí, rồi ĐỒNG BỘ THANG: hai dạng sóng cùng thang biên độ, hai
+%          phổ cùng thang dB, ba trục thời gian cùng XLim - để mắt so được x[n]
+%          với y[n] và mỗi khung với đúng đoạn sóng của nó.
+%       4. LblDecoded hiện S.keysHat.
+%       5. Nối mọi thông báo lỗi gom được vào cuối TxtLog.
 %
-%   Hàm này KHÔNG bao giờ ném lỗi và KHÔNG tính toán gì - mọi con số phải do
-%   dtmf_run dọn sẵn, xem CONTRACTS §6(h). Nó chỉ đụng sáu thành phần:
-%   AxWave, AxSpec, AxBars, LblDecoded, TxtLog và S.
+%   Hàm này KHÔNG bao giờ ném lỗi và KHÔNG giải mã gì - mọi con số quyết định
+%   phải do dtmf_run dọn sẵn, xem CONTRACTS §6(h). Nó chỉ đụng chín thành
+%   phần: sáu trục kể trên, LblDecoded, TxtLog và S.
 %
 %   Input:
-%       app: đối tượng giao diện (DTMFApp), hoặc bất cứ thứ gì có sáu thành
+%       app: đối tượng giao diện (DTMFApp), hoặc bất cứ thứ gì có chín thành
 %            phần kể trên - đó là toàn bộ hợp đồng mà hàm này cần.
 %
 %   Example:
@@ -27,7 +35,8 @@ function ui_refresh(app)
 S = app.S;
 
 % Bước 1. Giao diện lúc mới mở chưa gọi dtmf_run lần nào.
-macDinh = struct('y',         zeros(1, 0), ...
+macDinh = struct('x',         zeros(1, 0), ...
+                 'y',         zeros(1, 0), ...
                  'fs',        8000, ...
                  'meta',      [], ...
                  'keysHat',   blanks(0), ...
@@ -47,34 +56,48 @@ if ~isempty(S.lastError)
     loi{end+1} = S.lastError;
 end
 
-% Bước 2. Ba lời gọi độc lập nhau. Gộp chung một try/catch thì một lỗi ở trục
-% thanh làm mất luôn dạng sóng và phổ đồ - tức mất gần hết thông tin trên màn
-% hình chỉ vì hỏng một phần ba.
+% Bước 2. Sáu lời gọi độc lập nhau. Gộp chung một try/catch thì một lỗi ở trục
+% thanh làm mất luôn dạng sóng và phổ - mất gần hết màn hình chỉ vì hỏng một ô.
+loi = veAnToan(loi, @() ui_plot_wave(app.AxWaveX, S.x, S.fs, S.meta));
+loi = veAnToan(loi, @() ui_plot_psd(app.AxPsdX, S.x, S.fs));
 loi = veAnToan(loi, @() ui_plot_wave(app.AxWave, S.y, S.fs, S.meta));
-loi = veAnToan(loi, @() ui_plot_spec(app.AxSpec, S.y, S.fs));
+loi = veAnToan(loi, @() ui_plot_psd(app.AxPsd, S.y, S.fs, S.x));
 
-% iSel = 0 nghĩa là không có khung nào; E rỗng làm ui_plot_bars xóa trục.
+% iSel = 0 nghĩa là chưa giải mã hoặc vừa xóa kết quả. S.info khi đó có thể
+% còn là của lần giải mã TRƯỚC (xoaKetQua của DTMFApp chỉ đặt iSel = 0), nên
+% bản đồ và trục thanh chỉ được vẽ khi iSel trỏ vào một khung có thật.
+coKhung = S.iSel >= 1 && S.iSel <= size(S.info.E, 2);
+info = [];
 E = [];
-if S.iSel >= 1 && S.iSel <= size(S.info.E, 2)
+if coKhung
+    info = S.info;
     E = S.info.E(:, S.iSel);
 end
+loi = veAnToan(loi, @() ui_plot_map(app.AxMap, info, S.iSel));
 loi = veAnToan(loi, @() ui_plot_bars(app.AxBars, E, S.thr));
 
-% Trang trí SAU khi vẽ, không phải lúc dựng trục: bar() và imagesc() ở chế độ
-% NextPlot = 'replace' đặt lại mọi thuộc tính trục về mặc định mỗi lần vẽ.
-% Làm ở đây chứ không trong ui_plot_*, vì các hàm đó còn vẽ hình cho báo cáo.
-% Màu lấy từ ui_theme; ui_plot_* giữ màu riêng cho hình báo cáo.
+% Bước 3. Trang trí SAU khi vẽ, không phải lúc dựng trục: bar() và imagesc()
+% ở chế độ NextPlot = 'replace' đặt lại mọi thuộc tính trục mỗi lần vẽ. Làm
+% ở đây chứ không trong ui_plot_wave / ui_plot_bars, vì hai hàm đó còn vẽ hình
+% cho báo cáo với màu riêng.
 M = ui_theme();
+loi = veAnToan(loi, @() trangTriTruc(app.AxWaveX, M, true));
+loi = veAnToan(loi, @() trangTriTruc(app.AxPsdX, M, true));
 loi = veAnToan(loi, @() trangTriTruc(app.AxWave, M, true));
-loi = veAnToan(loi, @() trangTriTruc(app.AxSpec, M, false));
+loi = veAnToan(loi, @() trangTriTruc(app.AxPsd, M, true));
+loi = veAnToan(loi, @() trangTriTruc(app.AxMap, M, false));
 loi = veAnToan(loi, @() trangTriTruc(app.AxBars, M, true));
+
+loi = veAnToan(loi, @() dongBoSong([app.AxWaveX, app.AxWave]));
+loi = veAnToan(loi, @() toSong(app.AxWaveX, M));
 loi = veAnToan(loi, @() toSong(app.AxWave, M));
-loi = veAnToan(loi, @() toPhoDo(app.AxSpec, app.AxWave, S, M));
+loi = veAnToan(loi, @() dongBoPho([app.AxPsdX, app.AxPsd]));
+loi = veAnToan(loi, @() canThoiGian(app.AxMap, app.AxWave, S));
 loi = veAnToan(loi, @() toThanh(app.AxBars, S, M));
 
-% Bước 3. Màu chữ cho biết ngay đọc đúng hay sai mà không cần so từng ký tự:
+% Bước 4. Màu chữ cho biết ngay đọc đúng hay sai mà không cần so từng ký tự:
 % xanh là khớp chuỗi đã phát, đỏ là lệch. Không có meta (chưa phát, hoặc tín
-% hiệu lạ) thì không có gì để so, giữ màu chữ thường.
+% hiệu micro) thì không có gì để so, giữ màu chữ thường.
 try
     app.LblDecoded.Text = S.keysHat;
 
@@ -91,7 +114,7 @@ catch ME
     loi{end+1} = ME.message;
 end
 
-% Bước 4. Nối vào CUỐI nhật ký cũ, không ghi đè: người dùng cần thấy cả chuỗi
+% Bước 5. Nối vào CUỐI nhật ký cũ, không ghi đè: người dùng cần thấy cả chuỗi
 % sự kiện chứ không chỉ lỗi gần nhất.
 if ~isempty(loi)
     try
@@ -119,7 +142,7 @@ function trangTriTruc(ax, M, coLuoi)
 % Trục chưa có gì để vẽ thì ẩn luôn thước đo: một khung 0..1 trống trơn với
 % đủ vạch chia trông như hình hỏng, chỉ dòng tiêu đề "chưa có..." là đủ.
 % Lưới chỉ kẻ ngang - lưới dọc cắt ngang vùng tone mà không cho thêm thông
-% tin nào. Phổ đồ không kẻ lưới: imagesc đặt Layer = 'top' nên lưới đè ảnh.
+% tin nào. Bản đồ khung không kẻ lưới: imagesc đặt Layer = 'top' nên lưới đè ảnh.
 coNoiDung = ~isempty(ax.Children);
 
 ax.FontName   = M.font;
@@ -131,7 +154,7 @@ ax.Box        = 'off';
 ax.TickDir    = 'out';
 ax.TickLength = [0.005 0.005];
 
-ax.TitleFontSizeMultiplier  = 1.2;
+ax.TitleFontSizeMultiplier  = 1.15;
 ax.TitleFontWeight          = 'normal';
 ax.TitleHorizontalAlignment = 'left';
 ax.Title.Color = M.muc;
@@ -146,6 +169,28 @@ ax.GridLineStyle = '-';
 
 if ~coNoiDung
     ax.Title.Color = M.chuMo;
+end
+end
+
+function dongBoSong(axs)
+%DONGBOSONG Đưa hai dạng sóng x[n] và y[n] về CÙNG thang biên độ.
+% Mỗi trục ui_plot_wave tự chọn thang theo biên độ của chính nó, nên ở SNR
+% thấp y[n] trông "to bằng" x[n] dù nhiễu đã gấp ba tín hiệu. Lấy thang lớn
+% hơn cho cả hai, và kéo vùng tô nền theo, để toSong suy lại đúng biên độ.
+coSong = arrayfun(@(a) ~isempty(findobj(a, 'Type', 'line')), axs);
+axs = axs(coSong);
+if numel(axs) < 2
+    return
+end
+yMax = max(arrayfun(@(a) a.YLim(2), axs));
+for ax = axs
+    ax.YLim = [-yMax yMax];
+    for pa = findobj(ax, 'Type', 'patch')'
+        v = pa.YData;
+        v(v == max(v)) = yMax;
+        v(v == min(v)) = -yMax;
+        pa.YData = v;
+    end
 end
 end
 
@@ -182,28 +227,28 @@ tk = ax.YTick;
 ax.YTick = tk(abs(tk) <= 1.1 * a);
 end
 
-function toPhoDo(axSpec, axWave, S, M)
-%TOPHODO Thang màu kiểu hình in, cùng trục thời gian với dạng sóng.
-% imagesc bó trục x theo TÂM khung đầu và cuối (~0.016 s ... ~0.98 s), còn
-% dạng sóng chạy [0, thời lượng] - hai trục chồng nhau mà lệch thời gian.
-% Thang màu tự động trải từ ô nhiễu yếu nhất (-100 dB trở xuống) tới đỉnh,
-% nền nhiễu chiếm gần hết dải màu và tone chìm giữa một màu lốm đốm. Cắt ở
-% 45 dB dưới đỉnh: tone nổi rõ trên nền nhạt, mà vẫn đủ rộng để thấy nhiễu
-% dày lên khi hạ SNR. Chỉ đổi thang hiển thị, không đổi số liệu.
-if isempty(findobj(axSpec, 'Type', 'image'))
+function dongBoPho(axs)
+%DONGBOPHO Đưa hai trục phổ về CÙNG thang dB: nền nhiễu của y[n] mới so được
+% bằng mắt với nền của x[n] ở hàng trên. Dải tô nền và nhãn nhóm của
+% ui_plot_psd không phụ thuộc YLim nên chỉ cần đổi YLim.
+coPho = arrayfun(@(a) ~isempty(findobj(a, 'Type', 'line')), axs);
+axs = axs(coPho);
+if numel(axs) < 2
     return
 end
-colormap(axSpec, M.cmap);
-if ~isempty(S.y)
-    axSpec.XLim = axWave.XLim;
+lim = cell2mat(arrayfun(@(a) a.YLim, axs(:), 'UniformOutput', false));
+yl = [min(lim(:, 1)), max(lim(:, 2))];
+set(axs, 'YLim', yl);
 end
-hi = axSpec.CLim(2);
-axSpec.CLim = [hi - 45, hi];
 
-% Bảy đường tần số chuẩn: ui_plot_spec kẻ trắng cho nền parula tối, trên nền
-% trắng thì phải đổi sang xám mới thấy.
-set(findobj(axSpec, 'Type', 'constantline'), ...
-    'Color', M.chuMo, 'Alpha', 0.45, 'LineWidth', 0.5);
+function canThoiGian(axMap, axWave, S)
+%CANTHOIGIAN Cho bản đồ khung cùng trục thời gian với dạng sóng y[n] ngay trên.
+% imagesc bó trục x theo TÂM khung đầu và cuối, còn dạng sóng chạy [0, thời
+% lượng] - hai trục chồng nhau mà lệch thời gian.
+if isempty(findobj(axMap, 'Type', 'image')) || isempty(S.y)
+    return
+end
+axMap.XLim = axWave.XLim;
 end
 
 function toThanh(ax, S, M)

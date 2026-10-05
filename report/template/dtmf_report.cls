@@ -158,26 +158,36 @@
 
 % =========================================================
 % VI. TIÊU ĐỀ
-% Cấp 1 (Chương): 16pt đậm, IN HOA, căn giữa ("CHƯƠNG 1. CƠ SỞ LÝ THUYẾT"),
-%                 bắt đầu trang mới. Mục không đánh số (Mở đầu, Danh mục,
-%                 Tài liệu tham khảo) và Phụ lục dùng cùng kiểu.
+% Cấp 1 (Mục lớn): 16pt đậm, IN HOA, thụt 1,27cm như mục, đánh số La Mã
+%                 ("I. CƠ SỞ LÝ THUYẾT"). Phụ lục dùng cùng kiểu; mục không
+%                 đánh số (Mở đầu, Danh mục, Tài liệu tham khảo) căn giữa.
 % Cấp 2 (Mục)   : 13pt đậm, thụt 1,27cm, đánh số 1.1.
 % Cấp 3 (Mục con): 13pt đậm nghiêng, thụt 1,27cm, đánh số 1.1.1.
-% Tất cả màu đen. Chương đánh số Ả Rập để khớp với mục, hình, bảng và công
-% thức (1.1, Hình 1.1, Bảng 1.1, (1.1)); \ref{} tới chương in ra "Chương 4".
+% Tất cả màu đen. Mục lớn in số La Mã, còn mục, hình, bảng và công thức vẫn
+% đánh số Ả Rập theo mục lớn (1.1, Hình 1.1, Bảng 1.1, (1.1)); \ref{} tới mục
+% lớn in ra "IV".
 % =========================================================
-\newcommand{\dtmfchaptername}{CHƯƠNG}
-\renewcommand{\thesection}{\arabic{section}}
-\renewcommand{\thesubsection}{\thesection.\arabic{subsection}}
+% Tiền tố trước số mục lớn: rỗng ở phần thân, "PHỤ LỤC " ở phần phụ lục
+\newcommand{\dtmfsecprefix}{}
+\renewcommand{\thesection}{\Roman{section}}
+\renewcommand{\thesubsection}{\arabic{section}.\arabic{subsection}}
 \renewcommand{\thesubsubsection}{\thesubsection.\arabic{subsubsection}}
 
 \newcommand{\dtmfheadingfont}{\normalfont\fontsize{16}{22}\bfseries}
 
+% Căn như tiêu đề mục (thụt 1,27cm, căn trái), tên dài xuống dòng thẳng cột
+% với chữ đầu tên; chỉ khác ở cỡ chữ 16pt và in hoa. Tiêu đề dùng dòng đơn
+% (không giãn 1,5 như thân bài) để hai dòng của tên dài liền nhau. Tên dài
+% nên ngắt tay bằng \\ ở chỗ hợp nghĩa, kèm tên một dòng cho mục lục:
+%   \section[TÊN ĐẦY ĐỦ]{NỬA ĐẦU\\ NỬA SAU}
+% In hoa tiêu đề; \\ ngắt dòng đổi thành \newline để không lỗi trong \MakeUppercase
+\newcommand{\dtmfupper}[1]{{\let\\\newline\MakeUppercase{#1}}}
+
 \titleformat{\section}
-  {\dtmfheadingfont\filcenter}
-  {\dtmfchaptername~\thesection.}
-  {0.5em}
-  {\MakeUppercase}
+  {\setstretch{1}\dtmfheadingfont\filright}
+  {\dtmfsecprefix\thesection.}
+  {0.4em}
+  {\dtmfupper}
 
 % Mục và mục con cùng cỡ chữ thân (13pt), phân biệt bằng kiểu chữ
 \titleformat{\subsection}
@@ -188,8 +198,9 @@
   {\normalfont\normalsize\bfseries\itshape}
   {\thesubsubsection}{0.6em}{}
 
-\titlespacing{\section}      {0pt}{0pt}{22pt}
-% Tiêu đề mục (1.1) và mục con (1.1.1) thụt vào 1,27cm như dòng đầu đoạn
+% Tiêu đề mục lớn (I), mục (1.1) và mục con (1.1.1) thụt vào 1,27cm như dòng
+% đầu đoạn
+\titlespacing{\section}      {1.27cm}{0pt}{22pt}
 \titlespacing{\subsection}   {1.27cm}{18pt plus 3pt minus 2pt}{9pt}
 \titlespacing{\subsubsection}{1.27cm}{13pt plus 2pt minus 1pt}{6pt}
 
@@ -198,7 +209,7 @@
 
 % =========================================================
 % VII. HÌNH, BẢNG, CÔNG THỨC
-% Đánh số theo chương: Hình 2.1 · Bảng 3.2 · công thức (2.5)
+% Đánh số theo mục lớn: Hình 2.1 · Bảng 3.2 · công thức (2.5)
 % =========================================================
 \counterwithin{figure}{section}
 \counterwithin{table}{section}
@@ -274,14 +285,14 @@
 \renewcommand{\cftsecfont}{\bfseries}
 \renewcommand{\cftsecpagefont}{\bfseries}
 \renewcommand{\cftsecleader}{\bfseries\cftdotfill{\cftdotsep}}
-% Mục cấp 1 trong mục lục: "CHƯƠNG 1. Tên chương". Tiền tố đọc
-% \dtmfchaptername lúc in mục lục, nên phần phụ lục ghi lệnh đổi tên vào
-% file .toc (xem \batdauphuluc).
-\renewcommand{\cftsecpresnum}{\dtmfchaptername~}
+% Mục cấp 1 trong mục lục: "I. Tên mục". Tiền tố đọc \dtmfsecprefix lúc in
+% mục lục, nên phần phụ lục ghi lệnh đổi tiền tố và nới cột số vào file .toc
+% (xem \batdauphuluc).
+\renewcommand{\cftsecpresnum}{\dtmfsecprefix}
 \renewcommand{\cftsecaftersnum}{.}
 \setlength{\cftbeforesecskip}{9pt}
 \setlength{\cftbeforesubsecskip}{4pt}
-\setlength{\cftsecnumwidth}{7.2em}
+\setlength{\cftsecnumwidth}{2.6em}
 \setlength{\cftsubsecnumwidth}{3.0em}
 \setlength{\cftsubsubsecnumwidth}{3.8em}
 \setlength{\cftsubsecindent}{1.5em}
@@ -313,7 +324,7 @@
   \fancyhf{}\fancyfoot[C]{\dtmf@chantrang}%
   \renewcommand{\headrulewidth}{0pt}}
 
-% Chỉ phần thân (Chương 1 đến chương cuối) in số trang, bắt đầu từ 1.
+% Chỉ phần thân (mục I đến mục lớn cuối cùng) in số trang, bắt đầu từ 1.
 % \tatsotrang: từ trang sau trở đi không in số trang, và các mục tương ứng
 %              trong mục lục / danh mục cũng không ghi số trang.
 % \batsotrang: bắt đầu đánh số Ả Rập từ 1 và in số trang.
@@ -485,7 +496,7 @@
 % =========================================================
 % XIII. MỤC KHÔNG ĐÁNH SỐ
 % Dùng cho Mở đầu, Danh mục từ viết tắt, Tài liệu tham khảo.
-% Trình bày giống tiêu đề chương nhưng không có số.
+% Trình bày giống tiêu đề mục lớn nhưng không có số.
 % =========================================================
 \newcommand{\unsection}[1]{%
   \clearpage
@@ -505,13 +516,18 @@
   \addcontentsline{toc}{section}{\listtablename}%
   \listoftables}
 
-% Bắt đầu phần phụ lục: mỗi phụ lục trình bày như một chương, nhãn
-% "PHỤ LỤC 1.", hình và bảng đánh số riêng PL1.1 để không trùng chương chính.
+% Bắt đầu phần phụ lục: mỗi phụ lục trình bày như một mục lớn, nhãn
+% "PHỤ LỤC 1.", hình và bảng đánh số riêng PL1.1 để không trùng phần thân.
+% Số phụ lục dùng chữ số Ả Rập; \theHsection đổi theo để liên kết PDF của
+% phụ lục không trùng với các mục I, II của phần thân.
 \newcommand{\batdauphuluc}{%
   \clearpage
   \setcounter{section}{0}%
-  \renewcommand{\dtmfchaptername}{PHỤ LỤC}%
-  \addtocontents{toc}{\protect\renewcommand{\protect\dtmfchaptername}{PHỤ LỤC}}%
+  \renewcommand{\thesection}{\arabic{section}}%
+  \renewcommand{\theHsection}{pl.\arabic{section}}%
+  \renewcommand{\dtmfsecprefix}{PHỤ LỤC~}%
+  \addtocontents{toc}{\protect\renewcommand{\protect\dtmfsecprefix}{PHỤ LỤC~}}%
+  \addtocontents{toc}{\protect\setlength{\protect\cftsecnumwidth}{7.2em}}%
   \addtocontents{lof}{\protect\addtolength{\protect\cftfignumwidth}{1.6em}}%
   \addtocontents{lot}{\protect\addtolength{\protect\cfttabnumwidth}{1.6em}}%
   \renewcommand{\thefigure}{PL\arabic{section}.\arabic{figure}}%
@@ -636,3 +652,20 @@
 \newcommand{\wzero}{\omega_{0}}
 \newcommand{\Qfac}{Q}
 \newcommand{\SNRdB}{\mathrm{SNR}_{\mathrm{dB}}}
+
+% Phân số đứng trong dòng văn bản: \phanso{tử}{mẫu}. Phân số cao gần gấp đôi
+% dòng chữ nên kèm một cột vô hình cao bằng cặp ngoặc \bigg (hoặc bằng phân số
+% nếu phân số cao hơn) cộng thêm \dtmf@psdem mỗi phía, để dòng chứa nó tự giãn
+% đều phía trên và phía dưới. Ngoặc quanh phân số dùng \biggl( \biggr), không
+% dùng \left( \right) vì \left sẽ đo cả cột vô hình và phình to theo.
+\newlength{\dtmf@psdem}
+\setlength{\dtmf@psdem}{7pt}
+\newcommand{\phanso}[2]{%
+  \dfrac{#1}{#2}%
+  \setbox\z@\hbox{$\dfrac{#1}{#2}$}%
+  \setbox\tw@\hbox{$\biggl(\biggr)$}%
+  \ifdim\ht\tw@>\ht\z@ \ht\z@=\ht\tw@ \fi
+  \ifdim\dp\tw@>\dp\z@ \dp\z@=\dp\tw@ \fi
+  \rule[-\dimexpr\dp\z@+\dtmf@psdem\relax]{\z@}%
+       {\dimexpr\ht\z@+\dp\z@+2\dtmf@psdem\relax}%
+}

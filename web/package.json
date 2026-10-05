@@ -1,0 +1,26 @@
+{
+  "name": "dtmf-ban-phim",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Gọi tổng đài mô phỏng bằng phím DTMF chuẩn ITU-T Q.23 và hành trình của âm thanh tới bộ giải mã",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "build:artifact": "tsc --noEmit && vite build --mode artifact --outDir dist-artifact && node scripts/to-artifact.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "typescript": "~5.9.3",
+    "vite": "^8.3.2",
+    "vite-plugin-singlefile": "^2.3.3",
+    "vitest": "^5.0.3"
+  }
+}

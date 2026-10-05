@@ -17,12 +17,14 @@ testCase.addTeardown(@() delete(app));
 end
 
 function app = appDaSinh(testCase, keys, snrDb)
-% App đã bấm "Phát tín hiệu" một lần - điểm xuất phát của hầu hết các ca.
+% App đã qua bước 1 (Tạo tín hiệu) và bước 2 (Cộng nhiễu), chưa giải mã -
+% điểm xuất phát của hầu hết các ca.
 rng(2026);
 app = newApp(testCase);
 app.EfKeys.Value = keys;
 app.SldSNR.Value = snrDb;
 app.BtnGenPushed([]);
+app.BtnNoisePushed([]);
 end
 
 function nhan = banPhim()
@@ -41,7 +43,8 @@ function test_buildsEveryComponentInNamingDoc(testCase)
 app = newApp(testCase);
 
 bp  = banPhim();
-ten = [bp(:, 1)', {'UIFigure', 'PnlKeypad', 'AxWave', 'AxSpec', 'AxBars', ...
+ten = [bp(:, 1)', {'UIFigure', 'PnlKeypad', 'AxWaveX', 'AxPsdX', 'AxWave', ...
+                   'AxPsd', 'AxMap', 'AxBars', 'BtnPlayX', 'BtnNoise', 'DdNoise', ...
                    'EfKeys', 'DdMethod', 'SldSNR', 'BtnGen', 'BtnDecode', ...
                    'BtnPlay', 'LblDecoded', 'TxtLog', 'BtnSrcGen', 'BtnSrcMic', ...
                    'PnlMic', 'BtnRecord', 'BtnListen'}];
@@ -58,6 +61,7 @@ function test_controlSettingsMatchNamingDoc(testCase)
 app = newApp(testCase);
 
 testCase.verifyEqual(app.DdMethod.ItemsData, {'fft', 'goertzel', 'filterbank'});
+testCase.verifyEqual(app.DdNoise.ItemsData, {'awgn', 'hum50'});
 testCase.verifyEqual(app.SldSNR.Limits, [-5 30]);
 testCase.verifyEqual(char(app.TxtLog.Editable), 'off');
 testCase.verifyNumElements(app.DdMethod.Items, 3);
@@ -90,13 +94,14 @@ testCase.verifyEqual(char(app.UIFigure.Visible), 'off');
 end
 
 function test_constructorDrawsEmptyState(testCase)
-% Constructor gọi ui_refresh một lần: ba trục phải có tiêu đề "chưa có tín
-% hiệu" thay vì ba ô trắng không rõ là đang hỏng hay đang chờ.
+% Constructor vẽ một lần: sáu trục phải có tiêu đề nói cần làm gì thay vì
+% sáu ô trắng không rõ là đang hỏng hay đang chờ.
 app = newApp(testCase);
 
-testCase.verifyNotEmpty(app.AxWave.Title.String);
-testCase.verifyNotEmpty(app.AxSpec.Title.String);
-testCase.verifyNotEmpty(app.AxBars.Title.String);
+for t = {'AxWaveX', 'AxPsdX', 'AxWave', 'AxPsd', 'AxMap', 'AxBars'}
+    testCase.verifyNotEmpty(app.(t{1}).Title.String, t{1});
+end
+testCase.verifySubstring(app.AxWaveX.Title.String, 'Tạo tín hiệu');
 testCase.verifyEmpty(app.LblDecoded.Text);
 end
 
@@ -127,16 +132,60 @@ for m = {'fft', 'goertzel', 'filterbank'}
 end
 end
 
-function test_generateFillsSignalWithoutDecoding(testCase)
-% "Phát tín hiệu" và "Giải mã" là hai việc tách bạch: nút Phát chỉ dựng x, y,
-% meta chứ chưa đụng tới bộ giải mã.
-app = appDaSinh(testCase, '0912345', 25);
+function test_threeStepsAreSeparate(testCase)
+% Ba bước tách bạch, đúng đường tín hiệu đi: Tạo tín hiệu chỉ dựng x và meta,
+% Cộng nhiễu chỉ dựng y, Giải mã mới đụng tới bộ giải mã. Mỗi bước vẽ ra hàng
+% trục của riêng nó trước khi bước sau bắt đầu.
+rng(2026);
+app = newApp(testCase);
+app.EfKeys.Value = '0912345';
+app.SldSNR.Value = 25;
 
+app.BtnGenPushed([]);
 testCase.verifyEqual(app.S.meta.keys, '0912345');
 testCase.verifyNumElements(app.S.x, 7*800 + 6*400);
+testCase.verifyEmpty(app.S.y);                                 % chưa có nhiễu
+testCase.verifyNotEmpty(findobj(app.AxPsdX, 'Type', 'line'));  % phổ x[n] đã có
+testCase.verifyEmpty(findobj(app.AxPsd, 'Type', 'line'));      % phổ y[n] chưa
+
+app.BtnNoisePushed([]);
 testCase.verifyNumElements(app.S.y, numel(app.S.x));
-testCase.verifyNotEqual(app.S.y, app.S.x);        % đã cộng nhiễu
-testCase.verifyEmpty(app.LblDecoded.Text);        % nhưng chưa giải mã
+testCase.verifyNotEqual(app.S.y, app.S.x);                     % đã cộng nhiễu
+testCase.verifyNotEmpty(findobj(app.AxPsd, 'Type', 'line'));
+testCase.verifyEmpty(app.LblDecoded.Text);                     % nhưng chưa giải mã
+testCase.verifyEmpty(findobj(app.AxMap, 'Type', 'image'));
+
+app.BtnDecodePushed([]);
+testCase.verifyEqual(app.LblDecoded.Text, '0912345');
+testCase.verifyNotEmpty(findobj(app.AxMap, 'Type', 'image'));
+end
+
+function test_noiseTypeReachesTheChannel(testCase)
+% Loại nhiễu chọn ở bước 2 phải đi đúng vào dtmf_addnoise. Ù 50 Hz là tất
+% định nên so được từng mẫu.
+app = newApp(testCase);
+app.EfKeys.Value = '59';
+app.SldSNR.Value = 10;
+app.DdNoise.Value = 'hum50';
+app.BtnGenPushed([]);
+app.BtnNoisePushed([]);
+
+testCase.verifyEqual(app.S.noise, 'hum50');
+testCase.verifyEqual(app.S.y, ...
+    dtmf_addnoise(app.S.x, 'snrDb', 10, 'type', 'hum50', 'fs', 8000), 'AbsTol', 1e-12);
+testCase.verifySubstring(app.LblStatus.Text, 'ù 50 Hz');
+end
+
+function test_noiseTypeChangeRedoesTheChannel(testCase)
+% Đổi loại nhiễu sau khi đã cộng: cộng lại vào cùng x, như kéo SNR.
+app = appDaSinh(testCase, '59', 10);
+xTruoc = app.S.x;
+app.DdNoise.Value = 'hum50';
+app.DdNoiseValueChanged([]);
+
+testCase.verifyEqual(app.S.x, xTruoc);
+testCase.verifyEqual(app.S.y, ...
+    dtmf_addnoise(xTruoc, 'snrDb', 10, 'type', 'hum50', 'fs', 8000), 'AbsTol', 1e-12);
 end
 
 function test_generateClearsThePreviousResult(testCase)
@@ -153,17 +202,36 @@ app.BtnGenPushed([]);
 testCase.verifyEmpty(app.LblDecoded.Text);
 testCase.verifyEqual(app.S.iSel, 0);
 testCase.verifyEmpty(findobj(app.AxBars, 'Type', 'bar'));
+testCase.verifyEmpty(findobj(app.AxMap, 'Type', 'image'));
+
+% y cũ là nhiễu cộng vào x CŨ - giữ lại thì bước 2 vẽ một tín hiệu không còn
+% liên quan tới bước 1.
+testCase.verifyEmpty(app.S.y);
 end
 
 function test_methodDropdownRedecodesOnChange(testCase)
-% Đổi phương pháp phải thấy kết quả đổi theo ngay, không phải bấm Giải mã lần
-% nữa - người chấm sẽ đổi qua đổi lại ba phương pháp để so sánh.
+% Đã giải mã rồi thì đổi phương pháp phải thấy kết quả đổi theo ngay, không
+% phải bấm Giải mã lần nữa - người chấm sẽ đổi qua đổi lại ba phương pháp.
 app = appDaSinh(testCase, '0912345', 25);
+app.BtnDecodePushed([]);
 app.DdMethod.Value = 'filterbank';
 app.DdMethodValueChanged([]);
 
 testCase.verifyEqual(app.LblDecoded.Text, '0912345');
 testCase.verifyEqual(app.S.method, 'filterbank');
+testCase.verifySubstring(app.LblStatus.Text, 'Ngân hàng bộ lọc');
+end
+
+function test_methodDropdownDoesNotSkipTheDecodeStep(testCase)
+% Chưa bấm Giải mã thì đổi phương pháp chỉ ghi nhận lựa chọn: bước 3 không
+% được tự chạy khi người dùng chưa đi tới nó.
+app = appDaSinh(testCase, '0912345', 25);
+app.DdMethod.Value = 'fft';
+app.DdMethodValueChanged([]);
+
+testCase.verifyEqual(app.S.method, 'fft');
+testCase.verifyEmpty(app.LblDecoded.Text);
+testCase.verifyEqual(char(app.BtnDecode.FontWeight), 'bold');
 end
 
 % ---------------------------------------------------------------- thanh SNR
@@ -174,7 +242,7 @@ function test_snrSliderReusesTheSameCleanSignal(testCase)
 %
 % So x trước với x sau là VÔ NGHĨA: dtmf_generate tất định nên sinh lại cùng
 % chuỗi phím cho đúng cùng một mảng, và một bản sinh lại lọt qua hết. Khác
-% biệt thật lộ ra ở đây: người dùng gõ chuỗi mới nhưng CHƯA bấm Phát tín hiệu.
+% biệt thật lộ ra ở đây: người dùng gõ chuỗi mới nhưng CHƯA bấm Tạo tín hiệu.
 % Nếu thanh trượt sinh lại x thì tín hiệu đổi sau lưng người dùng trong khi
 % meta vẫn của chuỗi cũ - dạng sóng và nhãn phím trên AxWave lệch nhau mà
 % không có lỗi nào. Đột biến "congNhieu sinh lại x" thoát được bản test cũ.
@@ -182,7 +250,7 @@ app = appDaSinh(testCase, '0912345', 25);
 xTruoc = app.S.x;
 yTruoc = app.S.y;
 
-app.EfKeys.Value = '456';            % gõ chuỗi mới, CHƯA bấm Phát tín hiệu
+app.EfKeys.Value = '456';            % gõ chuỗi mới, CHƯA bấm Tạo tín hiệu
 app.SldSNR.Value = 5;
 app.SldSNRValueChanged([]);
 
@@ -197,16 +265,46 @@ testCase.verifyEqual(snrDo, 5, 'AbsTol', 0.5);
 end
 
 function test_snrSliderRedecodesWithoutPressingDecode(testCase)
-% Kéo thanh trượt rồi thấy chuỗi đọc được đổi theo tại chỗ - đó là cái làm
-% vách SNR trở nên nhìn thấy được trong buổi demo.
+% Đã giải mã rồi thì kéo thanh trượt là thấy chuỗi đọc được đổi theo tại chỗ
+% - đó là cái làm vách SNR trở nên nhìn thấy được trong buổi demo.
 app = appDaSinh(testCase, '0912345', 25);
-testCase.verifyEmpty(app.LblDecoded.Text);
+app.BtnDecodePushed([]);
+
+app.SldSNR.Value = -5;
+app.SldSNRValueChanged([]);
+testCase.verifyNotEqual(app.LblDecoded.Text, '0912345');
+testCase.verifyTrue(app.S.iSel >= 1);               % đã giải mã lại, không chỉ xóa
 
 app.SldSNR.Value = 28;
 app.SldSNRValueChanged([]);
-
 testCase.verifyEqual(app.LblDecoded.Text, '0912345');
 testCase.verifyEmpty(app.S.lastError);
+end
+
+function test_snrSliderDoesNotSkipTheNoiseStep(testCase)
+% Chưa bấm Cộng nhiễu thì kéo SNR chỉ ghi nhận tham số: y[n] không được tự
+% xuất hiện khi người dùng còn đang xem phổ của x[n].
+app = newApp(testCase);
+app.EfKeys.Value = '59';
+app.BtnGenPushed([]);
+
+app.SldSNR.Value = 5;
+app.SldSNRValueChanged([]);
+testCase.verifyEmpty(app.S.y);
+testCase.verifyEqual(app.S.snrDb, 5);
+testCase.verifyEqual(char(app.BtnNoise.FontWeight), 'bold');
+end
+
+function test_snrSliderOnUndecodedSignalKeepsDecodeStep(testCase)
+% Đã cộng nhiễu, chưa giải mã: kéo SNR cộng lại nhiễu nhưng KHÔNG giải mã hộ.
+app = appDaSinh(testCase, '59', 25);
+yTruoc = app.S.y;
+app.SldSNR.Value = 10;
+app.SldSNRValueChanged([]);
+
+testCase.verifyNotEqual(app.S.y, yTruoc);
+testCase.verifyEmpty(app.LblDecoded.Text);
+testCase.verifyEqual(char(app.BtnDecode.FontWeight), 'bold');
 end
 
 % ------------------------------------------------------------------ bàn phím
@@ -236,9 +334,10 @@ testCase.verifyEqual(app.EfKeys.Value, '5');
 testCase.verifyTrue(all(strlength(string(app.TxtLog.Value)) == 0));
 end
 
-function test_playButtonIsSilentWhenHidden(testCase)
+function test_playButtonsAreSilentWhenHidden(testCase)
 app = appDaSinh(testCase, '59', 25);
 
+testCase.verifyWarningFree(@() app.BtnPlayXPushed([]));
 testCase.verifyWarningFree(@() app.BtnPlayPushed([]));
 testCase.verifyTrue(all(strlength(string(app.TxtLog.Value)) == 0));
 end
@@ -384,8 +483,9 @@ end
 % ------------------------------------------------- nguồn và bước tiếp theo
 %
 % Thiết kế lại 29/09/2026 vì năm nút của hai quy trình nằm chung một chỗ và
-% người dùng không biết khi nào bấm nút nào. Ba luật được ghim ở đây: (1) chỉ
-% thẻ của nguồn đang chọn được hiện; (2) nút của bước cần bấm TIẾP THEO được
+% người dùng không biết khi nào bấm nút nào; tách thành ba bước tín hiệu gốc -
+% kênh nhiễu - giải mã ngày 05/10/2026. Ba luật được ghim ở đây: (1) chỉ điều
+% khiển của nguồn đang chọn được hiện; (2) nút của bước cần bấm TIẾP THEO được
 % tô màu nhấn (đọc qua FontWeight = 'bold'); (3) nút chưa dùng được bị khóa.
 
 function test_sourceTabsShowOnlyTheirControls(testCase)
@@ -407,9 +507,9 @@ testCase.verifyEqual(char(app.PnlMic.Visible), 'off');
 end
 
 function test_switchingSourceClearsTheOldResult(testCase)
-% Kết quả của nguồn cũ còn treo trên màn hình sau khi đổi nguồn thì thẻ Kết
-% quả nói về một tín hiệu không còn liên quan tới thẻ 02 đang hiện. Chuỗi phím
-% thì GIỮ: quay lại nguồn tổng hợp là bấm ① được ngay.
+% Kết quả của nguồn cũ còn treo trên màn hình sau khi đổi nguồn thì các trục
+% nói về một tín hiệu không còn liên quan tới điều khiển đang hiện. Chuỗi phím
+% thì GIỮ: quay lại nguồn tổng hợp là bấm Tạo tín hiệu được ngay.
 app = appDaSinh(testCase, '0912345', 25);
 app.BtnDecodePushed([]);
 
@@ -425,48 +525,76 @@ end
 function test_nextStepButtonIsHighlighted(testCase)
 % Đi hết một vòng tổng hợp và kiểm nút nào được tô ở mỗi bước.
 app = newApp(testCase);
+nutTo = @() [app.BtnGen.FontWeight == "bold", app.BtnNoise.FontWeight == "bold", ...
+             app.BtnDecode.FontWeight == "bold"];
 
-% Ô phím trống: chưa có gì để phát hay giải mã, không nút nào được tô.
+% Ô phím trống: chưa có gì để tạo, cộng nhiễu hay giải mã; không nút nào tô.
 testCase.verifyEqual(char(app.BtnGen.Enable), 'off');
+testCase.verifyEqual(char(app.BtnNoise.Enable), 'off');
 testCase.verifyEqual(char(app.BtnDecode.Enable), 'off');
+testCase.verifyEqual(char(app.BtnPlayX.Enable), 'off');
 testCase.verifyEqual(char(app.BtnPlay.Enable), 'off');
+testCase.verifyEqual(nutTo(), [false false false]);
 
-% Gõ phím (ValueChanging tới TRƯỚC khi Value đổi): bước tiếp theo là ①.
+% Gõ phím (ValueChanging tới TRƯỚC khi Value đổi): bước tiếp theo là Tạo.
 app.EfKeysValueChanging(struct('Value', '59'));
 testCase.verifyEqual(char(app.BtnGen.Enable), 'on');
-testCase.verifyEqual(char(app.BtnGen.FontWeight), 'bold');
-testCase.verifyEqual(char(app.BtnDecode.FontWeight), 'normal');
+testCase.verifyEqual(nutTo(), [true false false]);
 
-% Đã phát: bước tiếp theo là ②, và nghe được.
+% Đã tạo x: bước tiếp theo là Cộng nhiễu; nghe được x, chưa nghe được y.
 app.EfKeys.Value = '59';
 app.BtnGenPushed([]);
-testCase.verifyEqual(char(app.BtnGen.FontWeight), 'normal');
-testCase.verifyEqual(char(app.BtnDecode.FontWeight), 'bold');
+testCase.verifyEqual(nutTo(), [false true false]);
+testCase.verifyEqual(char(app.BtnNoise.Enable), 'on');
+testCase.verifyEqual(char(app.BtnDecode.Enable), 'off');
+testCase.verifyEqual(char(app.BtnPlayX.Enable), 'on');
+testCase.verifyEqual(char(app.BtnPlay.Enable), 'off');
+testCase.verifySubstring(app.LblStatus.Text, 'Cộng nhiễu');
+
+% Đã cộng nhiễu: bước tiếp theo là Giải mã, và nghe được y.
+app.BtnNoisePushed([]);
+testCase.verifyEqual(nutTo(), [false false true]);
 testCase.verifyEqual(char(app.BtnDecode.Enable), 'on');
 testCase.verifyEqual(char(app.BtnPlay.Enable), 'on');
-testCase.verifySubstring(app.LblStatus.Text, '②');
+testCase.verifySubstring(app.LblStatus.Text, 'Giải mã');
 
 % Đã giải mã: xong một vòng, không nút nào cần tô.
 app.BtnDecodePushed([]);
-testCase.verifyEqual(char(app.BtnGen.FontWeight), 'normal');
-testCase.verifyEqual(char(app.BtnDecode.FontWeight), 'normal');
+testCase.verifyEqual(nutTo(), [false false false]);
 
-% Sửa chuỗi phím sau khi phát: tín hiệu cũ không còn khớp, lại là ①.
+% Sửa chuỗi phím sau khi tạo: tín hiệu cũ không còn khớp, lại là Tạo.
 app.Btn1Pushed(struct('Source', app.Btn0));
-testCase.verifyEqual(char(app.BtnGen.FontWeight), 'bold');
+testCase.verifyEqual(nutTo(), [true false false]);
 end
 
 function test_methodChangeWithoutSignalKeepsNextStep(testCase)
 % Đổi bộ giải mã khi chưa có tín hiệu thì chỉ ghi nhận lựa chọn. Giải mã một
-% tín hiệu rỗng sẽ đánh dấu "đã giải mã" và tắt màu nhấn của nút ② sau đó.
+% tín hiệu rỗng sẽ đánh dấu "đã giải mã" và tắt màu nhấn của nút Giải mã sau đó.
 app = newApp(testCase);
 app.DdMethod.Value = 'fft';
 app.DdMethodValueChanged([]);
 
 app.EfKeys.Value = '59';
 app.BtnGenPushed([]);
+app.BtnNoisePushed([]);
 testCase.verifyEqual(char(app.BtnDecode.FontWeight), 'bold');
 testCase.verifyEqual(app.S.method, 'fft');
+end
+
+function test_micModeLocksTheNoiseStep(testCase)
+% Bản ghi micro đã mang nhiễu thật: bước 2 khóa hẳn, nhưng vẫn nghe lại và
+% giải mã lại được bản ghi. Bản ghi vẽ ở hàng y[n]; hàng x[n] trống.
+app = newApp(testCase);
+app.BtnSrcPushed(struct('Source', app.BtnSrcMic));
+app.napBanGhi(dtmf_generate('59'));
+
+testCase.verifyEqual(char(app.SldSNR.Enable), 'off');
+testCase.verifyEqual(char(app.DdNoise.Enable), 'off');
+testCase.verifyEqual(char(app.BtnNoise.Enable), 'off');
+testCase.verifyEqual(char(app.BtnPlay.Enable), 'on');
+testCase.verifyEqual(char(app.BtnDecode.Enable), 'on');
+testCase.verifyEmpty(findobj(app.AxWaveX, 'Type', 'line'));
+testCase.verifyNotEmpty(findobj(app.AxWave, 'Type', 'line'));
 end
 
 function test_sourceCannotChangeWhileMicIsOn(testCase)
@@ -483,7 +611,7 @@ app.BtnListenPushed([]);
 end
 
 function test_generateAfterMicReturnsToSyntheticMode(testCase)
-% Sau khi dùng micro, bấm "Phát tín hiệu" phải quay về so đúng/sai với chuỗi
+% Sau khi dùng micro, bấm Tạo tín hiệu phải quay về so đúng/sai với chuỗi
 % đã phát như bình thường.
 app = newApp(testCase);
 app.napBanGhi(dtmf_generate('59'));
@@ -491,6 +619,7 @@ app.napBanGhi(dtmf_generate('59'));
 app.EfKeys.Value = '0912345';
 app.SldSNR.Value = 25;
 app.BtnGenPushed([]);
+app.BtnNoisePushed([]);
 app.BtnDecodePushed([]);
 
 testCase.verifyEqual(app.LblSent.Text, '0912345');

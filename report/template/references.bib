@@ -4,7 +4,8 @@
 %
 % LUẬT BẮT BUỘC CỦA NHÓM:
 %   Mỗi mục dưới đây phải được người trích dẫn tự mở tài liệu gốc và
-%   điền đầy đủ thông tin thư mục + ghi số trang vào chỗ trích dẫn trong văn.
+%   điền đầy đủ thông tin thư mục. Trong văn chỉ trích số thứ tự \cite{khoá},
+%   không ghi số trang; số trang đã đối chiếu ghi vào trường annotation.
 %   Các trường đánh dấu TODO là chỗ bắt buộc phải kiểm chứng, KHÔNG được
 %   đoán hoặc để AI sinh ra.
 % =========================================================
@@ -85,8 +86,7 @@
 % ---------------------------------------------------------
 @techreport{itu_q23,
   author      = {{ITU-T}},
-  title       = {Recommendation Q.23: Technical Features of Push-Button
-                 Telephone Sets},
+  title       = {Technical Features of Push-Button Telephone Sets},
   institution = {International Telecommunication Union},
   type        = {Recommendation},
   number      = {Q.23},
@@ -97,8 +97,7 @@
 
 @techreport{itu_q24,
   author      = {{ITU-T}},
-  title       = {Recommendation Q.24: Multifrequency Push-Button Signal
-                 Reception},
+  title       = {Multifrequency Push-Button Signal Reception},
   institution = {International Telecommunication Union},
   type        = {Recommendation},
   number      = {Q.24},
@@ -144,15 +143,15 @@
   edition   = {4},
   publisher = {Pearson},
   year      = {2007},
-  annotation      = {Dùng cho mục 2.2 (Goertzel); TODO: ghi số trang
-               chương tương ứng vào chỗ trích dẫn trong văn}
+  annotation      = {Dùng cho số phép nhân của FFT, $\frac{N}{2}\log_{2} N$, ở mục
+               2.2.1 (trích cùng xltinhieu_tap2).}
 }
 
 % ---------------------------------------------------------
 % Tài liệu công cụ
 % ---------------------------------------------------------
 @online{mathworks_goertzel,
-  author  = {{The MathWorks, Inc.}},
+  author  = {{MathWorks}},
   title   = {goertzel: Discrete Fourier transform with second-order
              Goertzel algorithm},
   url     = {https://www.mathworks.com/help/signal/ref/goertzel.html},

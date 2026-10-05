@@ -72,6 +72,7 @@ m = dtmf_metrics(keysTrue, keysHat)  % .acc .editDist .confusion (12x12)
 | Cộng nhiễu theo SNR | **TỰ VIẾT** | Chưa cài Communications Toolbox; công thức tay chính xác hơn `awgn` |
 | `hamming`, `tukeywin` | Dùng toolbox | Cửa sổ là chi tiết phụ trợ |
 | `spectrogram` | Dùng toolbox | Chỉ hiển thị trong `app/ui/ui_plot_spec.m` |
+| `pwelch` | Dùng toolbox | Chỉ hiển thị phổ x[n], y[n] trong `app/ui/ui_plot_psd.m` |
 | `freqz`, `zplane` | Dùng toolbox | Chỉ kiểm chứng và vẽ, không nằm trong luồng giải mã |
 
 - **`goertzel` của Signal Processing Toolbox chỉ được xuất hiện trong `tests/test_goertzel.m`**
@@ -546,16 +547,22 @@ DMTF/
 │  │            design_bpf_bank.m dtmf_decode_filterbank.m
 │  └─ util/     dtmf_segment.m  dtmf_decide.m  dtmf_debounce.m  dtmf_metrics.m
 ├─ app/         dtmf_run.m   dtmf_listen.m   DTMFApp.m
-│  └─ ui/       ui_plot_wave.m ui_plot_spec.m ui_plot_bars.m ui_refresh.m ui_play.m ui_mic.m
+│  └─ ui/       ui_plot_wave.m ui_plot_psd.m ui_plot_map.m ui_plot_bars.m ui_plot_spec.m
+│               ui_refresh.m ui_theme.m ui_play.m ui_mic.m
 ├─ tests/       test_generate.m test_goertzel.m run_all_tests.m  (+ các test bổ sung)
 ├─ scripts/     dev_harness.m  make_coeffs.m  run_bench.m  make_figures.m
 ├─ data/        wav/  mat/      (coeffs.mat sinh tại chỗ, .gitignore - xem §6(b))
 ├─ results/     figures/  bench.mat
-└─ docs/        report/  slides/  study/KE_HOACH.md
+├─ docs/        report/  slides/  study/KE_HOACH.md
+└─ web/         bàn phím phát DTMF (React + Vite, build ra một tệp HTML) - CHỈ phát,
+                không giải mã: nhận phím luôn là việc của bộ giải mã MATLAB
 ```
 
 **Giao diện:** `app/DTMFApp.m` dạng `classdef ... < handle` tự dựng `uifigure`, **không** dùng
-`.mlapp` (file ZIP nhị phân, không diff/merge và không test tự động được). `ui_refresh.m` chỉ
-đụng `app.AxWave`, `app.AxSpec`, `app.AxBars`, `app.TxtLog`, `app.LblDecoded`, `app.S`, nên một
-`classdef` có đúng các property đó thỏa mãn hợp đồng y hệt class do App Designer sinh ra. Tên
-component tuân thủ `docs/ui_naming.md`.
+`.mlapp` (file ZIP nhị phân, không diff/merge và không test tự động được). Bố cục ba bước theo
+đường tín hiệu: tín hiệu gốc x[n], kênh nhiễu y[n] = x[n] + w[n], giải mã. `ui_refresh.m` chỉ đụng
+sáu trục `app.AxWaveX`, `app.AxPsdX` (bước 1), `app.AxWave`, `app.AxPsd` (bước 2), `app.AxMap`,
+`app.AxBars` (bước 3), cùng `app.TxtLog`, `app.LblDecoded`, `app.S`, nên một `classdef` có đúng các
+property đó thỏa mãn hợp đồng y hệt class do App Designer sinh ra. Tên component tuân thủ
+`docs/ui_naming.md`. `ui_plot_spec.m` không còn vẽ trong giao diện, chỉ phục vụ hình H2.1 của
+báo cáo.

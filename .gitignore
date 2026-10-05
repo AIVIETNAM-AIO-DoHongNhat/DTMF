@@ -40,3 +40,8 @@ data/mat/*.mat
 results/bench.mat
 results/figures/*.pdf
 results/figures/*.png
+
+# Web: goi npm va ban build dung lai bang `npm install`, `npm run build`.
+web/node_modules/
+web/dist/
+web/dist-artifact/

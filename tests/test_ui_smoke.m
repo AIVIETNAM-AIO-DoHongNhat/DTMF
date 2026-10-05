@@ -15,19 +15,24 @@ ax = uiaxes(f);
 end
 
 function app = fakeApp(testCase, S)
-% Đứng thay DTMFApp (chưa có tới Buổi 9). Hợp lệ vì ui_refresh CHỈ đụng sáu
-% thành phần này - xem CONTRACTS §8; một struct chứa đúng sáu handle đó thỏa
-% mãn hợp đồng y hệt một classdef.
+% Đứng thay DTMFApp. Hợp lệ vì ui_refresh CHỈ đụng chín thành phần này - xem
+% CONTRACTS §8; một struct chứa đúng chín handle đó thỏa mãn hợp đồng y hệt
+% một classdef.
 f = uifigure('Visible', 'off');
 testCase.addTeardown(@() delete(f));
-app = struct('AxWave', uiaxes(f), 'AxSpec', uiaxes(f), 'AxBars', uiaxes(f), ...
+app = struct('AxWaveX', uiaxes(f), 'AxPsdX', uiaxes(f), ...
+             'AxWave',  uiaxes(f), 'AxPsd',  uiaxes(f), ...
+             'AxMap',   uiaxes(f), 'AxBars', uiaxes(f), ...
              'LblDecoded', uilabel(f), 'TxtLog', uitextarea(f), 'S', S);
 end
 
 function S = ranState(method)
-% Trạng thái đã chạy dtmf_run - đúng thứ mà callback truyền vào ui_refresh.
+% Trạng thái đã qua đủ ba bước - đúng thứ mà callback truyền vào ui_refresh.
+% y = x cộng nhiễu nhẹ để hai trục phổ khác nhau thật.
+rng(2026);
 [x, ~, m] = dtmf_generate('59');
-S = dtmf_run(struct('y', x, 'fs', 8000, 'method', method));
+y = dtmf_addnoise(x, 'snrDb', 25);
+S = dtmf_run(struct('x', x, 'y', y, 'fs', 8000, 'method', method));
 S.meta = m;
 end
 
@@ -295,17 +300,190 @@ im = findobj(ax, 'Type', 'image');
 testCase.verifyTrue(all(isfinite(im.CData(:))));
 end
 
+% ----------------------------------------------------------------- ui_plot_psd
+
+function test_psdUsesSameFramingAsFftDecoder(testCase)
+% GHIM tham số Welch: Hamming 256, chồng lấp 128, NFFT 256 - cùng cách chia
+% khung của dtmf_decode_fft. Đổi cửa sổ thì độ cao đỉnh so với nền nhiễu
+% không còn là cái một khung giải mã thấy, mà hình vẫn đẹp y như cũ.
+ax = newAxes(testCase);
+rng(2026);
+y = dtmf_addnoise(dtmf_generate('59'), 'snrDb', 10);
+ui_plot_psd(ax, y, 8000);
+
+[P, f] = pwelch(y(:), hamming(256), 128, 256, 8000);
+ln = findobj(ax, 'Type', 'line');
+testCase.verifyNumElements(ln, 1);
+testCase.verifyEqual(ln.XData(:), f, 'AbsTol', 1e-12);
+testCase.verifyEqual(ln.YData(:), 10*log10(P + eps), 'AbsTol', 1e-9);
+end
+
+function test_psdDrawsReferenceUnderneath(testCase)
+% Nét tham chiếu x[n] vẽ TRƯỚC nét chính, nên nằm dưới - findobj trả về
+% theo thứ tự ngược với thứ tự vẽ.
+ax = newAxes(testCase);
+rng(2026);
+x = dtmf_generate('59');
+y = dtmf_addnoise(x, 'snrDb', 10);
+ui_plot_psd(ax, y, 8000, x);
+
+ln = findobj(ax, 'Type', 'line');
+testCase.verifyNumElements(ln, 2);
+Px = pwelch(x(:), hamming(256), 128, 256, 8000);
+testCase.verifyEqual(ln(end).YData(:), 10*log10(Px + eps), 'AbsTol', 1e-9);
+end
+
+function test_psdMarksSevenStandardFrequencies(testCase)
+ax = newAxes(testCase);
+ui_plot_psd(ax, dtmf_generate('59'), 8000);
+
+T  = dtmf_table();
+ln = findobj(ax, 'Type', 'constantline');
+testCase.verifyEqual(sort([ln.Value]), sort([T.rowHz T.colHz]), 'AbsTol', 1e-12);
+testCase.verifyEqual(ax.XLim, [0 2000]);
+end
+
+function test_psdShortOrSilentSignalDoesNotThrow(testCase)
+% Rỗng, ngắn hơn một cửa sổ, toàn 0 (log10(0) = -Inf): không được ném lỗi
+% và trục y phải là một khoảng hữu hạn.
+ax = newAxes(testCase);
+testCase.verifyWarningFree(@() ui_plot_psd(ax, zeros(1, 0), 8000));
+testCase.verifyWarningFree(@() ui_plot_psd(ax, zeros(1, 100), 8000));
+testCase.verifyEmpty(findobj(ax, 'Type', 'line'));
+
+testCase.verifyWarningFree(@() ui_plot_psd(ax, zeros(1, 2048), 8000));
+testCase.verifyTrue(all(isfinite(ax.YLim)));
+end
+
+% ----------------------------------------------------------------- ui_plot_map
+
+function test_mapShowsInfoEAsIs(testCase)
+% Ảnh phải là ĐÚNG info.E, đặt theo tâm khung - không chuẩn hóa lại, không
+% đảo hàng. Thứ tự hàng trùng thứ tự 8 cột của ui_plot_bars.
+ax = newAxes(testCase);
+[~, info] = dtmf_decode_goertzel(dtmf_generate('59'));
+ui_plot_map(ax, info, 1);
+
+im = findobj(ax, 'Type', 'image');
+testCase.verifyNumElements(im, 1);
+testCase.verifyEqual(im.CData, info.E, 'AbsTol', 1e-12);
+testCase.verifyEqual(im.XData([1 end]), info.tFrame([1 end]), 'AbsTol', 1e-12);
+testCase.verifyEqual(ax.YDir, 'normal');
+testCase.verifyEqual(ax.YTickLabel', {'697', '770', '852', '941', '1209', '1336', '1477', '2f'});
+end
+
+function test_mapLabelsEachRunOfAcceptedFrames(testCase)
+% Mỗi dải khung nhận liên tiếp cùng phím có đúng một nhãn, và tín hiệu sạch
+% thì các nhãn ghép lại đúng chuỗi phím.
+ax = newAxes(testCase);
+[keys, info] = dtmf_decode_fft(dtmf_generate('5*9'));
+ui_plot_map(ax, info, 0);
+
+tx = findobj(ax, 'Type', 'text');
+[~, thuTu] = sort(arrayfun(@(h) h.Position(1), tx));
+testCase.verifyEqual([tx(thuTu).String], keys);
+end
+
+function test_mapDotsSitOnTheChosenBins(testCase)
+% Hai chấm mỗi khung nhận: một ở hàng rowIdx, một ở hàng 4 + colIdx.
+ax = newAxes(testCase);
+[~, info] = dtmf_decode_filterbank(dtmf_generate('5'));
+ui_plot_map(ax, info, 0);
+
+nhan = info.rowIdx >= 1;
+ln = findobj(ax, 'Type', 'line');
+testCase.verifyNumElements(ln, 1);
+testCase.verifyEqual(sort(ln.YData), sort([info.rowIdx(nhan), 4 + info.colIdx(nhan)]));
+end
+
+function test_mapMarksSelectedFrame(testCase)
+ax = newAxes(testCase);
+[~, info] = dtmf_decode_goertzel(dtmf_generate('59'));
+ui_plot_map(ax, info, 3);
+
+cl = findobj(ax, 'Type', 'constantline', 'InterceptAxis', 'x');
+testCase.verifyNumElements(cl, 1);
+testCase.verifyEqual(cl.Value, info.tFrame(3), 'AbsTol', 1e-12);
+end
+
+function test_mapEmptyInfoClearsAxes(testCase)
+ax = newAxes(testCase);
+[~, info] = dtmf_decode_goertzel(dtmf_generate('5'));
+ui_plot_map(ax, info, 1);
+testCase.verifyNotEmpty(ax.Children);
+
+ui_plot_map(ax, [], 0);
+testCase.verifyEmpty(ax.Children);
+testCase.verifyError(@() ui_plot_map(ax, struct('E', ones(3, 4)), 0), 'ui_plot_map:badSize');
+end
+
 % ---------------------------------------------------------------- ui_refresh
 
-function test_refreshDrawsAllThreeAxes(testCase)
-% Một lần gọi phải làm đầy cả ba trục. Quên một lời gọi thì trục đó trống trơn
-% mà không có lỗi nào - trên màn hình chỉ là một ô trắng khó hiểu.
+function test_refreshDrawsAllSixAxes(testCase)
+% Một lần gọi phải làm đầy cả sáu trục. Quên một lời gọi thì trục đó trống
+% trơn mà không có lỗi nào - trên màn hình chỉ là một ô trắng khó hiểu.
 app = fakeApp(testCase, ranState('fft'));
 ui_refresh(app);
 
+testCase.verifyNotEmpty(findobj(app.AxWaveX, 'Type', 'line'));
+testCase.verifyNotEmpty(findobj(app.AxPsdX, 'Type', 'line'));
 testCase.verifyNotEmpty(findobj(app.AxWave, 'Type', 'line'));
-testCase.verifyNotEmpty(findobj(app.AxSpec, 'Type', 'image'));
+testCase.verifyNotEmpty(findobj(app.AxPsd, 'Type', 'line'));
+testCase.verifyNotEmpty(findobj(app.AxMap, 'Type', 'image'));
 testCase.verifyNotEmpty(findobj(app.AxBars, 'Type', 'bar'));
+end
+
+function test_refreshDrawsXAndYOnTheirOwnRows(testCase)
+% Hàng bước 1 vẽ S.x, hàng bước 2 vẽ S.y - tráo nhau thì người xem tưởng
+% nhiễu nằm ở tín hiệu gốc.
+S = ranState('goertzel');
+app = fakeApp(testCase, S);
+ui_refresh(app);
+
+testCase.verifyEqual(findobj(app.AxWaveX, 'Type', 'line').YData, S.x, 'AbsTol', 1e-12);
+testCase.verifyEqual(findobj(app.AxWave, 'Type', 'line').YData, S.y, 'AbsTol', 1e-12);
+
+% Phổ của y có thêm nét xám của x; phổ của x thì không.
+testCase.verifyNumElements(findobj(app.AxPsdX, 'Type', 'line'), 1);
+testCase.verifyNumElements(findobj(app.AxPsd, 'Type', 'line'), 2);
+end
+
+function test_refreshPutsXAndYOnTheSameScale(testCase)
+% Hai dạng sóng cùng thang biên độ, hai phổ cùng thang dB: không thì ở SNR
+% thấp y[n] trông "to bằng" x[n] và nền nhiễu trông như không đổi.
+rng(2026);
+[x, ~, m] = dtmf_generate('59');
+y = dtmf_addnoise(x, 'snrDb', 0);
+S = dtmf_run(struct('x', x, 'y', y, 'fs', 8000, 'method', 'fft'));
+S.meta = m;
+app = fakeApp(testCase, S);
+ui_refresh(app);
+
+testCase.verifyEqual(app.AxWaveX.YLim, app.AxWave.YLim, 'AbsTol', 1e-12);
+testCase.verifyEqual(app.AxPsdX.YLim, app.AxPsd.YLim, 'AbsTol', 1e-12);
+
+% Vùng tô nền của x[n] kéo theo thang mới, vẫn cao hết khung nhìn.
+pa = findobj(app.AxWaveX, 'Type', 'patch');
+testCase.verifyEqual(max(pa(1).YData), app.AxWaveX.YLim(2), 'AbsTol', 1e-12);
+testCase.verifyEqual(min(pa(1).YData), app.AxWaveX.YLim(1), 'AbsTol', 1e-12);
+end
+
+function test_refreshAlignsMapWithWaveTime(testCase)
+% Bản đồ khung nằm ngay dưới dạng sóng y[n]: một khung phải đứng đúng dưới
+% đoạn sóng của nó, tức hai trục cùng XLim.
+app = fakeApp(testCase, ranState('filterbank'));
+ui_refresh(app);
+testCase.verifyEqual(app.AxMap.XLim, app.AxWave.XLim, 'AbsTol', 1e-12);
+end
+
+function test_refreshIgnoresStaleInfoWhenNoFrameSelected(testCase)
+% DTMFApp xóa kết quả bằng iSel = 0 mà để nguyên S.info cũ. Bản đồ phải trắng
+% lúc đó, không vẽ khung của lần giải mã trước lên tín hiệu mới.
+S = ranState('goertzel');
+S.iSel = 0;
+app = fakeApp(testCase, S);
+ui_refresh(app);
+testCase.verifyEmpty(findobj(app.AxMap, 'Type', 'image'));
 end
 
 function test_refreshShowsDecodedKeys(testCase)
@@ -388,7 +566,8 @@ delete(app.AxBars);                       % trục hỏng: mọi lệnh vẽ lê
 
 testCase.verifyWarningFree(@() ui_refresh(app));
 testCase.verifyNotEmpty(findobj(app.AxWave, 'Type', 'line'));
-testCase.verifyNotEmpty(findobj(app.AxSpec, 'Type', 'image'));
+testCase.verifyNotEmpty(findobj(app.AxPsd, 'Type', 'line'));
+testCase.verifyNotEmpty(findobj(app.AxMap, 'Type', 'image'));
 testCase.verifyNotEmpty(app.TxtLog.Value);
 testCase.verifyEqual(app.LblDecoded.Text, '59');
 end
