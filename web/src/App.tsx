@@ -12,7 +12,8 @@ import {
 } from './audio/dtmf';
 import { encodeWav } from './audio/wav';
 import { ivrStart, ivrStep, type IvrState } from './ivr/ivr';
-import { Phone, type CallState } from './components/Phone';
+import { LineClient, lineUrl, type LineHandlers } from './line/line';
+import { Phone, type CallState, type Heard, type Link } from './components/Phone';
 import { SequencePlayer } from './components/SequencePlayer';
 import { Settings } from './components/Settings';
 import { Stage } from './components/Stage';
@@ -25,8 +26,10 @@ const IS_ARTIFACT = import.meta.env.MODE === 'artifact';
 /** Tone trên hình dài bằng thời gian nhấn giữ, kẹp trong khoảng này [ms]. */
 const MIN_TONE_MS = 100;
 const MAX_TONE_MS = 400;
-/** Đổ chuông bao lâu trước khi tổng đài nhấc máy [ms]. */
+/** Đổ chuông bao lâu trước khi tổng đài trong trang nhấc máy [ms]. */
 const RING_MS = 1500;
+/** Chờ MATLAB nhấc máy tối đa bao lâu, quá thì tổng đài trong trang nhấc thay [ms]. */
+const ANSWER_TIMEOUT_MS = 5000;
 
 /** Phím đang vẽ ở bên phải, với độ dài tone của lần bấm đó. */
 interface Shown {
@@ -53,10 +56,16 @@ export function App() {
   const timers = useRef<number[]>([]);
   const ringTimer = useRef(0);
 
-  // Mọi thứ mà bộ nghe bàn phím và các hẹn giờ cần đọc đi qua ref, để chúng
-  // không giữ giá trị cũ.
-  const live = useRef({ volume, boostDb, call, ivr });
-  live.current = { volume, boostDb, call, ivr };
+  // Đường dây sang tổng đài MATLAB. link: cuộc gọi hiện tại đi qua đâu.
+  const line = useMemo(() => new LineClient(), []);
+  const [link, setLink] = useState<Link>({ mode: 'off' });
+  const [heard, setHeard] = useState<Heard | null>(null);
+  const callToken = useRef(0);
+
+  // Mọi thứ mà bộ nghe bàn phím, các hẹn giờ và tin của đường dây cần đọc đi
+  // qua ref, để chúng không giữ giá trị cũ.
+  const live = useRef({ volume, boostDb, call, ivr, link: link.mode });
+  live.current = { volume, boostDb, call, ivr, link: link.mode };
   const holding = useRef<{ key: DtmfKey; t0: number } | null>(null);
 
   /** Một tone đã phát xong: trong cuộc gọi, menu trên điện thoại đi theo phím đó. */
@@ -104,31 +113,128 @@ export function App() {
       holding.current = null;
       const held = Math.round(Math.min(MAX_TONE_MS, Math.max(MIN_TONE_MS, performance.now() - h.t0)));
       setShown((s) => (s.key === key ? { ...s, toneMs: held } : s));
-      toIvr(key);
+      // Gọi qua MATLAB thì menu chỉ đi theo phím MATLAB đọc được, không theo
+      // phím vừa bấm: bấm mà MATLAB không nghe ra thì menu đứng yên.
+      if (live.current.link !== 'matlab') toIvr(key);
     },
     [player, toIvr],
+  );
+
+  const setLinkNow = (l: Link) => {
+    live.current.link = l.mode;
+    setLink(l);
+  };
+
+  /** Tổng đài nhấc máy: menu chính, đồng hồ cuộc gọi bắt đầu chạy. */
+  const answer = () => {
+    clearTimeout(ringTimer.current);
+    const s = ivrStart();
+    live.current.ivr = s;
+    live.current.call = 'connected';
+    setIvr(s);
+    setCall('connected');
+    setConnectedAt(Date.now());
+  };
+
+  /** Tổng đài trong trang nhấc máy sau ms, nếu cuộc gọi token vẫn đang đổ chuông. */
+  const answerLocal = (token: number, ms: number) => {
+    clearTimeout(ringTimer.current);
+    ringTimer.current = window.setTimeout(() => {
+      if (token === callToken.current && live.current.call === 'ringing') answer();
+    }, ms);
+  };
+
+  /** Mất MATLAB giữa chừng: tổng đài trong trang làm tiếp, cuộc gọi không rớt. */
+  const lineLost = () => {
+    if (live.current.link !== 'matlab') return;
+    line.close();
+    setLinkNow({ mode: 'lost' });
+    if (live.current.call === 'ringing') answerLocal(callToken.current, 300);
+  };
+
+  const onHangup = (notify = true) => {
+    callToken.current++;
+    clearTimeout(ringTimer.current);
+    stopSeq();
+    if (notify) line.send({ t: 'hangup' });
+    line.close();
+    setLinkNow({ mode: 'off' });
+    setHeard(null);
+    setTyped('');
+    live.current.call = 'idle';
+    setCall('idle');
+    setIvr(ivrStart());
+  };
+
+  // Tin của đường dây tới bất cứ lúc nào; LineClient giữ một bộ xử lý cố định
+  // trỏ vào bản mới nhất ở mỗi lần vẽ.
+  const onLine = useRef<LineHandlers>({ onMsg: () => {}, onStatus: () => {}, onClose: () => {} });
+  onLine.current = {
+    onMsg: (m) => {
+      if (live.current.link !== 'matlab') return;
+      if (m.t === 'answer') {
+        if (live.current.call === 'ringing') answer();
+      } else if (m.t === 'key') {
+        if (live.current.call !== 'connected' || !isKey(m.k)) return;
+        toIvr(m.k);
+        setHeard((h) => ({ key: m.k, n: (h?.n ?? 0) + 1 }));
+      } else if (m.t === 'hangup') {
+        onHangup(false);
+      }
+    },
+    onStatus: (s) => {
+      if (!s.matlab) lineLost();
+    },
+    onClose: lineLost,
+  };
+  const handlers = useMemo<LineHandlers>(
+    () => ({
+      onMsg: (m) => onLine.current.onMsg(m),
+      onStatus: (s) => onLine.current.onStatus(s),
+      onClose: () => onLine.current.onClose(),
+    }),
+    [],
   );
 
   const onCall = () => {
     player.ensure();
     setTyped('');
+    setHeard(null);
+    live.current.call = 'ringing';
     setCall('ringing');
     player.ring(1);
-    ringTimer.current = window.setTimeout(() => {
-      const s = ivrStart();
-      live.current.ivr = s;
-      setIvr(s);
-      setCall('connected');
-      setConnectedAt(Date.now());
-    }, RING_MS);
-  };
+    const token = ++callToken.current;
+    const t0 = performance.now();
 
-  const onHangup = () => {
-    clearTimeout(ringTimer.current);
-    stopSeq();
-    setTyped('');
-    setCall('idle');
-    setIvr(ivrStart());
+    const url = IS_ARTIFACT ? null : lineUrl();
+    if (!url) {
+      setLinkNow({ mode: 'local' });
+      answerLocal(token, RING_MS);
+      return;
+    }
+
+    // Có cầu nối: hỏi MATLAB. MATLAB đang nối thì nó đổ chuông và tự nhấc máy;
+    // không có thì tổng đài trong trang nhấc máy như khi không có đường dây.
+    setLinkNow({ mode: 'dialing' });
+    void line.open(url, handlers).then((st) => {
+      if (token !== callToken.current) return;
+      if (!st?.matlab) {
+        line.close();
+        setLinkNow({ mode: 'local', why: st ? 'matlab' : 'bridge' });
+        answerLocal(token, Math.max(0, RING_MS - (performance.now() - t0)));
+        return;
+      }
+      setLinkNow({ mode: 'matlab', method: st.method });
+      line.send({ t: 'call' });
+      void line.startAudio(player);
+      ringTimer.current = window.setTimeout(() => {
+        if (token !== callToken.current || live.current.call !== 'ringing') return;
+        line.send({ t: 'hangup' });
+        line.close();
+        setLinkNow({ mode: 'local', why: 'answer' });
+        answer();
+      }, ANSWER_TIMEOUT_MS);
+    });
   };
 
   const playSeq = () => {
@@ -151,7 +257,7 @@ export function App() {
         }, base + p.start * 1000),
         window.setTimeout(() => {
           setActive(null);
-          toIvr(p.key);
+          if (live.current.link !== 'matlab') toIvr(p.key);
         }, base + p.end * 1000),
       );
     });
@@ -206,8 +312,9 @@ export function App() {
     () => () => {
       stopSeq();
       clearTimeout(ringTimer.current);
+      line.close();
     },
-    [stopSeq],
+    [stopSeq, line],
   );
 
   return (
@@ -231,8 +338,10 @@ export function App() {
               ivr={ivr}
               typed={typed}
               active={active}
+              link={link}
+              heard={heard}
               onCall={onCall}
-              onHangup={onHangup}
+              onHangup={() => onHangup()}
               onPress={onPress}
               onRelease={onRelease}
             />
@@ -270,8 +379,9 @@ export function App() {
               <div>
                 <h2 id="cong-cu-h">Công cụ cho MATLAB</h2>
                 <p>
-                  Khi trình diễn thật, MATLAB nghe tiếng của trang qua micro ở chế độ Giải mã trực tiếp của DTMFApp. Số gọi
-                  là mô phỏng, điểm tra cứu là dữ liệu mẫu.
+                  Bấm gọi khi DTMFLive đang mở: trang nối đường dây sang tổng đài MATLAB, gửi đúng tiếng nó phát ra loa, và
+                  menu đi theo phím MATLAB đọc được. Không có MATLAB thì tổng đài chạy ngay trong trang. Số gọi là mô
+                  phỏng, điểm tra cứu là dữ liệu mẫu.
                 </p>
               </div>
               <button type="button" className="icon-btn" aria-label="Đóng" onClick={() => setTools(false)}>

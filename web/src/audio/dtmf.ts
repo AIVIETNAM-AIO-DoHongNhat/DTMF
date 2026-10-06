@@ -157,6 +157,44 @@ export interface PlayOptions {
   rowBoostDb: number;
 }
 
+/** Số mẫu mỗi khối trích gửi về luồng chính: 1024 mẫu = 21 ms ở 48 kHz. */
+const TAP_BLOCK = 1024;
+
+/**
+ * Worklet trích mẫu: gom từng khối 128 mẫu thành TAP_BLOCK mẫu rồi gửi về.
+ * Lúc không phím nào kêu, đầu vào không có kênh nào - vẫn gửi mẫu 0, để bên
+ * nhận thấy khoảng lặng thật giữa hai phím.
+ */
+const TAP_SRC = `
+class DtmfTap extends AudioWorkletProcessor {
+  constructor() { super(); this.buf = new Float32Array(${TAP_BLOCK}); this.n = 0; }
+  process(inputs) {
+    const ch = inputs[0] && inputs[0][0];
+    const len = ch ? ch.length : 128;
+    for (let i = 0; i < len; i++) {
+      this.buf[this.n++] = ch ? ch[i] : 0;
+      if (this.n === this.buf.length) {
+        this.port.postMessage(this.buf, [this.buf.buffer]);
+        this.buf = new Float32Array(${TAP_BLOCK});
+        this.n = 0;
+      }
+    }
+    return true;
+  }
+}
+registerProcessor('dtmf-tap', DtmfTap);
+`;
+
+/** Nạp worklet từ một Blob: bản build một tệp không có tệp .js riêng để trỏ tới. */
+async function loadTapWorklet(ctx: AudioContext): Promise<void> {
+  const url = URL.createObjectURL(new Blob([TAP_SRC], { type: 'text/javascript' }));
+  try {
+    await ctx.audioWorklet.addModule(url);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 /** Một tone đang kêu: hai oscillator và gain riêng của nó. */
 interface Voice {
   oscs: OscillatorNode[];
@@ -174,6 +212,7 @@ export class DtmfPlayer {
   private out: GainNode | null = null;
   private voices = new Map<string, Voice>();
   private seqVoices: Voice[] = [];
+  private tapReady: Promise<void> | null = null;
   analyser: AnalyserNode | null = null;
 
   /** Dựng AudioContext nếu chưa có, đánh thức nếu đang bị treo. */
@@ -289,6 +328,44 @@ export class DtmfPlayer {
     osc.connect(gain);
     osc.start(t0);
     osc.stop(t0 + durationS + 0.01);
+  }
+
+  /**
+   * Trích tín hiệu đang phát ra loa, từng khối mẫu ở tần số của AudioContext,
+   * kể cả khoảng lặng giữa hai phím. Dùng cho đường dây sang MATLAB. Trả về
+   * hàm gỡ bỏ.
+   *
+   * AudioWorklet chỉ có trong ngữ cảnh an toàn (https, localhost); điện thoại
+   * mở trang qua địa chỉ LAN http thì rơi về ScriptProcessorNode.
+   */
+  async tap(onBlock: (x: Float32Array) => void): Promise<() => void> {
+    const ctx = this.ensure();
+    const out = this.out!;
+    let node: AudioNode;
+    if (ctx.audioWorklet) {
+      if (!this.tapReady) this.tapReady = loadTapWorklet(ctx);
+      await this.tapReady;
+      const w = new AudioWorkletNode(ctx, 'dtmf-tap', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1] });
+      w.port.onmessage = (e: MessageEvent<Float32Array>) => onBlock(e.data);
+      node = w;
+    } else {
+      const sp = ctx.createScriptProcessor(1024, 1, 1);
+      sp.onaudioprocess = (e) => onBlock(new Float32Array(e.inputBuffer.getChannelData(0)));
+      node = sp;
+    }
+    // Nút trích phải nối tới loa thì mới được chạy; nó chỉ xuất mẫu 0.
+    out.connect(node);
+    node.connect(ctx.destination);
+    return () => {
+      try {
+        out.disconnect(node);
+      } catch {
+        // đã gỡ sẵn
+      }
+      node.disconnect();
+      if (node instanceof AudioWorkletNode) node.port.onmessage = null;
+      else (node as ScriptProcessorNode).onaudioprocess = null;
+    };
   }
 
   /** Dừng chuỗi đang phát. */

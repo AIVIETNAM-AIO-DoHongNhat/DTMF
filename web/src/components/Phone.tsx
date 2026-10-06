@@ -1,8 +1,28 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { KEYS, type DtmfKey, type KeyInfo } from '../audio/dtmf';
 import { MENU, type IvrState } from '../ivr/ivr';
+// Bản build gom mọi thứ vào một tệp HTML, nên ảnh này cũng được nhúng thẳng vào đó.
+import logo from '../../images/Logo_hoc_vien_ANND.png';
 
 export type CallState = 'idle' | 'ringing' | 'connected';
+
+/**
+ * Cuộc gọi hiện tại đi qua đâu.
+ *   dialing: đang hỏi cầu nối; matlab: tổng đài là MATLAB, menu đi theo phím
+ *   MATLAB đọc được; local: tổng đài chạy trong trang (why: không có cầu nối,
+ *   MATLAB chưa nối, hay MATLAB không nhấc máy); lost: mất MATLAB giữa chừng.
+ */
+export interface Link {
+  mode: 'off' | 'dialing' | 'matlab' | 'local' | 'lost';
+  method?: string;
+  why?: 'bridge' | 'matlab' | 'answer';
+}
+
+/** Phím MATLAB vừa đọc được; n tăng mỗi lần để huy hiệu nháy lại cả khi trùng phím. */
+export interface Heard {
+  key: string;
+  n: number;
+}
 
 interface Props {
   call: CallState;
@@ -11,6 +31,8 @@ interface Props {
   /** Các phím đã bấm trong cuộc gọi, hiện thay tên khi mở bàn phím. */
   typed: string;
   active: KeyInfo | null;
+  link: Link;
+  heard: Heard | null;
   onCall: () => void;
   onHangup: () => void;
   onPress: (k: DtmfKey) => void;
@@ -18,10 +40,15 @@ interface Props {
 }
 
 const NAME = 'Học viện An ninh nhân dân';
+/** Số giả cho đề tài: cuộc gọi chỉ đi tới tổng đài mô phỏng, không ra ngoài. */
+const NUMBER = '0123 456 789';
 /** Các mục của menu chính, trừ phím * nghe lại: ghi sẵn trên thẻ danh bạ. */
 const MAIN_MENU = MENU.goc.kieu === 'menu' ? MENU.goc.phim.filter(([k]) => k !== '*') : [];
 /** Ghi chú như người dùng tự lưu trong danh bạ; số phím không xuống dòng tách khỏi tên mục. */
 const NOTE = `Bấm ${MAIN_MENU.map(([k, id]) => `${k} ${MENU[id].ten}`).join(', ')}, * nghe lại.`;
+/** Ống nghe: nút gọi, ô điện thoại, và (xoay 135°) nút kết thúc. */
+const PHONE_PATH =
+  'M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z';
 /** Chữ dưới mỗi số, như bàn phím điện thoại thật. */
 const LETTERS: Record<DtmfKey, string> = {
   '1': '',
@@ -111,9 +138,7 @@ function ContactCard({ onCall }: { onCall: () => void }) {
         <span>‹ Danh bạ</span>
         <span>Sửa</span>
       </div>
-      <div className="ct-avatar" aria-hidden="true">
-        HV
-      </div>
+      <img className="ct-avatar" src={logo} alt="" aria-hidden="true" />
       <h2 className="ct-name">{NAME}</h2>
       <p className="ct-sub">Tổng đài tự động hỗ trợ đào tạo</p>
       <div className="ct-actions">
@@ -121,7 +146,7 @@ function ContactCard({ onCall }: { onCall: () => void }) {
           <path d="M12 4C6.5 4 2 7.6 2 12c0 2.4 1.3 4.6 3.5 6.1L4.6 21l3.6-1.8c1.2.4 2.5.6 3.8.6 5.5 0 10-3.6 10-8S17.5 4 12 4z" />
         </CtAction>
         <CtAction label="gọi" onClick={onCall}>
-          <path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z" />
+          <path d={PHONE_PATH} />
         </CtAction>
         <CtAction label="video" disabled>
           <path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h10A1.5 1.5 0 0 1 16 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 3 16.5zM17 10l4-2.5v9L17 14z" />
@@ -130,10 +155,29 @@ function ContactCard({ onCall }: { onCall: () => void }) {
           <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h15A1.5 1.5 0 0 1 21 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5zm1.8.3 7.2 5.6 7.2-5.6z" />
         </CtAction>
       </div>
-      <dl className="ct-field">
-        <dt>ghi chú</dt>
-        <dd>{NOTE}</dd>
-      </dl>
+      {/* Phần dưới như thẻ danh bạ iOS: mỗi nhóm một khối bo tròn trắng. */}
+      <button type="button" className="ct-card ct-phone" onClick={onCall} aria-label={`Gọi ${NAME}, ${NUMBER}`}>
+        <span className="ct-label">điện thoại</span>
+        <span className="ct-value">{NUMBER}</span>
+        <svg className="ct-phone-ic" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d={PHONE_PATH} />
+        </svg>
+      </button>
+      <div className="ct-card ct-note">
+        <span className="ct-label">Ghi chú</span>
+        <span className="ct-value">{NOTE}</span>
+      </div>
+      {/* Các dòng còn lại chỉ để thẻ trông như danh bạ thật, không bấm được. */}
+      <div className="ct-card ct-list" aria-hidden="true">
+        <span>Chia sẻ liên hệ</span>
+        <span>Thêm vào Mục ưa thích</span>
+      </div>
+      <div className="ct-card ct-list" aria-hidden="true">
+        <span>Thêm vào Liên hệ khẩn cấp</span>
+      </div>
+      <div className="ct-card ct-list" aria-hidden="true">
+        <span>Chặn liên hệ</span>
+      </div>
       <p className="ct-foot">Số mô phỏng cho đề tài, không gọi ra ngoài.</p>
     </div>
   );
@@ -178,7 +222,7 @@ function CallScreen(p: Props) {
         ) : (
           <>
             <h2 className="call-name">{NAME}</h2>
-            <p className="call-status">{connected ? mmss(now - p.connectedAt) : 'đang gọi…'}</p>
+            <p className="call-status">{connected ? mmss(now - p.connectedAt) : ringingText(p.link)}</p>
           </>
         )}
       </header>
@@ -192,7 +236,8 @@ function CallScreen(p: Props) {
               <rect x="9" y="5" width="2" height="6" rx="1" />
               <rect x="13" y="7" width="2" height="2" rx="1" />
             </svg>
-            Phụ đề trực tiếp · {nut.ten}
+            <span className="cap-title">Phụ đề trực tiếp · {nut.ten}</span>
+            <LineChip link={p.link} heard={p.heard} />
           </p>
           <p className="cap-text" key={p.ivr.loi}>
             {p.ivr.loi}
@@ -243,7 +288,7 @@ function CallScreen(p: Props) {
         <span />
         <button type="button" className="end-btn" aria-label="Kết thúc cuộc gọi" onClick={p.onHangup}>
           <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style={{ transform: 'rotate(135deg)' }}>
-            <path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z" />
+            <path d={PHONE_PATH} />
           </svg>
         </button>
         {pad ? (
@@ -256,6 +301,52 @@ function CallScreen(p: Props) {
       </div>
     </div>
   );
+}
+
+function ringingText(link: Link): string {
+  if (link.mode === 'dialing') return 'đang nối tổng đài…';
+  if (link.mode === 'matlab') return 'MATLAB đang đổ chuông…';
+  return 'đang gọi…';
+}
+
+/** Huy hiệu ở góc ô phụ đề: cuộc gọi đi qua đâu, và phím MATLAB vừa nghe ra. */
+function LineChip({ link, heard }: { link: Link; heard: Heard | null }) {
+  if (link.mode === 'matlab') {
+    const tip = `Tổng đài MATLAB${link.method ? ` · ${link.method}` : ''}: menu đi theo phím MATLAB đọc được`;
+    return heard ? (
+      <span className="line-chip on flash" key={heard.n} title={tip}>
+        MATLAB nghe <b>{heard.key}</b>
+      </span>
+    ) : (
+      <span className="line-chip on" title={tip}>
+        <span className="dot" aria-hidden="true" />
+        MATLAB
+      </span>
+    );
+  }
+  if (link.mode === 'lost') {
+    return (
+      <span className="line-chip lost" title="Mất đường dây tới MATLAB, tổng đài trong trang làm tiếp">
+        <span className="dot" aria-hidden="true" />
+        mất MATLAB
+      </span>
+    );
+  }
+  if (link.mode === 'local') {
+    const tip =
+      link.why === 'matlab'
+        ? 'MATLAB chưa nối đường dây'
+        : link.why === 'answer'
+          ? 'MATLAB không nhấc máy'
+          : 'Trang không chạy trên máy chủ có cầu nối';
+    return (
+      <span className="line-chip" title={`${tip}: tổng đài chạy trong trang`}>
+        <span className="dot" aria-hidden="true" />
+        trong trang
+      </span>
+    );
+  }
+  return null;
 }
 
 function CallBtn({
