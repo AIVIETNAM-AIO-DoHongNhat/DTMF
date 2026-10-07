@@ -78,6 +78,7 @@ Test đọc dấu hiệu này qua `FontWeight`.
 | `BtnClear` | Button | Xóa trắng `EfKeys`, không đụng tín hiệu đang có |
 | `BtnGen` | Button | "Tạo tín hiệu": dựng x[n] và `meta` từ `EfKeys`; xóa y và kết quả cũ |
 | `BtnPlayX` | Button | "Nghe" ở bước 1: phát x[n], chưa có nhiễu |
+| `BtnOpen` | Button | "Mở tệp âm thanh…" ở bước 1: chọn tệp, nạp làm x[n] qua `napTep` / `dtmf_readaudio` |
 | `DdNoise` | DropDown | `ItemsData = {'awgn','hum50'}` → `Value` khớp sẵn `S.noise` |
 | `SldSNR` | Slider | `Limits = [-5 30]`, đơn vị dB, áp dụng ở `ValueChanged` (thả chuột) |
 | `BtnNoise` | Button | "Cộng nhiễu": y[n] = x[n] + w[n] qua `dtmf_addnoise` |
@@ -110,7 +111,9 @@ Chạy ẩn (`DTMFApp('off')`) thì **không** mở micro: test đưa âm thanh 
 
 Giữ nguyên tên App Designer tự sinh: `BtnGenPushed`, `BtnNoisePushed`, `BtnDecodePushed`, `BtnPlayXPushed`, `BtnPlayPushed`,
 `DdNoiseValueChanged`, `DdMethodValueChanged`, `SldSNRValueChanged`, `BtnRecordPushed`, `BtnListenPushed`, `BtnSrcPushed`,
-`BtnClearPushed`, `AxKeypadClicked`, `EfKeysValueChanging`.
+`BtnClearPushed`, `AxKeypadClicked`, `BtnOpenPushed`, `EfKeysValueChanging`.
+`BtnOpenPushed` chỉ mở hộp chọn tệp rồi gọi method public `napTep(app, duongDan)`; test gọi thẳng
+`napTep` vì chạy ẩn thì không mở được hộp chọn tệp.
 `EfKeysValueChanging` chỉ tô lại nút (gõ chuỗi mới thì bước tiếp theo lại là Tạo tín hiệu); lúc nó chạy `EfKeys.Value`
 **chưa** đổi, nên chuỗi đang gõ lấy từ `event.Value`.
 `SldSNRValueChanging` chỉ cập nhật `LblSNR`, **không** cộng nhiễu - việc đó chỉ xảy ra lúc thả chuột.

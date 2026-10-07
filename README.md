@@ -74,7 +74,8 @@ m               = dtmf_metrics(meta.keys, keysHat);  % m.acc, m.editDist, m.conf
 
 DTMFApp          % giao diện ba bước: Tạo tín hiệu x[n] -> Cộng nhiễu y[n] -> Giải mã,
                  % mỗi bước kèm dạng sóng và phổ; nguồn Micro thì bước 1 là thu âm.
-run_all_tests    % 241 ca
+                 % Bước 1 còn nút "Mở tệp âm thanh…": tệp wav/flac/mp3 bất kỳ thành x[n].
+run_all_tests    % 249 ca
 ```
 
 Sinh lại số liệu và các hình số liệu cho báo cáo (khoảng một phút):
@@ -184,7 +185,8 @@ src/decode/   FFT, Goertzel, ngân hàng bộ lọc
 src/util/     chia khung, luật quyết định, gộp phím, đánh giá
 app/          DTMFApp (giao diện) · DTMFForensic (giám định ghi âm) · DTMFLive (tổng đài trực tiếp)
               · DTMFLine (đầu đường dây)
-              · dtmf_run, dtmf_listen, dtmf_judge (lớp trung gian: khối, luồng, đối chiếu)
+              · dtmf_run, dtmf_listen, dtmf_judge, dtmf_readaudio (lớp trung gian: khối, luồng,
+                đối chiếu, đọc tệp âm thanh)
               · ui/ (dạng sóng, phổ Welch, bản đồ khung, thanh quyết định, màn trực tiếp, phát tiếng, micro)
 tests/        unit test (matlab.unittest)
 scripts/      dev_harness · make_coeffs · run_bench · make_figures · publish_figures · make_cover

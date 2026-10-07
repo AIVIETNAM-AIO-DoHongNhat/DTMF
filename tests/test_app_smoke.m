@@ -47,7 +47,7 @@ ten = [bp(:, 1)', {'UIFigure', 'PnlKeypad', 'AxWaveX', 'AxPsdX', 'AxWave', ...
                    'AxPsd', 'AxMap', 'AxBars', 'BtnPlayX', 'BtnNoise', 'DdNoise', ...
                    'EfKeys', 'DdMethod', 'SldSNR', 'BtnGen', 'BtnDecode', ...
                    'BtnPlay', 'LblDecoded', 'TxtLog', 'BtnSrcGen', 'BtnSrcMic', ...
-                   'PnlMic', 'BtnRecord', 'BtnListen'}];
+                   'PnlMic', 'BtnRecord', 'BtnListen', 'BtnOpen'}];
 for t = ten
     testCase.verifyTrue(isprop(app, t{1}), sprintf('Thiếu property %s.', t{1}));
     testCase.verifyTrue(isvalid(app.(t{1})), sprintf('%s không dựng được.', t{1}));
@@ -699,4 +699,64 @@ function test_playRefusesEmptyAndNonFiniteSignal(testCase)
 testCase.verifyFalse(ui_play(zeros(1, 0), 8000));
 testCase.verifyFalse(ui_play([0 NaN 0.5], 8000));
 testCase.verifyFalse(ui_play([0 Inf 0.5], 8000));
+end
+
+% ------------------------------------------------------------- nhập từ tệp
+
+function f = tepWav(testCase, keys, fs, nKenh)
+% Một tệp WAV tạm chứa chuỗi phím, ở fs Hz và nKenh kênh, tự xóa sau ca test.
+f = [tempname, '.wav'];
+testCase.addTeardown(@() delete(f));
+x = dtmf_generate(keys, 'fs', fs);
+audiowrite(f, repmat(x(:), 1, nKenh), fs);
+end
+
+function test_fileBecomesXAndDecodes(testCase)
+% Đề bài: "nhập từ file audio ... hiển thị chính xác chuỗi ký tự số đã bấm".
+% Tệp 44,1 kHz hai kênh phải về đúng 8 kHz một kênh, rồi đi tiếp bước 2, 3
+% như tín hiệu tổng hợp.
+app = newApp(testCase);
+f = tepWav(testCase, '0912345*#', 44100, 2);
+rng(2026);
+app.SldSNR.Value = 20;
+
+app.napTep(f);
+testCase.verifyEmpty(app.S.lastError);
+testCase.verifySize(app.S.x, [1 numel(dtmf_generate('0912345*#'))]);
+testCase.verifyEmpty(app.S.y);
+testCase.verifyEqual(app.LblSent.Text, '(tệp)');
+testCase.verifySubstring(app.LblStatus.Text, 'Đã nạp tệp');
+
+app.BtnNoisePushed([]);
+app.BtnDecodePushed([]);
+testCase.verifyEqual(app.LblDecoded.Text, '0912345*#');
+testCase.verifySubstring(app.LblStatus.Text, 'đọc được 9 phím');
+end
+
+function test_fileIgnoresTypedKeysForNextStep(testCase)
+% Ô chuỗi phím không mô tả tệp: còn chữ cũ trong ô thì bước tiếp theo sau
+% khi nạp tệp vẫn phải là Cộng nhiễu, không phải Tạo tín hiệu.
+app = newApp(testCase);
+app.EfKeys.Value = '123';
+app.napTep(tepWav(testCase, '5', 8000, 1));
+testCase.verifyEqual(char(app.BtnNoise.FontWeight), 'bold');
+testCase.verifyEqual(char(app.BtnGen.FontWeight), 'normal');
+end
+
+function test_generateAfterFileReturnsToKeys(testCase)
+% Tạo tín hiệu sau khi nạp tệp: x[n] lại là của chuỗi phím, có chuỗi để so.
+app = newApp(testCase);
+app.napTep(tepWav(testCase, '5', 8000, 1));
+app.EfKeys.Value = '78';
+app.BtnGenPushed([]);
+testCase.verifyEqual(app.LblSent.Text, '78');
+testCase.verifySubstring(app.LblStatus.Text, 'Đã tạo x[n] gồm 2 phím');
+end
+
+function test_badFileIsLoggedNotThrown(testCase)
+% Tệp không tồn tại hay không phải âm thanh: báo lỗi, không ném, x[n] rỗng.
+app = newApp(testCase);
+testCase.verifyWarningFree(@() app.napTep(fullfile(tempdir, 'khong_co_tep_nay.wav')));
+testCase.verifyEmpty(app.S.x);
+testCase.verifySubstring(app.S.lastError, 'khong_co_tep_nay.wav');
 end

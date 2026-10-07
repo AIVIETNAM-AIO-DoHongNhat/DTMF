@@ -31,6 +31,10 @@ classdef DTMFApp < handle
 %          2, và bước 2 không cộng thêm nhiễu vì bản ghi đã mang nhiễu thật.
 %          Chạy ẩn thì không mở micro - test đưa mẫu vào qua nhanMauMic và
 %          napBanGhi.
+%       6. Nhập từ tệp: nút "Mở tệp âm thanh" ở bước 1 đọc tệp qua
+%          dtmf_readaudio (một kênh, 8 kHz) và dùng nó làm x[n]; bước 2 và 3
+%          đi như tín hiệu tổng hợp, chỉ là không có chuỗi đã phát để so
+%          đúng/sai. Test gọi thẳng napTep, vì chạy ẩn thì không mở hộp chọn tệp.
 %
 %   Input:
 %       visible: 'on' (mặc định) hoặc 'off'. Ẩn dùng cho unit test và cho
@@ -90,6 +94,7 @@ classdef DTMFApp < handle
         BtnClear    matlab.ui.control.Button
         BtnGen      matlab.ui.control.Button
         BtnPlayX    matlab.ui.control.Button
+        BtnOpen     matlab.ui.control.Button
         BtnRecord   matlab.ui.control.Button
         BtnListen   matlab.ui.control.Button
 
@@ -132,6 +137,10 @@ classdef DTMFApp < handle
         % để cộng lại nhiễu, không có chuỗi đã phát để so.
         NguonMic    logical = false
 
+        % Tên tệp (không kèm thư mục) khi x[n] được nạp từ tệp âm thanh; rỗng
+        % khi x[n] sinh từ chuỗi phím. Tệp không có chuỗi đã phát để so.
+        TepAm       char = ''
+
         % Trạng thái bộ giải mã luồng - xem app/dtmf_listen.m. TuLuong: kết quả
         % đang hiện là của L (nghe trực tiếp), chứ không phải của dtmf_run.
         % Cần vì S.keysHat khi đó chỉ giữ 12 phím cuối, còn dòng trạng thái
@@ -166,6 +175,8 @@ classdef DTMFApp < handle
         NGHE_TOI_DA = 120
         % Ô vừa bấm trên bàn phím sáng trong chừng này giây [s].
         SANG_PHIM = 0.25
+        % Tệp âm thanh dài hơn chừng này giây thì chỉ lấy phần đầu [s].
+        TEP_TOI_DA = 60
     end
 
     methods (Access = public)
@@ -272,6 +283,19 @@ classdef DTMFApp < handle
         function BtnPlayXPushed(app, ~)
         %BTNPLAYXPUSHED Phát x[n] - tín hiệu gốc, chưa có nhiễu.
             phat(app, app.S.x);
+        end
+
+        function BtnOpenPushed(app, ~)
+        %BTNOPENPUSHED Chọn một tệp âm thanh rồi nạp làm x[n] - xem napTep.
+            [ten, thuMuc] = uigetfile( ...
+                {'*.wav;*.flac;*.ogg;*.mp3;*.m4a', 'Tệp âm thanh (wav, flac, ogg, mp3, m4a)'}, ...
+                'Chọn tệp âm thanh DTMF');
+            % Hộp chọn tệp kéo tiêu điểm đi; trả lại cho cửa sổ app.
+            figure(app.UIFigure);
+            if isequal(ten, 0)
+                return
+            end
+            napTep(app, fullfile(thuMuc, ten));
         end
 
         % --- bước 2
@@ -397,6 +421,37 @@ classdef DTMFApp < handle
             veLai(app);
         end
 
+        function napTep(app, duongDan)
+        %NAPTEP Đọc một tệp âm thanh làm x[n], xóa y[n] và kết quả cũ.
+        % Đọc và đổi tần số lấy mẫu nằm ở dtmf_readaudio, không ở đây. Tệp
+        % hỏng hay sai định dạng là chuyện thường ngày nên chỉ ghi lỗi, như ký
+        % tự lạ trong ô phím.
+            docUI(app);
+            xoaKetQua(app);
+            app.S.lastError = blanks(0);
+            app.S.y    = zeros(1, 0);
+            app.S.meta = [];
+            app.TuLuong = false;
+            [~, ten, duoi] = fileparts(char(duongDan));
+            try
+                [x, info] = dtmf_readaudio(duongDan, 'fs', app.S.fs, ...
+                    'maxSec', app.TEP_TOI_DA);
+                app.S.x   = x;
+                app.TepAm = [ten, duoi];
+                % Tên tệp và độ dài đã hiện ở dòng thông tin bước 1; nhật ký chỉ
+                % dành cho lỗi và cảnh báo.
+                if info.truncated
+                    ghiNhatKy(app, sprintf('Tệp dài %.0f s, chỉ lấy %d s đầu.', ...
+                        info.fileSec, app.TEP_TOI_DA));
+                end
+            catch ME
+                app.S.x   = zeros(1, 0);
+                app.TepAm = '';
+                app.S.lastError = sprintf('Không đọc được tệp %s: %s', [ten, duoi], ME.message);
+            end
+            veLai(app);
+        end
+
     end
 
     methods (Access = private)
@@ -423,6 +478,7 @@ classdef DTMFApp < handle
             xoaKetQua(app);
             app.S.lastError = blanks(0);
             app.NguonMic = false;
+            app.TepAm = '';
             app.S.y = zeros(1, 0);
 
             try
@@ -516,11 +572,14 @@ classdef DTMFApp < handle
             if mic
                 tieuDe(app.AxWaveX, 'Nguồn micro: x[n] nằm ở thiết bị phát, không thu được');
                 tieuDe(app.AxPsdX,  'Không có x[n]');
+            elseif coX && ~isempty(app.TepAm)
+                tieuDe(app.AxWaveX, 'Dạng sóng x[n] nạp từ tệp');
+                tieuDe(app.AxPsdX,  'Phổ công suất của x[n]');
             elseif coX
                 tieuDe(app.AxWaveX, 'Dạng sóng x[n]');
                 tieuDe(app.AxPsdX,  'Phổ công suất của x[n]');
             else
-                tieuDe(app.AxWaveX, 'Chưa có x[n]   ·   gõ chuỗi phím rồi bấm Tạo tín hiệu');
+                tieuDe(app.AxWaveX, 'Chưa có x[n]   ·   gõ chuỗi phím rồi bấm Tạo tín hiệu, hoặc mở tệp');
                 tieuDe(app.AxPsdX,  'Chưa có x[n]');
             end
 
@@ -591,8 +650,11 @@ classdef DTMFApp < handle
                 app.LblSent.Text = '(micro)';
                 [txt, mau] = trangThaiMic(app, tenPP, M);
             elseif isempty(S.x)
-                txt = '○  Bước 1   ·   gõ chuỗi phím hoặc bấm bàn phím, rồi bấm Tạo tín hiệu';
+                txt = '○  Bước 1   ·   gõ chuỗi phím rồi bấm Tạo tín hiệu, hoặc mở tệp âm thanh';
                 mau = M.chuMo;
+            elseif ~isempty(app.TepAm)
+                app.LblSent.Text = '(tệp)';
+                [txt, mau] = trangThaiTep(app, tenNh, boi, M);
             elseif isempty(S.y)
                 txt = sprintf(['○  Đã tạo x[n] gồm %d phím   ·   bước 2   ·   chọn ' ...
                     'loại nhiễu, SNR rồi bấm Cộng nhiễu'], numel(daPhat));
@@ -637,7 +699,10 @@ classdef DTMFApp < handle
                 end
             else
                 t1 = 'chưa có';
-                if ~isempty(S.x)
+                if ~isempty(S.x) && ~isempty(app.TepAm)
+                    t1 = sprintf('tệp %s   ·   %.3f s   ·   %d mẫu', ...
+                        app.TepAm, numel(S.x) / fs, numel(S.x));
+                elseif ~isempty(S.x)
                     t1 = sprintf('%d phím   ·   %.3f s   ·   %d mẫu', ...
                         numel(daPhat), numel(S.x) / fs, numel(S.x));
                 end
@@ -657,6 +722,30 @@ classdef DTMFApp < handle
             app.LblInfo(1).Text = t1;
             app.LblInfo(2).Text = t2;
             app.LblInfo(3).Text = t3;
+        end
+
+        function [txt, mau] = trangThaiTep(app, tenNh, boi, M)
+        %TRANGTHAITEP Dòng trạng thái khi x[n] nạp từ tệp: không có chuỗi đã
+        % phát, nên sau khi giải mã chỉ báo số phím đọc được, hoặc lý do loại
+        % khung khi đọc được 0 phím - như nguồn micro.
+            S = app.S;
+            dai = numel(S.x) / S.fs;
+            if isempty(S.y)
+                txt = sprintf(['○  Đã nạp tệp %s, %.1f s   ·   bước 2   ·   chọn ' ...
+                    'loại nhiễu, SNR rồi bấm Cộng nhiễu'], app.TepAm, dai);
+                mau = M.chuPhu;
+            elseif ~app.DaGiaiMa
+                txt = sprintf(['○  Đã cộng nhiễu %s, SNR %.0f dB   ·   bước 3   ·   ' ...
+                    'chọn bộ giải mã rồi bấm Giải mã'], tenNh, S.snrDb);
+                mau = M.chuPhu;
+            elseif ~isempty(S.keysHat)
+                txt = sprintf('●  Tệp %s   ·   đọc được %d phím   ·   %s', ...
+                    app.TepAm, numel(S.keysHat), boi);
+                mau = M.muc;
+            else
+                txt = sprintf('●  Tệp %s   ·   0 phím   ·   loại: %s', app.TepAm, demLyDo(S));
+                mau = M.sai;
+            end
         end
 
         function [txt, mau] = trangThaiMic(app, tenPP, M)
@@ -715,7 +804,9 @@ classdef DTMFApp < handle
                 daPhat = S.meta.keys;
             end
 
-            if isempty(S.x) || (~isempty(dangGo) && ~isequal(dangGo, daPhat))
+            % x[n] từ tệp thì ô chuỗi phím không mô tả nó, nên chữ đang gõ
+            % không kéo bước tiếp về 1.
+            if isempty(S.x) || (isempty(app.TepAm) && ~isempty(dangGo) && ~isequal(dangGo, daPhat))
                 b = 1;
             elseif isempty(S.y)
                 b = 2;
@@ -806,6 +897,7 @@ classdef DTMFApp < handle
         % quan gì tới điều khiển đang hiện. Ô chuỗi phím giữ nguyên: quay lại
         % nguồn tổng hợp là bấm Tạo tín hiệu được ngay.
             app.NguonMic = mic;
+            app.TepAm = '';
             xoaKetQua(app);
             app.S.lastError = blanks(0);
             app.S.x    = zeros(1, 0);
@@ -1202,8 +1294,8 @@ classdef DTMFApp < handle
             app.PnlKeypad = uipanel(c, 'BorderType', 'none', 'BackgroundColor', M.the);
             app.PnlKeypad.Layout.Row = 1;  app.PnlKeypad.Layout.Column = 1;
 
-            kg = uigridlayout(app.PnlKeypad, [3 2]);
-            kg.RowHeight       = {28, '1x', 28};
+            kg = uigridlayout(app.PnlKeypad, [4 2]);
+            kg.RowHeight       = {28, '1x', 28, 28};
             kg.ColumnWidth     = {'1x', 64};
             kg.Padding         = [0 0 0 0];
             kg.RowSpacing      = 6;
@@ -1255,6 +1347,14 @@ classdef DTMFApp < handle
                 'Tooltip', 'Phát ra loa tín hiệu gốc, chưa có nhiễu', ...
                 'ButtonPushedFcn', @(src, evt) app.BtnPlayXPushed(evt));
             app.BtnPlayX.Layout.Row = 3;  app.BtnPlayX.Layout.Column = 2;
+
+            % Lối thứ hai vào bước 1: tệp âm thanh thay cho chuỗi phím.
+            app.BtnOpen = uibutton(kg, 'Text', 'Mở tệp âm thanh…', 'FontSize', 13, ...
+                'FontColor', M.muc, 'BackgroundColor', M.the, ...
+                'Tooltip', sprintf(['Nạp một tệp wav, flac, mp3... làm x[n]: lấy trung bình ' ...
+                    'các kênh, đổi về 8 kHz, tối đa %d s'], app.TEP_TOI_DA), ...
+                'ButtonPushedFcn', @(src, evt) app.BtnOpenPushed(evt));
+            app.BtnOpen.Layout.Row = 4;  app.BtnOpen.Layout.Column = [1 2];
 
             dungTheMic(app, c, M);
 

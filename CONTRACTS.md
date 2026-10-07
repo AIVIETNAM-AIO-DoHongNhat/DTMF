@@ -36,6 +36,7 @@ m = dtmf_metrics(keysTrue, keysHat)   % .acc .editDist .confusion 12×12 .align 
 S = dtmf_run(S)             % giải mã khối
 L = dtmf_listen(L, chunk)   % giải mã luồng (micro, đường dây)
 J = dtmf_judge(that, doc)   % đối chiếu số thật với số đọc được (màn giám định)
+[x, info] = dtmf_readaudio(file)   % tệp âm thanh -> 1×N một kênh ở 8 kHz (DTMFApp, nhập từ tệp)
 ```
 
 ## 2. Luật cứng
@@ -52,6 +53,8 @@ J = dtmf_judge(that, doc)   % đối chiếu số thật với số đọc đư�
 - `tests/` và `scripts/` được gọi thẳng `src/` (`run_bench` cần `dtmf_decide` với ngưỡng khác
   mặc định).
 - `app/DTMFLine.m` chỉ đổi byte thành mẫu như `audiorecorder`; âm thanh vẫn đi qua `dtmf_listen`.
+- `app/dtmf_readaudio.m` đọc tệp, gộp kênh và đổi tần số lấy mẫu (`resample`, có lọc chống chồng
+  phổ); `DTMFApp` không tự xử lý mẫu của tệp. Tệp thành x[n], bước 2 và 3 đi như tín hiệu tổng hợp.
 - Màn giám định không bao giờ nhận đáp án trước khi kết luận: trang chỉ gửi `reveal` sau khi nhận
   `verdict`, và `DTMFForensic` nhận `reveal` lúc còn nghe thì kết luận trước rồi mới đối chiếu.
 - Chỉ `app/ui/*.m` và các script `dev_harness`, `run_bench`, `make_figures`, `make_cover` được

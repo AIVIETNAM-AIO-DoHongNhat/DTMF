@@ -299,7 +299,7 @@ tiêu chí chấp nhận khung và so sánh chúng trên cùng một bộ dữ l
                 để đánh giá ba phương pháp trên dữ liệu tổng hợp có nhãn với
                 nhiễu AWGN và nhiễu ù 50~Hz ở SNR từ $-5$ đến $30\dB$. Dữ liệu
                 tổng hợp cho nhãn chính xác, mức nhiễu điều khiển được và kết quả
-                tái lập được bằng một lệnh. Phần mềm được kiểm chứng bằng 241 ca
+                tái lập được bằng một lệnh. Phần mềm được kiểm chứng bằng 249 ca
                 kiểm thử tự động.
         \end{itemize}
 \end{itemize}
@@ -1256,6 +1256,7 @@ Bảng~\ref{tab:ham-chinh} tóm tắt các hàm chính.
 \texttt{dtmf\_metrics} & Độ chính xác và ma trận nhầm lẫn \\
 \texttt{dtmf\_run}, \texttt{dtmf\_listen} & Giải mã theo khối, theo luồng \\
 \texttt{dtmf\_judge} & Đối chiếu từng chữ số đọc được với số thật \\
+\texttt{dtmf\_readaudio} & Đọc tệp âm thanh thành tín hiệu một kênh 8~kHz \\
 \texttt{DTMFLine} & Nhận âm thanh từ đường dây, gửi phím về điện thoại \\
 \bottomrule
 \end{tabularx}
@@ -1298,7 +1299,8 @@ thanh.}
 là dạng sóng và phổ của tín hiệu ở bước đó.
 \begin{enumerate}[label=\textbf{Bước \arabic*.}]
   \item \emph{Tín hiệu gốc} $x[n]$ được tạo từ chuỗi phím gõ vào hoặc bấm trên bàn
-        phím; mỗi phím bấm phát ngay ra loa.
+        phím, mỗi phím bấm phát ngay ra loa. $x[n]$ cũng có thể nạp từ một tệp âm
+        thanh, được gộp về một kênh và đổi về 8~kHz.
   \item \emph{Kênh nhiễu} cộng nhiễu AWGN hoặc ù 50~Hz ở SNR từ $-5$ đến $30\dB$;
         phổ của $y[n]$ được vẽ chồng lên phổ của $x[n]$ để thấy nền nhiễu.
   \item \emph{Giải mã} chạy bộ giải mã đã chọn, vẽ năng lượng tám bin của mọi khung
@@ -1414,14 +1416,14 @@ Cực khó        & $-10\dB$    & $8\dB$      & 10/60 \\
 
 \subsection{Kiểm thử}
 
-Phần MATLAB có 241 ca kiểm thử tự động, chạy bằng một lệnh \texttt{run\_all\_tests}
+Phần MATLAB có 249 ca kiểm thử tự động, chạy bằng một lệnh \texttt{run\_all\_tests}
 (Bảng~\ref{tab:kiem-thu}); phần web có thêm 62 ca. Các ca nhắm vào lỗi khó thấy,
 chẳng hạn phép thử phím lặp quét mọi cách căn lề giữa âm và lưới khung, và chính phép
 thử này cho thấy cần quy tắc ``ít nhất hai khung''.
 
 \begin{table}[H]
 \centering
-\caption{Phân bố 241 ca kiểm thử tự động của phần MATLAB.}
+\caption{Phân bố 249 ca kiểm thử tự động của phần MATLAB.}
 \label{tab:kiem-thu}
 \small
 \begin{tabularx}{\linewidth}{@{}l c >{\RaggedRight\arraybackslash}X@{}}
@@ -1431,8 +1433,8 @@ thử này cho thấy cần quy tắc ``ít nhất hai khung''.
 Bảng tần số và bộ phát        & 12 & Bảng 12 phím, độ dài, biên độ, SNR đặt \\
 Hàm dùng chung                & 43 & Chia khung, chấp nhận khung, gộp khung, đánh giá \\
 Lõi Goertzel và ba bộ giải mã & 45 & Đối chứng thư viện, đủ 12 phím, phím lặp, bộ lọc \\
-Tích hợp và điều phối         & 27 & Phát-giải mã trọn vẹn, bắt lỗi, luồng khớp khối \\
-Giao diện \texttt{DTMFApp}    & 84 & Bấm từng nút ở chế độ ẩn, kiểm tra hiển thị \\
+Tích hợp và điều phối         & 31 & Phát-giải mã trọn vẹn, bắt lỗi, luồng khớp khối, đọc tệp \\
+Giao diện \texttt{DTMFApp}    & 88 & Bấm từng nút ở chế độ ẩn, kiểm tra hiển thị \\
 Tổng đài và đường dây         & 14 & Cuộc gọi, báo phím, gác máy, đọc tin đường dây \\
 Giám định và đối chiếu        & 16 & Nhận vụ, kết luận trước đáp án, đối chiếu từng chữ số \\
 \bottomrule
@@ -1661,7 +1663,7 @@ Ngân hàng bộ lọc  & $5\dB$     & 0,958 & 672\,000 & Cao \\
         qua đường dây. \texttt{DTMFForensic} nghe một đoạn ghi âm do trang dựng, kết
         luận rồi mới đối chiếu với số thật. Giải mã theo luồng dùng lại nguyên ba bộ giải mã nên cho kết
         quả trùng với giải mã theo khối và báo phím khoảng 0,1~s sau khi âm bắt đầu.
-        Phần mềm được kiểm tra bằng 241 ca kiểm thử MATLAB và 62 ca phía web.
+        Phần mềm được kiểm tra bằng 249 ca kiểm thử MATLAB và 62 ca phía web.
 \end{itemize}
 
 Ngoài các mục tiêu trên, thực nghiệm còn cho bốn kết luận kỹ thuật.
