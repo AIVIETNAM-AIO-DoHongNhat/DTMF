@@ -14,7 +14,8 @@ function m = dtmf_metrics(keysTrue, keysHat)
 %          ba số hạng lần lượt là xóa, chèn, thay. editDist = D(end,end).
 %       3. Truy vết ngược D để căn chỉnh hai chuỗi, ưu tiên CHÉO > XÓA > CHÈN.
 %          Mỗi bước chéo là một cặp (phím thật, phím đoán), cộng 1 vào ô tương
-%          ứng của confusion. Bước chèn và xóa không có ô nào để ghi.
+%          ứng của confusion. Bước chèn và xóa không có ô nào để ghi. Mọi bước
+%          đều ghi một cột vào align, ô trống là '-'.
 %       4. acc = 1 - editDist/max(K,L). Hai chuỗi cùng rỗng cho acc = 1.
 %
 %   acc tính thẳng từ editDist chứ KHÔNG đếm số ô khớp lúc truy vết. Số ô khớp
@@ -27,16 +28,20 @@ function m = dtmf_metrics(keysTrue, keysHat)
 %       keysHat: char 1×L, chuỗi phím bộ giải mã trả về.
 %
 %   Output:
-%       m: struct 1×1 gồm ba trường
+%       m: struct 1×1 gồm bốn trường
 %          .acc: double trong [0, 1], tỉ lệ phím đúng.
 %          .editDist: double, số phép chèn/xóa/thay ít nhất.
 %          .confusion: 12×12 double, ô (i,j) là số lần phím thật i bị giải
 %                      thành phím j; đường chéo là số lần đúng.
+%          .align: char 2×n, hai chuỗi đã căn chỉnh theo đúng đường truy vết
+%                  ở bước 3: hàng 1 là phím thật, hàng 2 là phím đoán, '-' ở
+%                  hàng 1 là phím thừa, ở hàng 2 là phím bị sót.
 %
 %   Example:
 %       m = dtmf_metrics('123', '1283');
 %       m.editDist      % 1  (chèn thêm một phím '8')
 %       m.acc           % 0.75
+%       m.align         % ['12-3'; '1283']
 arguments
     keysTrue (1,:) char
     keysHat (1,:) char
@@ -71,19 +76,30 @@ editDist = D(K+1, L+1);
 % hợp đồng - xem CONTRACTS §6(g): khi nhiều đường cùng tối ưu, thứ tự ưu tiên
 % khác nhau cho ra ma trận nhầm lẫn khác nhau, nên nó phải được ghim.
 C = zeros(12, 12);
+% Đường căn chỉnh dài tối đa K+L cột. Truy vết đi từ cuối về đầu, nên ghi từ
+% cột cuối ngược lại rồi cắt phần đầu chưa dùng.
+A = repmat('-', 1, K + L);
+B = repmat('-', 1, K + L);
+q = K + L;
 i = K + 1;
 j = L + 1;
 while i > 1 || j > 1
     if i > 1 && j > 1 && D(i, j) == D(i-1, j-1) + (iTrue(i-1) ~= iHat(j-1))
         C(iTrue(i-1), iHat(j-1)) = C(iTrue(i-1), iHat(j-1)) + 1;
+        A(q) = keysTrue(i-1);
+        B(q) = keysHat(j-1);
         i = i - 1;
         j = j - 1;
     elseif i > 1 && D(i, j) == D(i-1, j) + 1
+        A(q) = keysTrue(i-1);
         i = i - 1;      % xóa: phím thật không được đoán ra, không có ô để ghi
     else
+        B(q) = keysHat(j-1);
         j = j - 1;      % chèn: phím thừa, cũng không có ô để ghi
     end
+    q = q - 1;
 end
+aligned = [A(q+1:end); B(q+1:end)];
 
 % Mẫu số là max(K,L) chứ không phải numel(keysTrue). Lấy numel(keysTrue) thì bộ
 % giải mã chèn thêm phím vẫn được acc = 1, vì mọi phím thật đều có mặt.
@@ -95,7 +111,7 @@ else
     acc = 1 - editDist / nKey;
 end
 
-m = struct('acc', acc, 'editDist', editDist, 'confusion', C);
+m = struct('acc', acc, 'editDist', editDist, 'confusion', C, 'align', aligned);
 
 end
 

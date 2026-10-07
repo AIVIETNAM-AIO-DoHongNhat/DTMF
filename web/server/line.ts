@@ -13,7 +13,16 @@ import type { IncomingMessage, Server } from 'node:http';
 import type { Duplex } from 'node:stream';
 import type { Plugin, PreviewServer, ViteDevServer } from 'vite';
 import { WebSocket, WebSocketServer, type RawData } from 'ws';
-import { LINE_PATH, MATLAB_PORT, type LineStatus } from '../src/line/protocol.ts';
+import { LINE_PATH, MATLAB_PORT, PHONE_TYPES, type LineStatus } from '../src/line/protocol.ts';
+
+/** Lời ghi nhật ký cho từng tin chữ của điện thoại. */
+const LOI: Record<(typeof PHONE_TYPES)[number], string> = {
+  call: 'gọi',
+  hangup: 'gác máy',
+  case: 'bắt đầu đoạn ghi âm',
+  end: 'hết đoạn ghi âm',
+  reveal: 'công bố đáp án',
+};
 
 type Log = (msg: string) => void;
 
@@ -46,6 +55,7 @@ class Bridge {
   private tcp: net.Server;
   private matlab: net.Socket | null = null;
   private method: string | undefined;
+  private app: string | undefined;
   private phone: WebSocket | null = null;
   private ping: ReturnType<typeof setInterval>;
   private closed = false;
@@ -89,7 +99,12 @@ class Bridge {
   }
 
   status(): LineStatus {
-    return { t: 'line', matlab: this.matlab !== null, ...(this.method ? { method: this.method } : {}) };
+    return {
+      t: 'line',
+      matlab: this.matlab !== null,
+      ...(this.method ? { method: this.method } : {}),
+      ...(this.app ? { app: this.app } : {}),
+    };
   }
 
   /* ------------------------------------------------------------- MATLAB */
@@ -99,6 +114,7 @@ class Bridge {
     this.matlab?.destroy();
     this.matlab = s;
     this.method = undefined;
+    this.app = undefined;
     s.setNoDelay(true);
     s.setEncoding('utf8');
     this.log('[đường dây] MATLAB đã nối');
@@ -118,6 +134,7 @@ class Bridge {
       if (this.matlab !== s) return;
       this.matlab = null;
       this.method = undefined;
+      this.app = undefined;
       this.log('[đường dây] MATLAB đã ngắt');
       this.toPhone(this.status());
     };
@@ -126,7 +143,7 @@ class Bridge {
   }
 
   private fromMatlab(dong: string): void {
-    let m: { t?: unknown; method?: unknown };
+    let m: { t?: unknown; method?: unknown; app?: unknown };
     try {
       m = JSON.parse(dong);
     } catch {
@@ -134,10 +151,11 @@ class Bridge {
     }
     if (m.t === 'hello') {
       this.method = typeof m.method === 'string' ? m.method : undefined;
+      this.app = typeof m.app === 'string' ? m.app : undefined;
       this.toPhone(this.status());
       return;
     }
-    // answer, key, hangup: chuyển nguyên văn sang điện thoại.
+    // answer, key, hangup, verdict: chuyển nguyên văn sang điện thoại.
     this.phone?.readyState === WebSocket.OPEN && this.phone.send(dong);
   }
 
@@ -165,9 +183,11 @@ class Bridge {
       }
       try {
         const m = JSON.parse(data.toString()) as { t?: unknown };
-        if (m.t === 'call' || m.t === 'hangup') {
-          this.log(`[đường dây] điện thoại: ${m.t === 'call' ? 'gọi' : 'gác máy'}`);
-          this.toMatlab({ t: m.t });
+        const t = PHONE_TYPES.find((k) => k === m.t);
+        if (t) {
+          this.log(`[đường dây] điện thoại: ${LOI[t]}`);
+          // case, reveal mang số liệu: chuyển nguyên đối tượng, không chỉ t.
+          this.toMatlab(m);
         }
       } catch {
         // khung chữ hỏng: bỏ qua

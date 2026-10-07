@@ -58,9 +58,12 @@ classdef DTMFApp < handle
         PnlKeypad   matlab.ui.container.Panel
         PnlMic      matlab.ui.container.Panel
 
-        % Bàn phím. Tên đóng băng theo docs/ui_naming.md §2: '*' và '#' không
-        % hợp lệ trong tên biến MATLAB nên viết chữ, còn Text của nút vẫn là
-        % ký tự thật.
+        % Bàn phím. Thứ người dùng thấy và bấm là AxKeypad - bàn phím phẳng
+        % vẽ bằng ui_pad; bấm một phím là gọi Btn1Pushed với đúng nút ở
+        % dưới đây. 12 nút giữ nguyên (ẩn) vì tên đóng băng theo
+        % docs/ui_naming.md §2 và test gọi thẳng chúng: '*' và '#' không hợp
+        % lệ trong tên biến MATLAB nên viết chữ, còn Text vẫn là ký tự thật.
+        AxKeypad    matlab.ui.control.UIAxes
         Btn1        matlab.ui.control.Button
         Btn2        matlab.ui.control.Button
         Btn3        matlab.ui.control.Button
@@ -142,6 +145,11 @@ classdef DTMFApp < handle
         TheBuoc
         LblSo
         LblInfo
+
+        % Bàn phím vẽ: đối tượng đồ họa của ui_pad, và đồng hồ tắt đèn
+        % ô vừa bấm sau SANG_PHIM giây.
+        Ban
+        NhipPhim
     end
 
     properties (Constant, Access = private)
@@ -156,6 +164,8 @@ classdef DTMFApp < handle
         % Nghe quá chừng này giây thì ghi lại từ đầu [s], vì getaudiodata trả
         % CẢ bản ghi nên mỗi tick chậm dần theo độ dài bản ghi.
         NGHE_TOI_DA = 120
+        % Ô vừa bấm trên bàn phím sáng trong chừng này giây [s].
+        SANG_PHIM = 0.25
     end
 
     methods (Access = public)
@@ -192,6 +202,10 @@ classdef DTMFApp < handle
         % Tắt micro TRƯỚC: tick của nó còn chạy sau khi app bị hủy thì mỗi
         % 50 ms lại ném một lỗi ra cửa sổ lệnh.
             tatMic(app);
+            if ~isempty(app.NhipPhim) && isvalid(app.NhipPhim)
+                stop(app.NhipPhim);
+                delete(app.NhipPhim);
+            end
             if ~isempty(app.UIFigure) && isvalid(app.UIFigure)
                 delete(app.UIFigure);
             end
@@ -218,7 +232,22 @@ classdef DTMFApp < handle
         %BTN1PUSHED Callback dùng chung cho cả 12 nút bàn phím.
             app.EfKeys.Value = [app.EfKeys.Value, event.Source.Text];
             capNhatNut(app);
+            sangPhim(app, event.Source.Text);
             phatPhim(app, event.Source.Text);
+        end
+
+        function AxKeypadClicked(app, event)
+        %AXKEYPADCLICKED Bấm vào một phím của bàn phím vẽ: tra phím theo tọa độ
+        % rồi đi đúng đường của nút tương ứng (Btn1Pushed).
+            p = event.IntersectionPoint;
+            c = round(p(1));
+            r = round(p(2));
+            if r < 1 || r > 4 || c < 1 || c > 3
+                return
+            end
+            ten = {'Btn1', 'Btn2', 'Btn3', 'Btn4', 'Btn5', 'Btn6', ...
+                   'Btn7', 'Btn8', 'Btn9', 'BtnStar', 'Btn0', 'BtnHash'};
+            app.Btn1Pushed(struct('Source', app.(ten{(r - 1) * 3 + c})));
         end
 
         function EfKeysValueChanging(app, event)
@@ -522,6 +551,18 @@ classdef DTMFApp < handle
                     tieuDe(app.AxMap,  'Chưa có tín hiệu để giải mã');
                 end
                 tieuDe(app.AxBars, 'Chưa có khung quyết định');
+            end
+
+            % Đánh số như chú thích hình của LaTeX: "Hình k:" đậm đứng đầu.
+            % Tiêu đề dùng bộ diễn dịch tex mặc định, nên \bf ... \rm bật tắt
+            % chữ đậm; tiêu đề đã đánh số (của lần vẽ trước) thì không đánh lại.
+            % Ghép chuỗi chứ không sprintf: với sprintf, \b là ký tự lùi.
+            ax = [app.AxWaveX, app.AxPsdX, app.AxWave, app.AxPsd, app.AxMap, app.AxBars];
+            for k = 1:numel(ax)
+                t = char(ax(k).Title.String);
+                if ~startsWith(t, '\bfHình')
+                    ax(k).Title.String = ['\bfHình ' num2str(k) ':\rm ' t];
+                end
             end
         end
 
@@ -1011,6 +1052,37 @@ classdef DTMFApp < handle
             app.TxtLog.Value = [cu(:); {dong}];
         end
 
+        function sangPhim(app, ch)
+        %SANGPHIM Phím vừa bấm sáng màu nhấn, tần số hàng / cột của nó cũng
+        % sáng - thấy ngay phím đó là cặp tần số nào - rồi tắt sau SANG_PHIM
+        % giây. Chạy ẩn thì không có đồng hồ: đèn tắt ngay.
+            T = dtmf_table();
+            [r, c] = find(T.keys == ch, 1);
+            if isempty(r)
+                return
+            end
+            g = zeros(1, 12);
+            g((r - 1) * 3 + c) = 1;
+            ui_pad(app.Ban, g, double((1:4) == r), double((1:3) == c));
+            if app.UIFigure.Visible == "off"
+                tatPhim(app);
+                return
+            end
+            if isempty(app.NhipPhim) || ~isvalid(app.NhipPhim)
+                app.NhipPhim = timer('Name', 'DTMFApp-phim', 'StartDelay', app.SANG_PHIM, ...
+                    'TimerFcn', @(~, ~) tatPhim(app));
+            end
+            stop(app.NhipPhim);
+            start(app.NhipPhim);
+        end
+
+        function tatPhim(app)
+        %TATPHIM Tắt mọi đèn trên bàn phím vẽ.
+            if isvalid(app) && ~isempty(app.Ban) && isvalid(app.Ban.pad)
+                ui_pad(app.Ban, zeros(1, 12), zeros(1, 4), zeros(1, 3));
+            end
+        end
+
         function hienSNR(app, v)
         %HIENSNR Ghi giá trị SNR đang chọn vào nhãn cạnh thanh trượt.
             app.LblSNR.Text = sprintf('%.0f dB', v);
@@ -1019,11 +1091,12 @@ classdef DTMFApp < handle
         % ------------------------------------------------------------ dựng hình
 
         function dungGiaoDien(app, visible)
-        %DUNGGIAODIEN Dựng cửa sổ: tiêu đề, ba thẻ bước xếp dọc, thanh trạng thái.
-        % Ba thẻ bước dùng CÙNG một cách chia cột (theBuoc), nên trục bên trái
-        % của cả ba thẻ - dạng sóng x[n], dạng sóng y[n], bản đồ khung - thẳng
-        % mép nhau tuyệt đối: một thời điểm ở hàng trên nằm đúng trên thời
-        % điểm đó ở hàng dưới. Màu và phông: app/ui/ui_theme.m.
+        %DUNGGIAODIEN Dựng cửa sổ như một trang LaTeX: tiêu đề, đường kẻ đậm,
+        % ba mục bước đánh số ngăn bằng vạch mảnh, chân trang trạng thái.
+        % Ba mục dùng CÙNG một cách chia cột (theBuoc), nên trục bên trái của
+        % cả ba - dạng sóng x[n], dạng sóng y[n], bản đồ khung - thẳng mép nhau
+        % tuyệt đối: một thời điểm ở hàng trên nằm đúng trên thời điểm đó ở
+        % hàng dưới. Màu và phông: app/ui/ui_theme.m (M.tex cho kiểu LaTeX).
             M = ui_theme();
 
             % 'Theme', 'light' là BẮT BUỘC, không phải sở thích. Từ R2025a
@@ -1034,37 +1107,38 @@ classdef DTMFApp < handle
             app.UIFigure = uifigure('Visible', visible, ...
                 'Theme', 'light', ...
                 'Name', 'DTMF - Phát và giải mã tín hiệu', ...
+                'Icon', M.logo, ...
                 'Position', viTriCuaSo(), ...
-                'Color', M.nen, ...
+                'Color', M.the, ...
                 'CloseRequestFcn', @(src, evt) delete(app));
 
-            % Tối giản: không viền, không khung trang trí. Ba thẻ trắng trên
-            % nền xám nhạt, tách nhau bằng khoảng trắng; mọi chú thích dài nằm
-            % trong tooltip thay vì nằm thường trực trên màn hình.
-            g = uigridlayout(app.UIFigure, [3 1]);
-            g.RowHeight       = {30, '1x', 30};
+            g = uigridlayout(app.UIFigure, [5 1]);
+            g.RowHeight       = {36, 2, '1x', 1, 30};
             g.ColumnWidth     = {'1x'};
-            g.Padding         = [20 12 20 10];
-            g.RowSpacing      = 12;
-            g.BackgroundColor = M.nen;
+            g.Padding         = [24 10 24 8];
+            g.RowSpacing      = 8;
+            g.BackgroundColor = M.the;
 
             dungTieuDe(app, g, M);
+            ke(g, 2, 1, M.tex.ke);
 
             % Bước 1 cao hơn hai bước kia vì phải chứa đủ bàn phím 4×3.
-            gb = uigridlayout(g, [3 1]);
-            gb.RowHeight       = {'1.2x', '1x', '1x'};
+            gb = uigridlayout(g, [5 1]);
+            gb.RowHeight       = {'1.5x', 1, '1x', 1, '1x'};
             gb.ColumnWidth     = {'1x'};
             gb.Padding         = [0 0 0 0];
-            gb.RowSpacing      = 12;
-            gb.BackgroundColor = M.nen;
-            gb.Layout.Row      = 2;
+            gb.RowSpacing      = 6;
+            gb.BackgroundColor = M.the;
+            gb.Layout.Row      = 3;
 
-            [p1, c1, s1, i1] = theBuoc(gb, 1, 'Tín hiệu gốc', ...
+            [p1, c1, s1, i1] = theBuoc(gb, 1, 1, 'Tín hiệu gốc', ...
                 ['<i>x</i>[<i>n</i>] = <i>A</i> sin(2π<i>f</i><sub>R</sub><i>n</i>/<i>f</i><sub>s</sub>)' ...
                  ' + <i>A</i> sin(2π<i>f</i><sub>C</sub><i>n</i>/<i>f</i><sub>s</sub>)'], M);
-            [p2, c2, s2, i2] = theBuoc(gb, 2, 'Kênh nhiễu', ...
+            ke(gb, 2, 1, M.vien);
+            [p2, c2, s2, i2] = theBuoc(gb, 3, 2, 'Kênh nhiễu', ...
                 '<i>y</i>[<i>n</i>] = <i>x</i>[<i>n</i>] + <i>w</i>[<i>n</i>]', M);
-            [p3, c3, s3, i3] = theBuoc(gb, 3, 'Giải mã', ...
+            ke(gb, 4, 1, M.vien);
+            [p3, c3, s3, i3] = theBuoc(gb, 5, 3, 'Giải mã', ...
                 'khung &rarr; <i>E</i><sub><i>j</i></sub> &rarr; luật quyết định &rarr; phím', M);
             app.TheBuoc = [p1 p2 p3];
             app.LblSo   = [s1 s2 s3];
@@ -1073,131 +1147,114 @@ classdef DTMFApp < handle
             dungBuocNguon(app, c1, M);
             dungBuocKenh(app, c2, M);
             dungBuocGiaiMa(app, c3, M);
+            ke(g, 4, 1, M.vien);
             dungThanhTrangThai(app, g, M);
 
             % Phông chữ đặt MỘT lần cho mọi thứ có chữ, trừ những ô cố ý dùng
             % phông đơn cách (chuỗi phím, kết quả, nhật ký) - cột ký tự thẳng
-            % hàng là thứ giúp so "đã phát" với "đọc được".
+            % hàng là thứ giúp so "đã phát" với "đọc được" - và bàn phím, nơi
+            % ui_pad tự chọn phông không chân.
             h = findall(app.UIFigure, '-property', 'FontName');
             for i = 1:numel(h)
-                if ~strcmp(h(i).FontName, M.fontMono)
-                    h(i).FontName = M.font;
+                if ~strcmp(h(i).FontName, M.tex.mono) && ...
+                        ~isequal(ancestor(h(i), 'axes'), app.AxKeypad)
+                    h(i).FontName = M.tex.font;
                 end
             end
         end
 
         function dungTieuDe(app, cha, M)
-        %DUNGTIEUDE Dòng tiêu đề: tên và thông số bên trái, chọn nguồn bên phải.
-        % Chọn nguồn đặt ở đây chứ không trong một thẻ bước vì nó đổi cách cả
-        % ba bước làm việc.
+        %DUNGTIEUDE Dòng tiêu đề: tên và thông số nghiêng bên trái, chọn nguồn
+        % bên phải. Chọn nguồn đặt ở đây chứ không trong một mục bước vì nó đổi
+        % cách cả ba bước làm việc.
             g = uigridlayout(cha, [1 4]);
-            g.ColumnWidth     = {'fit', 'fit', '1x', 200};
-            g.Padding         = [2 0 0 0];
-            g.ColumnSpacing   = 14;
-            g.BackgroundColor = M.nen;
+            g.ColumnWidth     = {'fit', 'fit', '1x', 216};
+            g.Padding         = [0 2 0 2];
+            g.ColumnSpacing   = 12;
+            g.BackgroundColor = M.the;
             g.Layout.Row      = 1;
 
             uilabel(g, 'Text', 'Phát và giải mã tín hiệu DTMF', ...
-                'FontSize', 17, 'FontWeight', 'bold', 'FontColor', M.muc);
-            uilabel(g, 'Text', 'ITU-T Q.23   ·   fs = 8000 Hz', ...
-                'FontSize', 10, 'FontColor', M.chuMo);
+                'FontSize', 23, 'FontColor', M.muc);
+            uilabel(g, 'Text', 'ITU-T Q.23  ·  fs = 8000 Hz', ...
+                'FontSize', 14, 'FontAngle', 'italic', 'FontColor', M.chuPhu);
 
             gs = uigridlayout(g, [1 2]);
             gs.ColumnWidth     = {'1x', '1x'};
             gs.Padding         = [0 0 0 0];
-            gs.ColumnSpacing   = 8;
-            gs.BackgroundColor = M.nen;
+            gs.ColumnSpacing   = 6;
+            gs.BackgroundColor = M.the;
             gs.Layout.Column   = 4;
-            app.BtnSrcGen = uibutton(gs, 'Text', 'Tổng hợp', 'FontSize', 12, ...
+            app.BtnSrcGen = uibutton(gs, 'Text', 'Tổng hợp', 'FontSize', 14, ...
                 'Tooltip', 'Nguồn tổng hợp: gõ chuỗi phím, tạo x[n], cộng nhiễu thành y[n] rồi giải mã', ...
                 'ButtonPushedFcn', @(src, evt) app.BtnSrcPushed(evt));
-            app.BtnSrcMic = uibutton(gs, 'Text', 'Micro', 'FontSize', 12, ...
+            app.BtnSrcMic = uibutton(gs, 'Text', 'Micro', 'FontSize', 14, ...
                 'Tooltip', 'Nguồn micro: giải mã âm DTMF thu được, vd. bấm số trên điện thoại', ...
                 'ButtonPushedFcn', @(src, evt) app.BtnSrcPushed(evt));
         end
 
         function dungBuocNguon(app, c, M)
-        %DUNGBUOCNGUON Thẻ 1: điều khiển của hai nguồn chồng lên nhau ở cột
+        %DUNGBUOCNGUON Mục 1: điều khiển của hai nguồn chồng lên nhau ở cột
         % trái - capNhatNut ẩn cái không dùng - và hai trục của x[n].
         % Ô chuỗi phím nằm NGAY TRÊN bàn phím: bấm phím nào thấy ký tự hiện
-        % ra ở đó. Nhãn tần số viền bàn phím: mỗi phím là một cặp hàng + cột.
+        % ra ở đó. Bàn phím vẽ bằng ui_pad: phím phẳng bo góc, tần số hàng và
+        % cột của mỗi phím nằm ở đầu hàng và đầu cột.
             app.PnlKeypad = uipanel(c, 'BorderType', 'none', 'BackgroundColor', M.the);
             app.PnlKeypad.Layout.Row = 1;  app.PnlKeypad.Layout.Column = 1;
 
-            kg = uigridlayout(app.PnlKeypad, [7 4]);
-            kg.RowHeight       = [{26, 12}, repmat({'1x'}, 1, 4), {28}];
-            kg.ColumnWidth     = [{30}, repmat({'1x'}, 1, 3)];
+            kg = uigridlayout(app.PnlKeypad, [3 2]);
+            kg.RowHeight       = {28, '1x', 28};
+            kg.ColumnWidth     = {'1x', 64};
             kg.Padding         = [0 0 0 0];
-            kg.RowSpacing      = 4;
-            kg.ColumnSpacing   = 5;
+            kg.RowSpacing      = 6;
+            kg.ColumnSpacing   = 6;
             kg.BackgroundColor = M.the;
 
             app.EfKeys = uieditfield(kg, 'text', ...
-                'FontName', M.fontMono, 'FontSize', 15, 'FontColor', M.muc, ...
+                'FontName', M.tex.mono, 'FontSize', 15, 'FontColor', M.muc, ...
                 'ValueChangingFcn', @(src, evt) app.EfKeysValueChanging(evt));
-            app.EfKeys.Layout.Row = 1;  app.EfKeys.Layout.Column = [1 3];
+            app.EfKeys.Layout.Row = 1;  app.EfKeys.Layout.Column = 1;
 
             app.BtnClear = uibutton(kg, 'Text', 'Xóa', ...
-                'FontSize', 11, 'FontColor', M.chuPhu, 'BackgroundColor', M.the, ...
+                'FontSize', 13, 'FontColor', M.chuPhu, 'BackgroundColor', M.the, ...
                 'Tooltip', 'Xóa chuỗi phím (tín hiệu đang có giữ nguyên)', ...
                 'ButtonPushedFcn', @(src, evt) app.BtnClearPushed(evt));
-            app.BtnClear.Layout.Row = 1;  app.BtnClear.Layout.Column = 4;
+            app.BtnClear.Layout.Row = 1;  app.BtnClear.Layout.Column = 2;
 
-            % Tần số lấy từ bảng chứ không gõ tay - cùng lý do như ui_plot_bars.
+            % Bảng phím: trục trong một panel trơn, chiếm trọn ô; ui_pad giữ tỉ
+            % lệ 1:1 nên bảng tự canh giữa.
+            v = uipanel(kg, 'BorderType', 'none', 'BackgroundColor', M.the, ...
+                'AutoResizeChildren', 'off');
+            v.Layout.Row = 2;  v.Layout.Column = [1 2];
+            app.AxKeypad = uiaxes(v, 'Units', 'pixels', 'Color', M.the);
+            app.AxKeypad.Position = [0 0 v.InnerPosition(3:4)];
+            app.Ban = ui_pad(app.AxKeypad, false);
+            v.SizeChangedFcn = @(src, ~) coBanPhim(app.Ban, src);
+            app.Ban.pad.ButtonDownFcn = @(src, evt) app.AxKeypadClicked(evt);
+
+            % 12 nút thật, ẩn trong một panel ẩn cùng ô - xem khai báo Btn1.
+            an = uipanel(kg, 'Visible', 'off', 'BorderType', 'none');
+            an.Layout.Row = 2;  an.Layout.Column = [1 2];
             T = dtmf_table();
-            l = uilabel(kg, 'Text', 'Hz', 'FontSize', 9, 'FontColor', M.chuMo, ...
-                'HorizontalAlignment', 'right', 'VerticalAlignment', 'bottom');
-            l.Layout.Row = 2;  l.Layout.Column = 1;
-            for j = 1:3
-                l = uilabel(kg, 'Text', sprintf('%d', T.colHz(j)), ...
-                    'FontSize', 9, 'FontColor', M.chuMo, ...
-                    'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom');
-                l.Layout.Row = 2;  l.Layout.Column = j + 1;
-            end
-            for i = 1:4
-                l = uilabel(kg, 'Text', sprintf('%d', T.rowHz(i)), ...
-                    'FontSize', 9, 'FontColor', M.chuMo, ...
-                    'HorizontalAlignment', 'right');
-                l.Layout.Row = i + 2;  l.Layout.Column = 1;
-            end
-
             ten = {'Btn1', 'Btn2', 'Btn3', 'Btn4', 'Btn5', 'Btn6', ...
                    'Btn7', 'Btn8', 'Btn9', 'BtnStar', 'Btn0', 'BtnHash'};
             ky  = {'1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'};
-
             for i = 1:numel(ten)
-                % '*' và '#' nền xám rất nhạt, chữ nhạt hơn: nhìn là biết phím
-                % chức năng, mà không làm bàn phím loang lổ hai tông màu.
-                nenPhim = M.the;
-                chuPhim = M.muc;
-                if any(ky{i} == '*#')
-                    nenPhim = M.phimPhu;
-                    chuPhim = M.chuPhu;
-                end
-                app.(ten{i}) = uibutton(kg, 'Text', ky{i}, ...
-                    'FontSize', 15, ...
-                    'FontColor', chuPhim, 'BackgroundColor', nenPhim, ...
+                app.(ten{i}) = uibutton(an, 'Text', ky{i}, ...
                     'Tooltip', sprintf('%d Hz + %d Hz', ...
                         T.rowHz(ceil(i / 3)), T.colHz(mod(i - 1, 3) + 1)), ...
                     'ButtonPushedFcn', @(src, evt) app.Btn1Pushed(evt));
-                app.(ten{i}).Layout.Row    = ceil(i / 3) + 2;
-                app.(ten{i}).Layout.Column = mod(i - 1, 3) + 2;
             end
 
-            gn = uigridlayout(kg, [1 2]);
-            gn.ColumnWidth     = {'1x', 64};
-            gn.Padding         = [0 0 0 0];
-            gn.ColumnSpacing   = 6;
-            gn.BackgroundColor = M.the;
-            gn.Layout.Row      = 7;
-            gn.Layout.Column   = [1 4];
-            app.BtnGen = uibutton(gn, 'Text', 'Tạo tín hiệu', 'FontSize', 12, ...
+            app.BtnGen = uibutton(kg, 'Text', 'Tạo tín hiệu', 'FontSize', 14, ...
                 'Tooltip', 'Sinh tín hiệu DTMF sạch từ chuỗi phím, chưa có nhiễu', ...
                 'ButtonPushedFcn', @(src, evt) app.BtnGenPushed(evt));
-            app.BtnPlayX = uibutton(gn, 'Text', 'Nghe', 'FontSize', 11, ...
+            app.BtnGen.Layout.Row = 3;  app.BtnGen.Layout.Column = 1;
+            app.BtnPlayX = uibutton(kg, 'Text', 'Nghe', 'FontSize', 13, ...
                 'FontColor', M.muc, 'BackgroundColor', M.the, ...
                 'Tooltip', 'Phát ra loa tín hiệu gốc, chưa có nhiễu', ...
                 'ButtonPushedFcn', @(src, evt) app.BtnPlayXPushed(evt));
+            app.BtnPlayX.Layout.Row = 3;  app.BtnPlayX.Layout.Column = 2;
 
             dungTheMic(app, c, M);
 
@@ -1214,21 +1271,22 @@ classdef DTMFApp < handle
             app.PnlMic.Layout.Row = 1;  app.PnlMic.Layout.Column = 1;
 
             gm = uigridlayout(app.PnlMic, [4 1]);
-            gm.RowHeight       = {34, 30, 30, '1x'};
+            gm.RowHeight       = {40, 30, 30, '1x'};
             gm.ColumnWidth     = {'1x'};
             gm.Padding         = [0 0 0 0];
             gm.RowSpacing      = 8;
             gm.BackgroundColor = M.the;
 
-            uilabel(gm, 'WordWrap', 'on', 'FontSize', 11, 'FontColor', M.chuPhu, ...
+            uilabel(gm, 'WordWrap', 'on', 'FontSize', 13, 'FontAngle', 'italic', ...
+                'FontColor', M.chuPhu, ...
                 'Text', 'Đặt điện thoại cách micro 5–10 cm và bật âm bàn phím.');
 
-            app.BtnListen = uibutton(gm, 'FontSize', 12, ...
+            app.BtnListen = uibutton(gm, 'FontSize', 14, ...
                 'Tooltip', ['Nghe micro liên tục, phím hiện ra ngay khi nhận ra; ' ...
                     'bấm lần nữa để dừng. Dùng để trình diễn trực tiếp.'], ...
                 'ButtonPushedFcn', @(src, evt) app.BtnListenPushed(evt));
 
-            app.BtnRecord = uibutton(gm, 'FontSize', 12, ...
+            app.BtnRecord = uibutton(gm, 'FontSize', 14, ...
                 'Tooltip', sprintf(['Ghi âm tối đa %d s; bấm lần nữa để dừng và giải ' ...
                     'mã cả bản ghi. Đọc được 0 phím thì thanh trạng thái ghi lý do: ' ...
                     'twist là hai âm lệch biên độ, level là âm quá nhỏ.'], app.GHI_TOI_DA), ...
@@ -1236,13 +1294,13 @@ classdef DTMFApp < handle
         end
 
         function dungBuocKenh(app, c, M)
-        %DUNGBUOCKENH Thẻ bước 2: loại nhiễu, SNR, nút Cộng nhiễu, và hai trục của y[n].
+        %DUNGBUOCKENH Mục 2: loại nhiễu, SNR, nút Cộng nhiễu, và hai trục của y[n].
         % Nút Nghe đứng cạnh nút Cộng nhiễu: nghe lại đúng cái bộ giải mã sắp nghe.
             % Nút ngay dưới tham số, phần trống dồn xuống đáy - cùng kiểu với
-            % thẻ bước 3: tham số trên, nút hành động ngay dưới.
+            % mục 3: tham số trên, nút hành động ngay dưới.
             gk = uigridlayout(c, [4 2]);
-            gk.RowHeight       = {26, 40, 28, '1x'};
-            gk.ColumnWidth     = {70, '1x'};
+            gk.RowHeight       = {28, 40, 28, '1x'};
+            gk.ColumnWidth     = {78, '1x'};
             gk.Padding         = [0 0 0 0];
             gk.RowSpacing      = 6;
             gk.ColumnSpacing   = 6;
@@ -1254,7 +1312,7 @@ classdef DTMFApp < handle
             app.DdNoise = uidropdown(gk, ...
                 'Items',     {'Trắng Gauss (AWGN)', 'Ù điện lưới 50 Hz'}, ...
                 'ItemsData', {'awgn', 'hum50'}, ...
-                'Value',     app.S.noise, ...
+                'Value',     app.S.noise, 'FontSize', 14, ...
                 'FontColor', M.muc, 'BackgroundColor', M.the, ...
                 'Tooltip', 'Dạng của w[n]; công suất do SNR quyết định', ...
                 'ValueChangedFcn', @(src, evt) app.DdNoiseValueChanged(evt));
@@ -1265,7 +1323,7 @@ classdef DTMFApp < handle
             l = nhanTinh(gk, 2, 'SNR', M);
             l.VerticalAlignment = 'top';
             gs = uigridlayout(gk, [1 2]);
-            gs.ColumnWidth     = {'1x', 44};
+            gs.ColumnWidth     = {'1x', 48};
             gs.Padding         = [0 0 0 0];
             gs.ColumnSpacing   = 6;
             gs.BackgroundColor = M.the;
@@ -1276,14 +1334,14 @@ classdef DTMFApp < handle
                 'Value',           app.S.snrDb, ...
                 'MajorTicks',      -5:5:30, ...
                 'MinorTicks',      [], ...
-                'FontSize',        9, ...
-                'FontColor',       M.chuMo, ...
+                'FontSize',        11, ...
+                'FontColor',       M.chuPhu, ...
                 'Tooltip', ['SNR = 10 log10(Px / Pw). Đã cộng nhiễu mà đổi SNR thì nhiễu ' ...
                     'được cộng lại vào cùng x[n], các bước sau tự chạy lại.'], ...
                 'ValueChangingFcn', @(src, evt) app.SldSNRValueChanging(evt), ...
                 'ValueChangedFcn',  @(src, evt) app.SldSNRValueChanged(evt));
             app.LblSNR = uilabel(gs, 'Text', blanks(0), ...
-                'FontSize', 12, 'FontWeight', 'bold', 'FontColor', M.nhan, ...
+                'FontSize', 14, 'FontWeight', 'bold', 'FontColor', M.nhan, ...
                 'HorizontalAlignment', 'right', 'VerticalAlignment', 'top');
             hienSNR(app, app.S.snrDb);
 
@@ -1294,10 +1352,10 @@ classdef DTMFApp < handle
             gn.BackgroundColor = M.the;
             gn.Layout.Row      = 3;
             gn.Layout.Column   = [1 2];
-            app.BtnNoise = uibutton(gn, 'Text', 'Cộng nhiễu', 'FontSize', 12, ...
+            app.BtnNoise = uibutton(gn, 'Text', 'Cộng nhiễu', 'FontSize', 14, ...
                 'Tooltip', 'y[n] = x[n] + w[n], w[n] theo loại nhiễu và SNR đang chọn', ...
                 'ButtonPushedFcn', @(src, evt) app.BtnNoisePushed(evt));
-            app.BtnPlay = uibutton(gn, 'Text', 'Nghe', 'FontSize', 11, ...
+            app.BtnPlay = uibutton(gn, 'Text', 'Nghe', 'FontSize', 13, ...
                 'FontColor', M.muc, 'BackgroundColor', M.the, ...
                 'Tooltip', 'Phát ra loa đúng tín hiệu bộ giải mã nghe (đã cộng nhiễu, hoặc bản ghi micro)', ...
                 'ButtonPushedFcn', @(src, evt) app.BtnPlayPushed(evt));
@@ -1307,13 +1365,13 @@ classdef DTMFApp < handle
         end
 
         function dungBuocGiaiMa(app, c, M)
-        %DUNGBUOCGIAIMA Thẻ bước 3: bộ giải mã, nút Giải mã, kết quả, và hai trục của bộ giải mã.
+        %DUNGBUOCGIAIMA Mục 3: bộ giải mã, nút Giải mã, kết quả, và hai trục của bộ giải mã.
         % Chuỗi đã phát nằm ngay trên chuỗi đọc được, cùng phông đơn cách để
         % mắt so được từng cột ký tự. Màu chữ LblDecoded (đúng xanh / sai đỏ)
         % do ui_refresh đặt; LblSent do capNhatKetQua đặt.
             gd = uigridlayout(c, [5 2]);
-            gd.RowHeight       = {26, 28, '1x', 22, 32};
-            gd.ColumnWidth     = {70, '1x'};
+            gd.RowHeight       = {28, 28, '1x', 22, 32};
+            gd.ColumnWidth     = {78, '1x'};
             gd.Padding         = [0 0 0 0];
             gd.RowSpacing      = 6;
             gd.ColumnSpacing   = 6;
@@ -1325,25 +1383,25 @@ classdef DTMFApp < handle
             app.DdMethod = uidropdown(gd, ...
                 'Items',     {'FFT', 'Goertzel', 'Ngân hàng bộ lọc'}, ...
                 'ItemsData', {'fft', 'goertzel', 'filterbank'}, ...
-                'Value',     app.S.method, ...
+                'Value',     app.S.method, 'FontSize', 14, ...
                 'FontColor', M.muc, 'BackgroundColor', M.the, ...
                 'Tooltip', 'Đã giải mã rồi mà đổi bộ giải mã thì giải mã lại ngay', ...
                 'ValueChangedFcn', @(src, evt) app.DdMethodValueChanged(evt));
             app.DdMethod.Layout.Row = 1;  app.DdMethod.Layout.Column = 2;
 
-            app.BtnDecode = uibutton(gd, 'Text', 'Giải mã', 'FontSize', 12, ...
+            app.BtnDecode = uibutton(gd, 'Text', 'Giải mã', 'FontSize', 14, ...
                 'Tooltip', 'Tìm phím trong y[n] bằng bộ giải mã đang chọn', ...
                 'ButtonPushedFcn', @(src, evt) app.BtnDecodePushed(evt));
             app.BtnDecode.Layout.Row = 2;  app.BtnDecode.Layout.Column = [1 2];
 
             nhanTinh(gd, 4, 'Đã phát', M);
             app.LblSent = uilabel(gd, 'Text', blanks(0), ...
-                'FontName', M.fontMono, 'FontSize', 14, 'FontColor', M.chuPhu);
+                'FontName', M.tex.mono, 'FontSize', 14, 'FontColor', M.chuPhu);
             app.LblSent.Layout.Row = 4;  app.LblSent.Layout.Column = 2;
 
             nhanTinh(gd, 5, 'Đọc được', M);
             app.LblDecoded = uilabel(gd, 'Text', blanks(0), ...
-                'FontName', M.fontMono, 'FontSize', 22, 'FontWeight', 'bold', ...
+                'FontName', M.tex.mono, 'FontSize', 22, 'FontWeight', 'bold', ...
                 'FontColor', M.muc);
             app.LblDecoded.Layout.Row = 5;  app.LblDecoded.Layout.Column = 2;
 
@@ -1352,22 +1410,22 @@ classdef DTMFApp < handle
         end
 
         function dungThanhTrangThai(app, cha, M)
-        %DUNGTHANHTRANGTHAI Thanh dưới cùng: một dòng trạng thái của cả quy
+        %DUNGTHANHTRANGTHAI Chân trang: một dòng trạng thái nghiêng của cả quy
         % trình bên trái, nhật ký lỗi bên phải. Nhật ký chỉ ghi lỗi nên để nhỏ.
             gs = uigridlayout(cha, [1 2]);
             gs.ColumnWidth     = {'1x', 420};
             gs.RowHeight       = {'1x'};
-            gs.Padding         = [2 0 0 0];
+            gs.Padding         = [0 0 0 0];
             gs.ColumnSpacing   = 16;
-            gs.BackgroundColor = M.nen;
-            gs.Layout.Row      = 3;
+            gs.BackgroundColor = M.the;
+            gs.Layout.Row      = 5;
 
             app.LblStatus = uilabel(gs, 'Text', blanks(0), ...
-                'FontSize', 11, 'FontColor', M.chuMo);
+                'FontSize', 13, 'FontAngle', 'italic', 'FontColor', M.chuMo);
 
             app.TxtLog = uitextarea(gs, 'Editable', 'off', ...
-                'FontName', M.fontMono, 'FontSize', 10, 'FontColor', M.sai, ...
-                'BackgroundColor', M.nen, ...
+                'FontName', M.tex.mono, 'FontSize', 11, 'FontColor', M.sai, ...
+                'BackgroundColor', M.the, ...
                 'Placeholder', 'Nhật ký lỗi: chưa có lỗi nào');
         end
 
@@ -1378,13 +1436,13 @@ classdef DTMFApp < handle
         % chỗ cho nhãn trục và tiêu đề. Ba trục thời gian dùng CHUNG một lề để
         % thẳng mép nhau; trục thanh cao hơn ở trên vì có thêm phụ đề.
         function le = leThoiGian()
-            le = [58 34 8 22];
+            le = [62 40 10 26];
         end
         function le = lePho()
-            le = [52 34 8 22];
+            le = [56 40 10 26];
         end
         function le = leThanh()
-            le = [52 34 8 38];
+            le = [56 40 10 44];
         end
     end
 
@@ -1402,18 +1460,31 @@ h = min(860,  max(720,  scr(4) - 110));
 pos = [max(1, round((scr(3) - w) / 2)), max(40, round((scr(4) - h) / 2)), w, h];
 end
 
-function [vach, c, lblSo, lblInfo] = theBuoc(cha, hang, ten, congThuc, M)
-%THEBUOC Thẻ của bước thứ HANG: nền trắng trên nền xám, không viền.
-% Mép trái là một vạch 3 px - capNhatNut tô màu nhấn cho bước cần làm tiếp,
-% còn lại trùng màu nền thẻ nên không thấy. Dòng đầu: nhãn "BƯỚC k" chữ nhỏ,
-% tên bước, công thức, dòng thông tin canh phải. Thân: ba cột - điều khiển |
-% trục miền thời gian | trục miền tần số. Cả ba thẻ dùng ĐÚNG cách chia cột
-% này, nên trục cột 2 của ba thẻ thẳng mép nhau theo chiều dọc.
+function coBanPhim(ban, p)
+%COBANPHIM Trục bàn phím chiếm trọn panel P, rồi ui_pad đặt lại cỡ chữ.
+ban.ax.Position = [0 0 p.InnerPosition(3:4)];
+ui_pad(ban, 'co');
+end
+
+function ke(g, hang, cot, mau)
+%KE Một đường kẻ lấp đầy ô (hang, cot) - ô cao 1-2 px là kẻ ngang.
+v = uipanel(g, 'BorderType', 'none', 'BackgroundColor', mau);
+v.Layout.Row = hang;
+v.Layout.Column = cot;
+end
+
+function [vach, c, lblSo, lblInfo] = theBuoc(cha, hang, so, ten, congThuc, M)
+%THEBUOC Mục của bước thứ SO ở hàng HANG: không thẻ, không viền, như một
+% \section. Mép trái là một vạch 2 px kiểu changebar - capNhatNut tô màu nhấn
+% cho bước cần làm tiếp, còn lại trùng màu nền nên không thấy. Dòng đầu: số
+% mục, tên mục, công thức, dòng thông tin nghiêng canh phải. Thân: ba cột -
+% điều khiển | trục miền thời gian | trục miền tần số. Cả ba mục dùng ĐÚNG
+% cách chia cột này, nên trục cột 2 của ba mục thẳng mép nhau theo chiều dọc.
 p = uipanel(cha, 'BackgroundColor', M.the, 'BorderType', 'none');
 p.Layout.Row = hang;
 
 gv = uigridlayout(p, [1 2]);
-gv.ColumnWidth     = {3, '1x'};
+gv.ColumnWidth     = {2, '1x'};
 gv.RowHeight       = {'1x'};
 gv.Padding         = [0 0 0 0];
 gv.ColumnSpacing   = 0;
@@ -1422,25 +1493,25 @@ gv.BackgroundColor = M.the;
 vach = uilabel(gv, 'Text', '', 'BackgroundColor', M.the);
 
 gp = uigridlayout(gv, [2 1]);
-gp.RowHeight       = {20, '1x'};
+gp.RowHeight       = {24, '1x'};
 gp.ColumnWidth     = {'1x'};
-gp.Padding         = [14 10 16 10];
-gp.RowSpacing      = 8;
+gp.Padding         = [12 6 0 4];
+gp.RowSpacing      = 6;
 gp.BackgroundColor = M.the;
 
 gh = uigridlayout(gp, [1 4]);
 gh.ColumnWidth     = {'fit', 'fit', '1x', 'fit'};
 gh.RowHeight       = {'1x'};
 gh.Padding         = [0 0 0 0];
-gh.ColumnSpacing   = 12;
+gh.ColumnSpacing   = 14;
 gh.BackgroundColor = M.the;
 
-lblSo = uilabel(gh, 'Text', sprintf('BƯỚC %d', hang), 'FontSize', 9, ...
+lblSo = uilabel(gh, 'Text', sprintf('%d', so), 'FontSize', 17, ...
     'FontWeight', 'bold', 'FontColor', M.chuMo);
-uilabel(gh, 'Text', ten, 'FontSize', 13, 'FontWeight', 'bold', 'FontColor', M.muc);
-uilabel(gh, 'Text', congThuc, 'Interpreter', 'html', 'FontSize', 11, 'FontColor', M.chuMo);
-lblInfo = uilabel(gh, 'Text', '', 'FontSize', 10, 'FontColor', M.chuPhu, ...
-    'HorizontalAlignment', 'right');
+uilabel(gh, 'Text', ten, 'FontSize', 17, 'FontWeight', 'bold', 'FontColor', M.muc);
+uilabel(gh, 'Text', congThuc, 'Interpreter', 'html', 'FontSize', 15, 'FontColor', M.chuPhu);
+lblInfo = uilabel(gh, 'Text', '', 'FontSize', 13, 'FontAngle', 'italic', ...
+    'FontColor', M.chuPhu, 'HorizontalAlignment', 'right');
 
 c = uigridlayout(gp, [1 3]);
 c.ColumnWidth     = {270, '1.4x', '1x'};
@@ -1451,7 +1522,7 @@ c.BackgroundColor = M.the;
 end
 
 function ax = trucTrongO(c, cot, le, M)
-%TRUCTRONGO Một uiaxes đặt tay trong ô cột COT của thân thẻ bước.
+%TRUCTRONGO Một uiaxes đặt tay trong ô cột COT của thân mục bước.
 % Trục KHÔNG nằm thẳng trong uigridlayout mà trong một panel trơn, đặt tay
 % InnerPosition với lề LE: trong grid, MATLAB tự co khung vẽ theo bề rộng
 % nhãn tick - '0.5' hẹp hơn '3000' - nên hai trục chồng nhau lệch mép; đặt
@@ -1510,24 +1581,24 @@ end
 
 function l = nhanTinh(cha, hang, nhan, M)
 %NHANTINH Nhãn chú thích tĩnh ở cột 1 - không cần đặt tên, docs/ui_naming.md §1.
-l = uilabel(cha, 'Text', nhan, 'FontSize', 11, 'FontColor', M.chuPhu);
+l = uilabel(cha, 'Text', nhan, 'FontSize', 14, 'FontColor', M.chuPhu);
 l.Layout.Row    = hang;
 l.Layout.Column = 1;
 end
 
 function kieuNut(nut, buocTiep, M)
-%KIEUNUT Nút của bước cần bấm tiếp theo: nền màu nhấn, chữ trắng đậm. Nút
-% khác: nền trắng, chữ thường. MỘT màu nhấn cho thứ đang cần chú ý - ui_theme.
-% FontWeight là dấu hiệu test đọc được, không phải chỉ để trang trí.
+%KIEUNUT Nút của bước cần bấm tiếp theo: nền gần đen, chữ trắng đậm - đơn
+% sắc như trang LaTeX. Nút khác: nền trắng, chữ thường. FontWeight là dấu hiệu
+% test đọc được, không phải chỉ để trang trí.
 if buocTiep
-    set(nut, 'FontWeight', 'bold', 'FontColor', [1 1 1], 'BackgroundColor', M.nhan);
+    set(nut, 'FontWeight', 'bold', 'FontColor', [1 1 1], 'BackgroundColor', M.muc);
 else
     set(nut, 'FontWeight', 'normal', 'FontColor', M.muc, 'BackgroundColor', M.the);
 end
 end
 
 function kieuNutMic(nut, dangChay, chuNghi, chuChay, M)
-%KIEUNUTMIC Nút micro lúc nghỉ: nền trắng; lúc chạy: nền màu nhấn, chữ "Dừng".
+%KIEUNUTMIC Nút micro lúc nghỉ: nền trắng; lúc chạy: nền gần đen, chữ "Dừng".
 if dangChay
     set(nut, 'Text', chuChay);
 else
@@ -1537,10 +1608,10 @@ kieuNut(nut, dangChay, M);
 end
 
 function kieuTab(nut, dangChon, M)
-%KIEUTAB Nút nguồn đang chọn: nền nhạt màu nhấn, chữ màu nhấn đậm - khác hẳn
-% nút hành động (nền đặc) để không ai tưởng bấm vào là "chạy" thứ gì.
+%KIEUTAB Nút nguồn đang chọn: chữ đậm trên nền xám rất nhạt - khác hẳn nút
+% hành động (nền đặc) để không ai tưởng bấm vào là "chạy" thứ gì.
 if dangChon
-    set(nut, 'FontWeight', 'bold', 'FontColor', M.nhan, 'BackgroundColor', M.nhanNhat);
+    set(nut, 'FontWeight', 'bold', 'FontColor', M.muc, 'BackgroundColor', M.phimPhu);
 else
     set(nut, 'FontWeight', 'normal', 'FontColor', M.chuPhu, 'BackgroundColor', M.the);
 end

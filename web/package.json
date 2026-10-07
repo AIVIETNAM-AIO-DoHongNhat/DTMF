@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:lan": "vite --host",
     "build": "tsc --noEmit && vite build",
     "build:artifact": "tsc --noEmit && vite build --mode artifact --outDir dist-artifact && node scripts/to-artifact.mjs",
     "test": "vitest run"

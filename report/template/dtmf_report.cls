@@ -519,9 +519,16 @@
 % Bắt đầu phần phụ lục: mỗi phụ lục trình bày như một mục lớn, nhãn
 % "PHỤ LỤC 1.", hình và bảng đánh số riêng PL1.1 để không trùng phần thân.
 % Số phụ lục dùng chữ số Ả Rập; \theHsection đổi theo để liên kết PDF của
-% phụ lục không trùng với các mục I, II của phần thân.
+% phụ lục không trùng với các mục I, II của phần thân. Tiêu đề phụ lục căn
+% giữa, không thụt lề như tiêu đề mục của phần thân.
 \newcommand{\batdauphuluc}{%
   \clearpage
+  \titleformat{\section}
+    {\setstretch{1}\dtmfheadingfont\filcenter}
+    {\dtmfsecprefix\thesection.}
+    {0.4em}
+    {\dtmfupper}%
+  \titlespacing{\section}{0pt}{0pt}{22pt}%
   \setcounter{section}{0}%
   \renewcommand{\thesection}{\arabic{section}}%
   \renewcommand{\theHsection}{pl.\arabic{section}}%
@@ -625,11 +632,134 @@
 \newif\ifdtmfbiblatex
 \IfFileExists{biblatex.sty}{\dtmfbiblatextrue}{\dtmfbiblatexfalse}
 \ifdtmfbiblatex
-  \RequirePackage[backend=biber, style=ieee, maxnames=3, minnames=1,
-                  uniquelist=false, hyperref=false]{biblatex}
+  % Trình bày theo quy định của Học viện:
+  %   - Tài liệu tiếng Việt (langid = vietnamese) đứng trước, tiếng nước ngoài
+  %     đứng sau.
+  %   - Tiếng Việt xếp theo TÊN, giữ nguyên thứ tự họ tên khi in. Viết tên
+  %     không ngoặc nhọn, "Nguyễn Quốc Trung": biber hiểu "Trung" là family
+  %     nên xếp theo tên mà không cần sortkey.
+  %   - Tiếng nước ngoài xếp theo HỌ, in "Họ Chữ-đầu-tên" (Proakis J. G.).
+  %   - Cơ quan ban hành viết trong hai lớp ngoặc nhọn, {{ITU-T}}, và xếp theo
+  %     chữ đầu tên cơ quan.
+  %   - Mỗi mục in "Tác giả (Năm), Tên, ...": bài báo có tên trong ngoặc kép,
+  %     tên tạp chí in nghiêng, số quyển in đậm, (số ấn bản), trang tr./pp.;
+  %     sách, luận văn và tài liệu khác có tên in nghiêng.
+  % urldate=long: ngày truy cập in theo \mkbibdatelong (ngày/tháng/năm, đặt
+  % trong main.tex); dạng ngắn mặc định in kiểu Mỹ tháng/ngày/năm.
+  \RequirePackage[backend=biber, style=numeric, sorting=tlvn, sortlocale=vi_VN,
+                  urldate=long, sortcites=true, maxnames=3, minnames=1, uniquelist=false,
+                  hyperref=false]{biblatex}
   \DefineBibliographyStrings{english}{andothers={et\addabbrvspace al\adddot}}
   % Căn trái: URL dài không bị kéo giãn thành "https : / / www"
   \AtBeginBibliography{\small\RaggedRight}
+
+  % Nhóm ngôn ngữ: tiếng Việt presort = 1, còn lại presort = 2
+  \DeclareSourcemap{
+    \maps[datatype=bibtex]{
+      \map{
+        \step[fieldsource=langid, match=\regexp{\Avietnamese\Z}, final]
+        \step[fieldset=presort, fieldvalue={1}]
+      }
+      \map[overwrite=false]{
+        \step[fieldset=presort, fieldvalue={2}]
+      }
+    }
+  }
+  \DeclareSortingTemplate{tlvn}{
+    \sort{\field{presort}}
+    \sort[final]{\field{sortkey}}
+    \sort{\field{sortname}\field{author}\field{editor}\field{organization}
+          \field{institution}\field{sorttitle}\field{title}}
+    \sort{\field{sortyear}\field{year}}
+    \sort{\field{number}}
+    \sort{\field{sorttitle}\field{title}}
+  }
+
+  % Tên người: tiếng Việt in đủ họ tên, tiếng nước ngoài in "Họ Chữ-đầu-tên"
+  \DeclareNameFormat{tlvn}{%
+    \iffieldequalstr{langid}{vietnamese}
+      {\usebibmacro{name:given-family}{\namepartfamily}{\namepartgiven}
+         {\namepartprefix}{\namepartsuffix}}
+      {\usebibmacro{name:family-given}{\namepartfamily}{\namepartgiveni}
+         {\namepartprefix}{\namepartsuffixi}}%
+    \usebibmacro{name:andothers}}
+  \DeclareNameAlias{default}{tlvn}
+  \DeclareNameAlias{sortname}{tlvn}
+  \renewcommand*{\revsdnamepunct}{}
+  \DeclareDelimFormat{finalnamedelim}{\addcomma\space}
+  \renewcommand*{\bibrangedash}{-}
+
+  \DeclareFieldFormat{title}{\mkbibemph{#1}}
+  \DeclareFieldFormat[article]{title}{\mkbibquote{#1}}
+  \DeclareFieldFormat{journaltitle}{\mkbibemph{#1}}
+  \DeclareFieldFormat[article]{volume}{\mkbibbold{#1}}
+  \DeclareFieldFormat[article]{number}{\mkbibparens{#1}}
+  \DeclareFieldFormat{pages}{%
+    \iffieldequalstr{langid}{vietnamese}{tr.}{pp.}#1}
+  \DeclareFieldFormat{url}{\bibstring{url}\addcolon\space\url{#1}}
+
+  % Phần đầu chung: "Tác giả (Năm), "; sách chỉ có chủ biên thì in chủ biên
+  \newbibmacro*{tlvn:dau}{%
+    \usebibmacro{bibindex}%
+    \usebibmacro{begentry}%
+    \ifnameundef{author}
+      {\ifnameundef{editor}{}
+         {\printnames{editor}%
+          \setunit{\addspace}\printtext[parens]{\bibstring{editor}}}}
+      {\printnames{author}}%
+    \iffieldundef{year}{}
+      {\setunit{\addspace}\printtext[parens]{\printfield{year}}}%
+    \setunit{\addcomma\space}}
+  % Không in URL và ngày truy cập; trường url trong .bib chỉ để nhóm tra nguồn
+  \newbibmacro*{tlvn:cuoi}{%
+    \usebibmacro{finentry}}
+
+  % Bài báo: Tác giả (Năm), "Tên bài", Tạp chí, Quyển (Số), tr./pp. trang.
+  \DeclareBibliographyDriver{article}{%
+    \usebibmacro{tlvn:dau}%
+    \printfield{title}\setunit{\addcomma\space}%
+    \printfield{journaltitle}\setunit{\addcomma\space}%
+    \printfield{volume}\setunit{\addspace}%
+    \printfield{number}\setunit{\addcomma\space}%
+    \printfield{pages}%
+    \usebibmacro{tlvn:cuoi}}
+  % Sách: Tác giả (Năm), Tên sách, Lần tái bản, Nhà xuất bản, Nơi xuất bản.
+  \newbibmacro*{tlvn:sach}{%
+    \usebibmacro{tlvn:dau}%
+    \printfield{title}\setunit{\addcomma\space}%
+    \printfield{edition}\setunit{\addcomma\space}%
+    \printlist{publisher}\setunit{\addcomma\space}%
+    \printlist{location}}
+  \DeclareBibliographyDriver{book}{%
+    \usebibmacro{tlvn:sach}\usebibmacro{tlvn:cuoi}}
+  % Luận văn, luận án: Tác giả (Năm), Tên, Loại, Trường, Thành phố.
+  \DeclareBibliographyDriver{thesis}{%
+    \usebibmacro{tlvn:dau}%
+    \printfield{title}\setunit{\addcomma\space}%
+    \printfield{type}\setunit{\addcomma\space}%
+    \printlist{institution}\setunit{\addcomma\space}%
+    \printlist{location}%
+    \usebibmacro{tlvn:cuoi}}
+  % Tiêu chuẩn, báo cáo kỹ thuật: Cơ quan (Năm), Tên, Loại Số hiệu, Đơn vị
+  % ban hành, Nơi ban hành.
+  \newbibmacro*{tlvn:baocao}{%
+    \usebibmacro{tlvn:dau}%
+    \printfield{title}\setunit{\addcomma\space}%
+    \printfield{type}\setunit{\addspace}%
+    \printfield{number}\setunit{\addcomma\space}%
+    \printlist{institution}\printlist{organization}\setunit{\addcomma\space}%
+    \printlist{location}}
+  \DeclareBibliographyDriver{report}{%
+    \usebibmacro{tlvn:baocao}\usebibmacro{tlvn:cuoi}}
+  \DeclareBibliographyDriver{standard}{%
+    \usebibmacro{tlvn:baocao}\usebibmacro{tlvn:cuoi}}
+  % Trang web: Tác giả (Năm), Tên
+  \DeclareBibliographyDriver{online}{%
+    \usebibmacro{tlvn:dau}%
+    \printfield{title}%
+    \usebibmacro{tlvn:cuoi}}
+  \DeclareBibliographyDriver{misc}{%
+    \usebibmacro{tlvn:sach}\usebibmacro{tlvn:cuoi}}
 \else
   \newcommand{\addbibresource}[1]{}
   \newcommand{\printbibliography}[1][]{%

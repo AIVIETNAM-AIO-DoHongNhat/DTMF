@@ -19,6 +19,7 @@
 | `Dd` | DropDown | `Cb` | CheckBox |
 | `Sld` | Slider | `Lbl` | Label (hiển thị kết quả) |
 | `Txt` | TextArea | `Pnl` | Panel |
+| `Lnk` | Hyperlink | | |
 
 Label chú thích tĩnh (kiểu "SNR") không cần đặt tên.
 
@@ -36,9 +37,9 @@ Trên cùng là dòng tiêu đề với hai nút nguồn `BtnSrcGen` / `BtnSrcMi
 
 Ba thẻ dùng chung một cách chia cột, nên `AxWaveX`, `AxWave`, `AxMap` thẳng mép nhau và cùng `XLim`: một thời điểm ở hàng trên nằm đúng trên thời điểm đó ở hàng dưới.
 
-Phong cách tối giản: thẻ trắng không viền trên nền xám nhạt, không số khoanh tròn, chú thích dài nằm trong `Tooltip`. Mỗi thẻ có nhãn chữ nhỏ "BƯỚC k" ở góc, tô màu nhấn khi bước đó đã có kết quả.
+Phong cách trang LaTeX (`M.tex` trong `ui_theme`): nền giấy trắng, chữ Times New Roman như báo cáo, đường kẻ đậm dưới tiêu đề, ba bước là ba mục đánh số như `\section` ngăn bằng vạch mảnh. Số mục tô màu nhấn khi bước đó đã có kết quả. Trục kiểu pgfplots (khung kín, tick vào trong, không lưới, số và nhãn trục qua bộ diễn dịch `latex`), tiêu đề trục đánh số "Hình k:". Chú thích dài nằm trong `Tooltip`.
 
-Luật bước tiếp theo (`buocTiep`, `capNhatNut`): nút của bước cần bấm **tiếp theo** nền màu nhấn chữ đậm, và vạch 3 px ở mép trái thẻ của bước đó cũng tô màu nhấn; nút khác nền trắng; nút chưa dùng được bị khóa. Nguồn tổng hợp:
+Luật bước tiếp theo (`buocTiep`, `capNhatNut`): nút của bước cần bấm **tiếp theo** nền gần đen chữ trắng đậm, và vạch 2 px kiểu changebar ở mép trái mục của bước đó tô màu nhấn; nút khác nền trắng; nút chưa dùng được bị khóa. Nguồn tổng hợp:
 
 - chưa có x, hoặc chuỗi phím đã sửa sau lần tạo → `BtnGen`
 - có x, chưa cộng nhiễu → `BtnNoise`
@@ -47,7 +48,7 @@ Luật bước tiếp theo (`buocTiep`, `capNhatNut`): nút của bước cần 
 
 Test đọc dấu hiệu này qua `FontWeight`.
 
-**Bàn phím** - 12 nút trong `PnlKeypad`:
+**Bàn phím** - thứ người dùng thấy và bấm là `AxKeypad`, một bàn phím phẳng vẽ bằng `app/ui/ui_pad.m` (dùng chung với `DTMFLive`): bấm một phím thì `AxKeypadClicked` gọi `Btn1Pushed` với đúng nút bên dưới, phím đó và hai tần số của nó sáng lên trong 0,25 s. 12 nút vẫn tồn tại (ẩn) để giữ tên và đường đi của callback:
 
 | | 1209 | 1336 | 1477 |
 |---|:---:|:---:|:---:|
@@ -109,7 +110,7 @@ Chạy ẩn (`DTMFApp('off')`) thì **không** mở micro: test đưa âm thanh 
 
 Giữ nguyên tên App Designer tự sinh: `BtnGenPushed`, `BtnNoisePushed`, `BtnDecodePushed`, `BtnPlayXPushed`, `BtnPlayPushed`,
 `DdNoiseValueChanged`, `DdMethodValueChanged`, `SldSNRValueChanged`, `BtnRecordPushed`, `BtnListenPushed`, `BtnSrcPushed`,
-`EfKeysValueChanging`.
+`BtnClearPushed`, `AxKeypadClicked`, `EfKeysValueChanging`.
 `EfKeysValueChanging` chỉ tô lại nút (gõ chuỗi mới thì bước tiếp theo lại là Tạo tín hiệu); lúc nó chạy `EfKeys.Value`
 **chưa** đổi, nên chuỗi đang gõ lấy từ `event.Value`.
 `SldSNRValueChanging` chỉ cập nhật `LblSNR`, **không** cộng nhiễu - việc đó chỉ xảy ra lúc thả chuột.
@@ -152,3 +153,51 @@ Mọi màu, phông và thang màu của giao diện nằm ở **một** chỗ: `
 Một property `S` duy nhất, không rải biến rời rạc. Tên trường theo `CONTRACTS.md`:
 
 `S.keys` · `S.x` · `S.y` · `S.fs` · `S.meta` · `S.noise` · `S.snrDb` · `S.method` · `S.keysHat` · `S.info` · `S.thr` · `S.iSel` · `S.lastError`
+
+## 6. Màn tổng đài `DTMFLive`
+
+`app/DTMFLive.m` là cửa sổ thứ hai, dùng khi trình diễn trực tiếp với trang web điện thoại (README, CONTRACTS §7.10). Cùng cách đặt tên với `DTMFApp`; trạng thái nằm ở `L` (của `dtmf_listen`) chứ không ở `S`, vì màn này chỉ nghe, không tạo tín hiệu.
+
+| Tên | Loại | Nội dung |
+|---|---|---|
+| `BtnSrcLine` / `BtnSrcMic` | Button | Chọn nguồn đường dây hoặc micro; chung callback `BtnSrcPushed`. Rời đường dây là ngắt hẳn |
+| `DdMethod` | DropDown | `ItemsData = {'goertzel','fft','filterbank'}`; đổi giữa chừng thì giữ phím đã đọc |
+| `BtnRun` | Button | Đường dây: "Nối đường dây" / "Ngắt đường dây". Micro: "Bật micro" / "Tắt micro" |
+| `LblLine` | Label | Trạng thái đường dây hoặc micro |
+| `LblCall` | Label | Trạng thái cuộc gọi; chữ nhấp nháy lúc đổ chuông |
+| `LblClock` | Label | Đồng hồ cuộc gọi, hoặc thời lượng và số phím khi đã gác máy |
+| `LblHint` | Label | Một dòng gợi ý việc cần làm tiếp theo trạng thái cuộc gọi |
+| `AxPad` | UIAxes | Bàn phím 4×3 sáng đèn, vẽ bởi `ui_live_draw` |
+| `LblNumber` | Label | Dãy số MATLAB đọc được trong cuộc gọi này (16 phím cuối) |
+| `LnkClear` | Hyperlink | Xóa dãy số và nhật ký, không đụng cuộc gọi |
+| `LblLog` | Label | Nhật ký phím và sự kiện dạng bảng (nhãn HTML), 6 dòng mới nhất ở trên |
+| `BtnHangup` | Button | MATLAB gác máy; chỉ bật khi đang đổ chuông hoặc đang nghe máy |
+| `AxWave` / `AxZoom` | UIAxes | Hình 1 dạng sóng 3 s gần nhất / Hình 2 32 ms cuối; chú thích dưới hình là nhãn riêng |
+| `AxMap` / `AxBars` | UIAxes | Năng lượng 8 bin theo khung / 8 bin của khung mới nhất kèm phán quyết |
+| `LblStatus` | Label | Bộ giải mã, số giây đã nghe, số khung |
+
+`CuocGoi` đi `'cho'` → `'chuong'` (tin `call`) → `'noi'` (sau 1,5 s, MATLAB gửi `answer`) → `'xong'` (tin `hangup` hoặc `BtnHangup`); nguồn micro dùng `'tat'` / `'nghe'`. Chạy ẩn (`DTMFLive('off')`) thì không nối mạng, không mở micro, không chạy đồng hồ: test đưa tin vào qua `nhanTin`, gọi `nhip` và `nhacMay`, rồi đọc `app.Line.DaGui`.
+
+Hai màu `M.hang` (cam) và `M.cot` (xanh) của `ui_theme` chỉ dùng ở hình số liệu của hai màn trực tiếp (`DTMFLive`, `DTMFForensic`, qua `ui_live_draw`), đúng cặp màu nhóm hàng / nhóm cột của trang web. Màn này trình bày như một trang LaTeX theo `M.tex`: chữ Times New Roman như `report/template/dtmf_report.cls`, số và ký hiệu trên trục qua bộ diễn dịch `latex` (bộ này không có dấu tiếng Việt, nên chữ tiếng Việt luôn để ở phông thường).
+
+## 7. Màn giám định `DTMFForensic`
+
+`app/DTMFForensic.m` là màn chiếu của buổi trình diễn chính (README, CONTRACTS §7.11): trang web gửi một đoạn ghi âm, MATLAB nghe dần, kết luận khi hết đoạn rồi mới đối chiếu với số thật. Cùng cách đặt tên và cùng `ui_live_draw` với `DTMFLive`; trạng thái đọc nằm ở `L` (của `dtmf_listen`).
+
+| Tên | Loại | Nội dung |
+|---|---|---|
+| `BtnSrcLine` / `BtnSrcMic` | Button | Nguồn đường dây hoặc micro; chung callback `BtnSrcPushed` |
+| `DdMethod` | DropDown | Bộ giải mã dùng cho dãy số đang đọc và cho kết luận chính; bị khóa trong lúc nghe |
+| `BtnRun` | Button | Đường dây: "Nối đường dây" / "Ngắt đường dây" (ngắt giữa vụ thì hủy vụ). Micro: "Bắt đầu nghe" / "Kết luận" |
+| `LblClock` / `LblCase` / `LblLine` / `LblHint` | Label | Đồng hồ vụ, số vụ kèm câu trạng thái, trạng thái đường dây, dòng gợi ý việc tiếp theo |
+| `LblNumber` | Label | Số đọc được tới lúc này, từng chữ số hiện dần |
+| `LblMethods` | Label | Bảng ba bộ giải mã: số đọc được và thời gian xử lý cả đoạn |
+| `LblMatch` | Label | Hai hàng *thật* và *đọc*, từng chữ số tô xanh nếu đúng, đỏ nếu sai; chưa công bố thì ghi "Chưa công bố số thật" |
+| `LblVerdict` | Label | "... khớp cả n chữ số" hoặc "... lệch k: ..." cho bộ giải mã đang chọn |
+| `EfTruth` | EditField | Số thật nhập tay khi không có trang web (nguồn micro) |
+| `BtnReveal` | Button | Nhãn "Đối chiếu", công bố `EfTruth`; bật khi đang nghe hoặc đã kết luận |
+| `AxWave` / `AxZoom` / `AxMap` / `AxBars` | UIAxes | Như `DTMFLive`; `AxMap` thêm hai làn k̂ (số đọc được) và k (số thật) |
+| `LblStatus` | Label | Bộ giải mã, số giây đã nghe, số khung |
+
+`Ho` đi `'cho'` → `'nghe'` (tin `case`, hoặc `BtnRun` ở nguồn micro) → `'ketluan'` (tin `end`) → `'doichieu'` (tin `reveal`, hoặc `BtnReveal`). Tin `reveal` đến trước `verdict` thì MATLAB kết luận trước rồi mới đối chiếu, nên đáp án không bao giờ lộ trước kết luận. Mất đường dây hoặc ngắt giữa vụ thì về `'cho'` và báo lỗi ở dòng gợi ý. Callback: `BtnSrcPushed`, `DdMethodValueChanged`, `BtnRunPushed`, `BtnRevealPushed`.
+

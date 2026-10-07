@@ -3,7 +3,7 @@
 // Trang trích đúng tín hiệu nó đang phát ra loa (DtmfPlayer.tap), hạ tần số lấy
 // mẫu về LINE_FS = 8000 Hz, đổi sang int16 rồi gửi qua WebSocket tới cầu nối
 // trong máy chủ Vite (server/line.ts), cầu nối chép sang MATLAB. Trang KHÔNG
-// giải mã: phím mà menu tổng đài nhận là phím MATLAB đọc được rồi báo ngược về.
+// giải mã: phím mà tổng đài đọc lại là phím MATLAB nghe được rồi báo ngược về.
 
 import type { DtmfPlayer } from '../audio/dtmf';
 import {
@@ -90,9 +90,12 @@ export interface LineHandlers {
   onMsg: (m: SwitchMsg) => void;
   /** Cầu nối báo MATLAB vừa nối hoặc vừa ngắt, sau lần báo đầu tiên. */
   onStatus: (s: LineStatus) => void;
-  /** Đường dây đứt khi đang dùng (máy chủ Vite tắt). */
-  onClose: () => void;
+  /** Đường dây đứt khi đang dùng: máy chủ Vite tắt, hoặc code = REPLACED khi trang khác chiếm dây. */
+  onClose: (code?: number) => void;
 }
+
+/** Mã đóng WebSocket khi cầu nối nhường đường dây cho một trang mới - server/line.ts. */
+export const REPLACED = 4000;
 
 export class LineClient {
   private ws: WebSocket | null = null;
@@ -140,20 +143,30 @@ export class LineClient {
         h.onMsg(m);
       };
       ws.onerror = () => done(null);
-      ws.onclose = () => {
+      ws.onclose = (e) => {
         const dangDung = this.ws === ws;
         if (dangDung) {
           this.stopAudio();
           this.ws = null;
         }
         if (first) done(null);
-        else if (dangDung) h.onClose();
+        else if (dangDung) h.onClose(e.code);
       };
     });
   }
 
   send(m: PhoneMsg): void {
     if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(m));
+  }
+
+  /** Gửi một đoạn mẫu đã ở LINE_FS (đoạn ghi âm của màn giám định), không qua loa. */
+  sendPcm(x: Float32Array): void {
+    if (this.ws?.readyState === WebSocket.OPEN && x.length > 0) this.ws.send(toInt16(x).buffer);
+  }
+
+  /** Đường dây đang mở. */
+  get isOpen(): boolean {
+    return this.ws?.readyState === WebSocket.OPEN;
   }
 
   /** Bắt đầu gửi tiếng của trang lên đường dây: cả tone lẫn khoảng lặng. */

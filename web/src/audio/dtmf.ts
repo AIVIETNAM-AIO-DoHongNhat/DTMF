@@ -239,6 +239,18 @@ export class DtmfPlayer {
     return this.ctx?.sampleRate ?? 48000;
   }
 
+  /** Đóng AudioContext khi trang rời đi; gọi lại ensure() sẽ dựng cái mới. */
+  close(): void {
+    const ctx = this.ctx;
+    this.ctx = null;
+    this.out = null;
+    this.analyser = null;
+    this.voices.clear();
+    this.seqVoices = [];
+    this.tapReady = null;
+    void ctx?.close().catch(() => {});
+  }
+
   /** Tạo một tone bắt đầu tại `t0` (giây theo đồng hồ AudioContext). */
   private voice(key: DtmfKey, t0: number, opt: PlayOptions): Voice {
     const ctx = this.ensure();

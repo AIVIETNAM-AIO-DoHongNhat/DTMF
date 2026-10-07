@@ -4,7 +4,7 @@
 slprj/
 results/tmp/
 
-# LaTeX - san pham bien dich, khong commit
+# LaTeX - san pham bien dich, khong commit (tru main.pdf: ban nop, giu trong git)
 report/template/*.aux
 report/template/*.bbl
 report/template/*.bcf
@@ -20,6 +20,11 @@ report/template/*.toc
 report/template/*.xdv
 *.pdf.bak
 *.listing
+report/template/*.synctex.gz
+report/template/*-SAVE-ERROR
+
+# Tep khoa cua Word
+~$*
 
 # He dieu hanh
 .DS_Store

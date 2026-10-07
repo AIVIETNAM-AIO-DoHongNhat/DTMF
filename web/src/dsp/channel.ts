@@ -1,8 +1,8 @@
 // Hành trình của MỘT lần bấm phím: điện thoại phát, âm đi qua không khí tới
 // micro, tổng đài lấy mẫu 8 kHz, chia khung 205 mẫu, đo Goertzel, áp luật
 // quyết định rồi gộp khung - đúng chuỗi bước của dtmf_decode_goertzel và
-// dtmf_listen. Đây là mô phỏng để minh họa; khi trình diễn thật, MATLAB nghe
-// âm thanh của trang qua micro.
+// dtmf_listen. Đây là mô phỏng để minh họa; khi trình diễn thật, MATLAB nhận
+// đúng các mẫu trang phát ra loa qua đường dây (src/line), không qua micro.
 
 import { keyInfo, toneLevels, RAMP_MS, type DtmfKey } from '../audio/dtmf';
 import { decide, type Decision } from './decide';

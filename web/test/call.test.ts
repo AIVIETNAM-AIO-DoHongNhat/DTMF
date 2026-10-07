@@ -2,71 +2,43 @@ import { describe, expect, it } from 'vitest';
 import { KEYS } from '../src/audio/dtmf';
 import { reportMs, transmit, type ChannelParams, type PhoneParams } from '../src/dsp/channel';
 import { debounce } from '../src/dsp/debounce';
-import { MENU, ivrKeys, ivrStart, ivrStep, type NodeId } from '../src/ivr/ivr';
+import { LOI_CHAO, TEN_PHIM, WAV_CHAO, WAV_NHAN_PHIM, ivrKeys, ivrStart, ivrStep, wavPhim } from '../src/ivr/ivr';
 
 describe('tổng đài', () => {
-  it('bắt đầu ở lời chào', () => {
+  it('bắt đầu ở lời chào, chưa nhận phím nào', () => {
     const st = ivrStart();
-    expect(st.nut).toBe('goc');
-    expect(st.loi).toContain('Bấm 1');
-    expect(st.lichSu).toEqual([]);
-  });
-
-  it('đi xuống rồi quay lại, ghi lịch sử từng bước', () => {
-    let st = ivrKeys(ivrStart(), '1').st;
-    expect(st.nut).toBe('dao_tao');
-    st = ivrKeys(st, '1').st;
-    expect(st.nut).toBe('lich_thi');
-    st = ivrKeys(st, '**').st;
-    expect(st.nut).toBe('goc');
-    expect(st.lichSu).toHaveLength(4);
-    expect(st.lichSu[0]).toContain('Phòng Đào tạo');
-  });
-
-  it('phím lạ giữ nguyên nút và nhắc lại menu', () => {
-    const { st, phanHoi } = ivrStep(ivrStart(), '9');
-    expect(st.nut).toBe('goc');
-    expect(phanHoi).toContain('không hợp lệ');
-    expect(phanHoi).toContain('Bấm 1');
-    expect(st.lichSu).toEqual([]);
-  });
-
-  it('tra cứu trả lời đúng mã vừa nhập, cùng mã cùng điểm', () => {
-    const a = ivrKeys(ivrStart(), '220201234#');
-    expect(a.st.nut).toBe('tra_diem_kq');
-    expect(a.phanHoi).toContain('20201234');
-    expect(a.phanHoi).toContain('dữ liệu mẫu');
-    expect(a.st.lichSu.at(-1)).toContain('20201234#');
-    expect(ivrKeys(a.st, '220201234#').phanHoi).toBe(a.phanHoi);
-    expect(ivrKeys(a.st, '298765432#').phanHoi).not.toBe(a.phanHoi);
-  });
-
-  it('điểm mẫu tính như traLoiDiem: 2 + mod(37·Σ, 200)/100', () => {
-    // Σ(20201234) = 14 -> 2 + mod(518, 200)/100 = 3.18
-    expect(ivrKeys(ivrStart(), '220201234#').phanHoi).toContain('3.18/4');
-  });
-
-  it('mã thiếu hoặc thừa chữ số bị từ chối, bộ đệm xóa', () => {
-    let r = ivrKeys(ivrStart(), '2123#');
-    expect(r.st.nut).toBe('tra_diem');
-    expect(r.phanHoi).toContain('8 chữ số');
-    expect(r.st.dem).toBe('');
-    r = ivrKeys(r.st, '123456789');
-    expect(r.phanHoi).toContain('nhập lại');
-    expect(r.st.dem).toBe('');
-  });
-
-  it('* hủy nhập và về menu chính', () => {
-    const { st } = ivrKeys(ivrStart(), '2123*');
-    expect(st.nut).toBe('goc');
+    expect(st.nut).toBe('chao');
+    expect(st.loi).toBe(LOI_CHAO);
+    expect(st.loi).toContain('Mời bạn bấm một phím bất kỳ');
     expect(st.dem).toBe('');
+    expect(st.lichSu).toEqual([]);
   });
 
-  it('mọi nút đích đều tồn tại', () => {
-    for (const nut of Object.values(MENU)) {
-      const dich: NodeId[] = nut.kieu === 'menu' ? nut.phim.map(([, d]) => d) : [nut.ve, nut.sau];
-      for (const d of dich) expect(MENU[d]).toBeDefined();
+  it('đọc lại đúng tên từng phím, kể cả * và #', () => {
+    for (const k of KEYS) {
+      const { st, phanHoi } = ivrStep(ivrStart(), k);
+      expect(phanHoi).toBe(`Tổng đài nhận được phím ${TEN_PHIM[k]}.`);
+      expect(st.loi).toBe(phanHoi);
+      expect(st.nut).toBe('doc');
     }
+    expect(ivrStep(ivrStart(), '*').phanHoi).toContain('sao');
+    expect(ivrStep(ivrStart(), '#').phanHoi).toContain('thăng');
+  });
+
+  it('không có menu: phím nào cũng chỉ được đọc lại, lời mới thay lời cũ', () => {
+    const { st } = ivrKeys(ivrStart(), '1*#0');
+    expect(st.dem).toBe('1*#0');
+    expect(st.loi).toBe('Tổng đài nhận được phím không.');
+    expect(st.lichSu).toEqual(['1  →  một', '*  →  sao', '#  →  thăng', '0  →  không']);
+  });
+
+  it('tên tệp thu âm khớp kịch bản', () => {
+    expect(WAV_CHAO).toBe('01_chao.wav');
+    expect(WAV_NHAN_PHIM).toBe('02_nhan_phim.wav');
+    expect(KEYS.map(wavPhim)).toEqual([
+      'phim_1.wav', 'phim_2.wav', 'phim_3.wav', 'phim_4.wav', 'phim_5.wav', 'phim_6.wav',
+      'phim_7.wav', 'phim_8.wav', 'phim_9.wav', 'phim_sao.wav', 'phim_0.wav', 'phim_thang.wav',
+    ]);
   });
 });
 

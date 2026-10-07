@@ -83,8 +83,34 @@ describe('đường dây: định dạng', () => {
       method: 'Goertzel',
     });
     expect(parseToPhone('{"t":"line"}')).toEqual({ t: 'line', matlab: false });
+    expect(parseToPhone('{"t":"line","matlab":true,"app":"forensic"}')).toEqual({
+      t: 'line',
+      matlab: true,
+      app: 'forensic',
+    });
     expect(parseToPhone('{"t":"key","k":"55"}')).toBeNull();
     expect(parseToPhone('{"t":"lạ"}')).toBeNull();
     expect(parseToPhone('không phải json')).toBeNull();
+  });
+
+  it('đọc kết luận của MATLAB, cả khi jsonencode gói một bộ giải mã thành đối tượng', () => {
+    const ba = '{"t":"verdict","keys":"0912","methods":[{"name":"Goertzel","keys":"0912","ms":3.2},' +
+      '{"name":"FFT","keys":"091","ms":5},{"name":"Ngân hàng bộ lọc","keys":"0912","ms":11}]}';
+    const m = parseToPhone(ba);
+    expect(m).toEqual({
+      t: 'verdict',
+      keys: '0912',
+      methods: [
+        { name: 'Goertzel', keys: '0912', ms: 3.2 },
+        { name: 'FFT', keys: '091', ms: 5 },
+        { name: 'Ngân hàng bộ lọc', keys: '0912', ms: 11 },
+      ],
+    });
+    expect(parseToPhone('{"t":"verdict","keys":"","methods":{"name":"FFT","keys":"","ms":1}}')).toEqual({
+      t: 'verdict',
+      keys: '',
+      methods: [{ name: 'FFT', keys: '', ms: 1 }],
+    });
+    expect(parseToPhone('{"t":"verdict","methods":[]}')).toBeNull();
   });
 });

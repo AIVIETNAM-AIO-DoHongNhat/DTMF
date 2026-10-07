@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { KEYS, type DtmfKey, type KeyInfo } from '../audio/dtmf';
-import { MENU, type IvrState } from '../ivr/ivr';
+import { TEN_NUT, type IvrState } from '../ivr/ivr';
 // Bản build gom mọi thứ vào một tệp HTML, nên ảnh này cũng được nhúng thẳng vào đó.
 import logo from '../../images/Logo_hoc_vien_ANND.png';
 
@@ -8,7 +8,7 @@ export type CallState = 'idle' | 'ringing' | 'connected';
 
 /**
  * Cuộc gọi hiện tại đi qua đâu.
- *   dialing: đang hỏi cầu nối; matlab: tổng đài là MATLAB, menu đi theo phím
+ *   dialing: đang hỏi cầu nối; matlab: tổng đài là MATLAB, đọc lại phím
  *   MATLAB đọc được; local: tổng đài chạy trong trang (why: không có cầu nối,
  *   MATLAB chưa nối, hay MATLAB không nhấc máy); lost: mất MATLAB giữa chừng.
  */
@@ -42,10 +42,8 @@ interface Props {
 const NAME = 'Học viện An ninh nhân dân';
 /** Số giả cho đề tài: cuộc gọi chỉ đi tới tổng đài mô phỏng, không ra ngoài. */
 const NUMBER = '0123 456 789';
-/** Các mục của menu chính, trừ phím * nghe lại: ghi sẵn trên thẻ danh bạ. */
-const MAIN_MENU = MENU.goc.kieu === 'menu' ? MENU.goc.phim.filter(([k]) => k !== '*') : [];
-/** Ghi chú như người dùng tự lưu trong danh bạ; số phím không xuống dòng tách khỏi tên mục. */
-const NOTE = `Bấm ${MAIN_MENU.map(([k, id]) => `${k} ${MENU[id].ten}`).join(', ')}, * nghe lại.`;
+/** Ghi chú như người dùng tự lưu trong danh bạ. */
+const NOTE = 'Tổng đài thử nghiệm: bấm phím bất kỳ, tổng đài đọc lại phím vừa nhận.';
 /** Ống nghe: nút gọi, ô điện thoại, và (xoay 135°) nút kết thúc. */
 const PHONE_PATH =
   'M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z';
@@ -82,19 +80,18 @@ const mmss = (ms: number) => {
 };
 
 /**
- * Điện thoại gọi tổng đài, theo đúng màn hình cuộc gọi của iPhone: thẻ danh
- * bạ trước khi gọi, rồi màn gọi tối với sáu nút tròn, bàn phím mở bằng nút
+ * Điện thoại gọi tổng đài, theo đúng màn hình cuộc gọi của iPhone ở Dark Mode:
+ * thẻ danh bạ trước khi gọi, rồi màn gọi với sáu nút tròn, bàn phím mở bằng nút
  * "bàn phím". Lời nhắc của tổng đài hiện như phụ đề trực tiếp, chờ thu âm.
  */
 export function Phone(p: Props) {
   const clock = useTicker(true, 15000);
   const t = new Date(clock);
   const time = `${t.getHours()}:${String(t.getMinutes()).padStart(2, '0')}`;
-  const dark = p.call !== 'idle';
 
   return (
     <div className="phone">
-      <div className={`screen ${dark ? 'dark' : 'light'}`}>
+      <div className="screen">
         <div className="island" aria-hidden="true" />
         <StatusBar time={time} />
         {p.call === 'idle' ? <ContactCard onCall={p.onCall} /> : <CallScreen {...p} />}
@@ -134,13 +131,18 @@ function StatusBar({ time }: { time: string }) {
 function ContactCard({ onCall }: { onCall: () => void }) {
   return (
     <div className="contact">
+      {/* Như iOS 26: nút quay lại là một viên kính tròn chỉ có mũi tên, dính trên đầu khi cuộn. */}
       <div className="ct-nav" aria-hidden="true">
-        <span>‹ Danh bạ</span>
-        <span>Sửa</span>
+        <span className="glass ct-back">
+          <svg width="12" height="20" viewBox="0 0 12 20" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9.5 2.5 2.5 10l7 7.5" />
+          </svg>
+        </span>
+        <span className="glass ct-edit">Sửa</span>
       </div>
       <img className="ct-avatar" src={logo} alt="" aria-hidden="true" />
       <h2 className="ct-name">{NAME}</h2>
-      <p className="ct-sub">Tổng đài tự động hỗ trợ đào tạo</p>
+      <p className="ct-sub">Tổng đài thử nghiệm DTMF</p>
       <div className="ct-actions">
         <CtAction label="nhắn tin" disabled>
           <path d="M12 4C6.5 4 2 7.6 2 12c0 2.4 1.3 4.6 3.5 6.1L4.6 21l3.6-1.8c1.2.4 2.5.6 3.8.6 5.5 0 10-3.6 10-8S17.5 4 12 4z" />
@@ -155,7 +157,7 @@ function ContactCard({ onCall }: { onCall: () => void }) {
           <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h15A1.5 1.5 0 0 1 21 6.5v11a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5zm1.8.3 7.2 5.6 7.2-5.6z" />
         </CtAction>
       </div>
-      {/* Phần dưới như thẻ danh bạ iOS: mỗi nhóm một khối bo tròn trắng. */}
+      {/* Phần dưới như thẻ danh bạ iOS: mỗi nhóm một khối mờ bo tròn. */}
       <button type="button" className="ct-card ct-phone" onClick={onCall} aria-label={`Gọi ${NAME}, ${NUMBER}`}>
         <span className="ct-label">điện thoại</span>
         <span className="ct-value">{NUMBER}</span>
@@ -195,7 +197,7 @@ function CtAction({
   children: ReactNode;
 }) {
   return (
-    <button type="button" className="ct-act" disabled={disabled} onClick={onClick} aria-label={label === 'gọi' ? `Gọi ${NAME}` : label}>
+    <button type="button" className="glass ct-act" disabled={disabled} onClick={onClick} aria-label={label === 'gọi' ? `Gọi ${NAME}` : label}>
       <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         {children}
       </svg>
@@ -212,7 +214,6 @@ function CallScreen(p: Props) {
   const [speaker, setSpeaker] = useState(false);
   const connected = p.call === 'connected';
   const now = useTicker(connected, 500);
-  const nut = MENU[p.ivr.nut];
 
   return (
     <div className={`call ${pad ? 'with-pad' : ''}`}>
@@ -228,7 +229,7 @@ function CallScreen(p: Props) {
       </header>
 
       {connected && (
-        <div className="caption" aria-live="polite">
+        <div className="glass caption" aria-live="polite">
           <p className="cap-head">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
               <rect x="1" y="6" width="2" height="4" rx="1" />
@@ -236,7 +237,7 @@ function CallScreen(p: Props) {
               <rect x="9" y="5" width="2" height="6" rx="1" />
               <rect x="13" y="7" width="2" height="2" rx="1" />
             </svg>
-            <span className="cap-title">Phụ đề trực tiếp · {nut.ten}</span>
+            <span className="cap-title">Phụ đề trực tiếp · {TEN_NUT[p.ivr.nut]}</span>
             <LineChip link={p.link} heard={p.heard} />
           </p>
           <p className="cap-text" key={p.ivr.loi}>
@@ -286,7 +287,7 @@ function CallScreen(p: Props) {
 
       <div className="call-bottom">
         <span />
-        <button type="button" className="end-btn" aria-label="Kết thúc cuộc gọi" onClick={p.onHangup}>
+        <button type="button" className="glass end-btn" aria-label="Kết thúc cuộc gọi" onClick={p.onHangup}>
           <svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style={{ transform: 'rotate(135deg)' }}>
             <path d={PHONE_PATH} />
           </svg>
@@ -312,7 +313,7 @@ function ringingText(link: Link): string {
 /** Huy hiệu ở góc ô phụ đề: cuộc gọi đi qua đâu, và phím MATLAB vừa nghe ra. */
 function LineChip({ link, heard }: { link: Link; heard: Heard | null }) {
   if (link.mode === 'matlab') {
-    const tip = `Tổng đài MATLAB${link.method ? ` · ${link.method}` : ''}: menu đi theo phím MATLAB đọc được`;
+    const tip = `Tổng đài MATLAB${link.method ? ` · ${link.method}` : ''}: tổng đài đọc lại phím MATLAB nghe được`;
     return heard ? (
       <span className="line-chip on flash" key={heard.n} title={tip}>
         MATLAB nghe <b>{heard.key}</b>
@@ -370,7 +371,7 @@ function CallBtn({
       aria-pressed={onClick && label !== 'bàn phím' ? on : undefined}
       onClick={onClick}
     >
-      <span className="cbtn-circle">
+      <span className="glass cbtn-circle">
         <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           {children}
         </svg>
@@ -395,7 +396,7 @@ function PadKey({
   return (
     <button
       type="button"
-      className={`pkey ${on ? 'on' : ''} ${k === '*' || k === '#' ? 'sym' : ''}`}
+      className={`glass pkey ${on ? 'on' : ''} ${k === '*' || k === '#' ? 'sym' : ''}`}
       aria-label={`Phím ${k}`}
       onPointerDown={(e) => {
         // Giữ con trỏ trên nút: kéo ngón tay ra ngoài vẫn nhận được pointerup.

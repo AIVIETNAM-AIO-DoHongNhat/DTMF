@@ -81,12 +81,12 @@ loi = veAnToan(loi, @() ui_plot_bars(app.AxBars, E, S.thr));
 % ở đây chứ không trong ui_plot_wave / ui_plot_bars, vì hai hàm đó còn vẽ hình
 % cho báo cáo với màu riêng.
 M = ui_theme();
-loi = veAnToan(loi, @() trangTriTruc(app.AxWaveX, M, true));
-loi = veAnToan(loi, @() trangTriTruc(app.AxPsdX, M, true));
-loi = veAnToan(loi, @() trangTriTruc(app.AxWave, M, true));
-loi = veAnToan(loi, @() trangTriTruc(app.AxPsd, M, true));
-loi = veAnToan(loi, @() trangTriTruc(app.AxMap, M, false));
-loi = veAnToan(loi, @() trangTriTruc(app.AxBars, M, true));
+loi = veAnToan(loi, @() trangTriTruc(app.AxWaveX, M, '$x[n]$'));
+loi = veAnToan(loi, @() trangTriTruc(app.AxPsdX, M, ''));
+loi = veAnToan(loi, @() trangTriTruc(app.AxWave, M, '$y[n]$'));
+loi = veAnToan(loi, @() trangTriTruc(app.AxPsd, M, ''));
+loi = veAnToan(loi, @() trangTriTruc(app.AxMap, M, ''));
+loi = veAnToan(loi, @() trangTriTruc(app.AxBars, M, ''));
 
 loi = veAnToan(loi, @() dongBoSong([app.AxWaveX, app.AxWave]));
 loi = veAnToan(loi, @() toSong(app.AxWaveX, M));
@@ -137,22 +137,27 @@ end
 
 end
 
-function trangTriTruc(ax, M, coLuoi)
-%TRANGTRITRUC Chữ, lưới và màu trục cho giao diện. Không đổi dữ liệu nào.
-% Trục chưa có gì để vẽ thì ẩn luôn thước đo: một khung 0..1 trống trơn với
-% đủ vạch chia trông như hình hỏng, chỉ dòng tiêu đề "chưa có..." là đủ.
-% Lưới chỉ kẻ ngang - lưới dọc cắt ngang vùng tone mà không cho thêm thông
-% tin nào. Bản đồ khung không kẻ lưới: imagesc đặt Layer = 'top' nên lưới đè ảnh.
+function trangTriTruc(ax, M, nhanY)
+%TRANGTRITRUC Trục kiểu hình pgfplots trong một bài LaTeX: khung kín, tick
+% vào trong, không lưới, số trên trục và nhãn trục đặt bằng bộ diễn dịch
+% latex (Computer Modern, như công thức của báo cáo). Không đổi dữ liệu nào.
+% Nhãn trục tiếng Việt của ui_plot_* đổi thành ký hiệu ($t$ (s), $f$ (Hz),
+% $E_j$) - bộ diễn dịch latex của MATLAB không có dấu tiếng Việt, nên nhãn
+% nào không có trong bảng dưới thì giữ nguyên chữ. nhanY: nhãn trục tung
+% riêng cho trục này ('$x[n]$' cho dạng sóng gốc), rỗng thì tra bảng.
+% Trục chưa có gì để vẽ thì ẩn luôn thước đo và khung: một khung 0..1 trống
+% trơn với đủ vạch chia trông như hình hỏng, chỉ dòng tiêu đề là đủ.
 coNoiDung = ~isempty(ax.Children);
 
-ax.FontName   = M.font;
-ax.FontSize   = 9;
-ax.XColor     = M.chuPhu;
-ax.YColor     = M.chuPhu;
-ax.LineWidth  = 0.75;
-ax.Box        = 'off';
-ax.TickDir    = 'out';
-ax.TickLength = [0.005 0.005];
+ax.FontName   = M.tex.font;
+ax.FontSize   = 11;
+ax.TickLabelInterpreter = 'latex';
+ax.XColor     = M.muc;
+ax.YColor     = M.muc;
+ax.LineWidth  = 0.6;
+ax.Box        = matlab.lang.OnOffSwitchState(coNoiDung);
+ax.TickDir    = 'in';
+ax.TickLength = [0.01 0.01];
 
 ax.TitleFontSizeMultiplier  = 1.15;
 ax.TitleFontWeight          = 'normal';
@@ -162,14 +167,34 @@ ax.Title.Color = M.muc;
 ax.XAxis.Visible = coNoiDung;
 ax.YAxis.Visible = coNoiDung;
 ax.XGrid = 'off';
-ax.YGrid = matlab.lang.OnOffSwitchState(coLuoi && coNoiDung);
-ax.GridColor     = M.muc;
-ax.GridAlpha     = 0.07;
-ax.GridLineStyle = '-';
+ax.YGrid = 'off';
 
 if ~coNoiDung
     ax.Title.Color = M.chuMo;
+    return
 end
+
+bang = {'Thời gian [s]',           '$t$ (s)'
+        'Tần số [Hz]',             '$f$ (Hz)'
+        'Bin [Hz]',                '$f$ (Hz)'
+        'PSD [dB/Hz]',             'PSD (dB/Hz)'
+        'Năng lượng đã chuẩn hóa', '$E_j$'};
+doiNhan(ax.XLabel, bang, '');
+doiNhan(ax.YLabel, bang, nhanY);
+set(findobj(ax, 'Type', 'text'), 'FontName', M.tex.font);
+end
+
+function doiNhan(nhan, bang, rieng)
+%DOINHAN Đổi một nhãn trục sang ký hiệu latex theo BANG, hoặc thành RIENG.
+moi = rieng;
+if isempty(moi)
+    k = find(strcmp(bang(:, 1), char(nhan.String)), 1);
+    if isempty(k)
+        return
+    end
+    moi = bang{k, 2};
+end
+set(nhan, 'String', moi, 'Interpreter', 'latex', 'FontSize', 13);
 end
 
 function dongBoSong(axs)
@@ -219,7 +244,7 @@ for pa = findobj(ax, 'Type', 'patch')'
 end
 for tx = findobj(ax, 'Type', 'text')'
     tx.Position(2) = 1.32 * a;
-    set(tx, 'Color', M.nhan, 'FontName', M.font, 'FontSize', 10, ...
+    set(tx, 'Color', M.nhan, 'FontName', M.tex.font, 'FontSize', 12, ...
         'FontWeight', 'bold', 'VerticalAlignment', 'middle');
 end
 
@@ -269,7 +294,7 @@ if S.iSel >= 1 && isfield(S.info, 'tFrame') && S.iSel <= numel(S.info.tFrame)
             txt, T.rowHz(r), T.colHz(c), T.keys(r, c));
     end
 end
-subtitle(ax, txt, 'Color', M.chuPhu, 'FontSize', 9.5, 'FontName', M.font);
+subtitle(ax, txt, 'Color', M.chuPhu, 'FontSize', 11, 'FontName', M.tex.font);
 
 b = findobj(ax, 'Type', 'bar');
 if isempty(b)
@@ -288,7 +313,7 @@ set(b, 'CData', C, 'EdgeColor', 'none', 'BarWidth', 0.5);
 % một cột cao đè lên nhãn; bên phải là cột '2f', gần như luôn thấp.
 set(findobj(ax, 'Type', 'constantline'), ...
     'Color', M.sai, 'LineWidth', 0.8, 'Alpha', 0.8, ...
-    'LabelHorizontalAlignment', 'right', 'FontSize', 9, 'FontName', M.font);
+    'LabelHorizontalAlignment', 'right', 'FontSize', 11, 'FontName', M.tex.font);
 end
 
 function loi = veAnToan(loi, fn)

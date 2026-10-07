@@ -11,8 +11,6 @@ function dtmf_setup()
 %   Ghi chú:
 %       Path chỉ tồn tại trong phiên hiện tại, không ghi vào pathdef.m nên
 %       không ảnh hưởng các dự án MATLAB khác trên cùng máy.
-%
-%   See also run_all_tests, dev_harness.
 
 root = fileparts(mfilename('fullpath'));
 addpath(genpath(fullfile(root, 'src')));

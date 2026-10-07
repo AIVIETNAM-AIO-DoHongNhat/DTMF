@@ -1,3 +1,6 @@
+> **Lưu trữ.** Kế hoạch ban đầu, dừng cập nhật từ 23/09/2026: các ô chưa tick và số "162 ca" ở dưới đã cũ.
+> Trạng thái hiện tại xem README.md và CONTRACTS.md.
+
 # Kế hoạch hoàn thành dự án DTMF (tự làm, 1–2 tuần)
 
 > Tài liệu theo dõi tiến độ. Tick trực tiếp vào các ô `- [ ]` khi làm xong từng việc.

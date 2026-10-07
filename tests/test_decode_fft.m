@@ -161,8 +161,8 @@ end
 function test_emptyWhenShorterThanFrame(testCase)
 % y ngắn hơn một khung: nFrame = 0. Phải trả rỗng ĐÚNG CỠ 1×0 / 8×0 chứ không
 % phải 0×0, và không được ném lỗi - Buổi 8 GUI gọi với tín hiệu bất kỳ.
-% Ngưỡng ở đây là 256 chứ không phải 205: y dài 200 mẫu lọt qua nhánh Goertzel
-% nhưng rỗng ở nhánh này, nên hai bộ KHÔNG chia sẻ được ca test này.
+% Ngưỡng của nhánh này là 256 mẫu chứ không phải 205 như Goertzel, nên ca y dài
+% 205-255 mẫu (đủ một khung Goertzel, thiếu một khung FFT) không dùng chung được.
 [keys, info] = testCase.verifyWarningFree(@() decodeTwo(zeros(1, 200)));
 
 testCase.verifyEmpty(keys);

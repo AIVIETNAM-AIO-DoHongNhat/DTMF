@@ -17,9 +17,12 @@ function M = ui_theme()
 %          .nen .the .vien          nền cửa sổ, nền thẻ, viền thẻ
 %          .muc .chuPhu .chuMo      chữ chính, chữ phụ, chữ mờ (nhãn nhỏ)
 %          .nhan .nhanNhat          màu nhấn và bản rất nhạt của nó
-%          .dung .sai               giải mã khớp / lệch hoặc lỗi
-%          .phimPhu .xamCot         nền phím '*' '#', cột dưới ngưỡng
+%          .dung .sai .saiNhat      giải mã khớp / lệch hoặc lỗi, nền nhạt của sai
+%          .phimPhu .xamCot         nền phím của bàn phím, cột dưới ngưỡng
+%          .hang .cot               nhóm hàng, nhóm cột (chỉ DTMFLive)
 %          .font .fontMono          phông chữ thường và phông đơn cách
+%          .tex                     .font .mono .ke của giao diện kiểu LaTeX
+%          .logo                    đường dẫn PNG biểu tượng cửa sổ
 %          .cmap                    256×3, trắng -> chàm -> gần đen
 %
 %   Example:
@@ -41,14 +44,34 @@ M.nhanNhat = [0.910 0.929 0.965];   % #E8EDF6
 
 M.dung     = [0.078 0.478 0.325];   % #147A53
 M.sai      = [0.722 0.188 0.188];   % #B83030
+M.saiNhat  = [0.984 0.925 0.925];   % #FBECEC nền nút gác máy
 
 M.phimPhu  = [0.953 0.957 0.965];
 M.xamCot   = [0.812 0.831 0.863];   % #CFD4DC
+
+% Nhóm hàng cam, nhóm cột xanh: CHỈ dùng ở màn tổng đài DTMFLive, đúng cặp
+% màu của trang web điện thoại (web/src/styles.css --row, --col), để khán giả
+% nhìn hai màn hình cạnh nhau thấy cùng một tone mang cùng một màu.
+M.hang     = [0.922 0.408 0.204];   % #EB6834
+M.cot      = [0.165 0.471 0.839];   % #2A78D6
 
 % Segoe UI có sẵn trên Windows; máy khác thiếu thì trình duyệt nền của
 % uifigure tự rơi về phông sans-serif mặc định, không lỗi.
 M.font     = 'Segoe UI';
 M.fontMono = 'Consolas';
+
+% Màn tổng đài DTMFLive trình bày như một trang của báo cáo LaTeX: chữ thân
+% bài cùng phông với report/template/dtmf_report.cls (Times New Roman, chữ
+% đơn cách Consolas); số và ký hiệu do bộ diễn dịch latex của MATLAB đặt
+% bằng Computer Modern, đúng như công thức trong báo cáo. .ke là màu các
+% đường kẻ kiểu booktabs.
+M.tex = struct('font', 'Times New Roman', 'mono', 'Consolas', ...
+               'ke', [0.15 0.15 0.15]);
+
+% Biểu tượng cửa sổ (Icon của uifigure, hiện trên tab và thanh tác vụ thay
+% cho logo MATLAB): hai tone chồng nhau, cam = nhóm hàng, xanh = nhóm cột -
+% cùng hình với logo và favicon của trang web (favicon nằm trong web/index.html).
+M.logo = fullfile(fileparts(mfilename('fullpath')), 'dtmf_logo.png');
 
 % Thang màu phổ đồ kiểu hình in: nền nhiễu gần trắng, tone đậm dần sang chàm
 % rồi gần đen. Độ sáng giảm ĐƠN ĐIỆU từ đầu tới cuối, nên đọc được cả khi in

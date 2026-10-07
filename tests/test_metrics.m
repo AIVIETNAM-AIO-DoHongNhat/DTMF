@@ -170,6 +170,37 @@ testCase.verifyEqual(m.confusion, expected, ...
     'Truy vet khong con uu tien CHEO: cap 12/3 da roi sang o khac.');
 end
 
+function test_alignFollowsTheSamePath(testCase)
+% align là đúng đường truy vết đã ghi confusion: mỗi cột không có '-' là một ô
+% của confusion, số cột có '-' cộng số cột lệch bằng editDist.
+cap = {'123', '1283'; '1283', '123'; '12', '3'; '0912', '09912'; '59', blanks(0); blanks(0), '7'};
+for k = 1:size(cap, 1)
+    m = dtmf_metrics(cap{k, 1}, cap{k, 2});
+    a = m.align;
+    testCase.verifySize(a, [2, size(a, 2)]);
+    testCase.verifyClass(a, 'char');
+    % Bỏ '-' đi thì mỗi hàng trả lại đúng chuỗi gốc.
+    testCase.verifyEqual(a(1, a(1, :) ~= '-'), cap{k, 1});
+    testCase.verifyEqual(a(2, a(2, :) ~= '-'), cap{k, 2});
+    cheo = all(a ~= '-', 1);
+    testCase.verifyEqual(nnz(cheo), sum(m.confusion(:)));
+    testCase.verifyEqual(nnz(~cheo) + nnz(a(1, cheo) ~= a(2, cheo)), m.editDist);
+end
+end
+
+function test_alignExamples(testCase)
+% Ví dụ của help, và cặp ghim thứ tự ưu tiên: '2' ghép với '3', '1' bị sót.
+m = dtmf_metrics('123', '1283');
+testCase.verifyEqual(m.align, ['12-3'; '1283']);
+m = dtmf_metrics('12', '3');
+testCase.verifyEqual(m.align, ['12'; '-3']);
+% Chữ số đọc hai lần: truy vết từ cuối, chéo trước, nên chữ 9 ĐẦU là thừa.
+m = dtmf_metrics('0912', '09912');
+testCase.verifyEqual(m.align, ['0-912'; '09912']);
+m = dtmf_metrics('', '');
+testCase.verifySize(m.align, [2 0]);
+end
+
 function test_badKeyErrors(testCase)
 % Ký tự ngoài 12 phím là gọi sai hàm, không phải dữ liệu xấu cần bỏ qua: nuốt
 % im lặng sẽ cho một acc trông bình thường nhưng vô nghĩa. Kiểm cả hai tham số.

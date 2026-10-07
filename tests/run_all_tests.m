@@ -6,7 +6,7 @@ function run_all_tests()
 %   Cách dùng (từ bất kỳ thư mục nào, miễn tests/ nằm trên path):
 %       run_all_tests
 %
-%   Yêu cầu: không có test nào FAIL trước khi merge vào nhánh dev.
+%   Yêu cầu: không có test nào FAIL trước khi commit lên nhánh main.
 %
 %   See also runtests, test_generate, test_goertzel.
 

@@ -12,7 +12,8 @@ import {
 } from './audio/dtmf';
 import { encodeWav } from './audio/wav';
 import { ivrStart, ivrStep, type IvrState } from './ivr/ivr';
-import { LineClient, lineUrl, type LineHandlers } from './line/line';
+import { LineClient, lineUrl, probeLine, type LineHandlers } from './line/line';
+import { ModeSwitch } from './components/ModeSwitch';
 import { Phone, type CallState, type Heard, type Link } from './components/Phone';
 import { SequencePlayer } from './components/SequencePlayer';
 import { Settings } from './components/Settings';
@@ -68,7 +69,7 @@ export function App() {
   live.current = { volume, boostDb, call, ivr, link: link.mode };
   const holding = useRef<{ key: DtmfKey; t0: number } | null>(null);
 
-  /** Một tone đã phát xong: trong cuộc gọi, menu trên điện thoại đi theo phím đó. */
+  /** Một tone đã phát xong: trong cuộc gọi, tổng đài trên điện thoại đọc lại phím đó. */
   const toIvr = useCallback((key: DtmfKey) => {
     if (live.current.call !== 'connected') return;
     const st = ivrStep(live.current.ivr, key).st;
@@ -113,8 +114,8 @@ export function App() {
       holding.current = null;
       const held = Math.round(Math.min(MAX_TONE_MS, Math.max(MIN_TONE_MS, performance.now() - h.t0)));
       setShown((s) => (s.key === key ? { ...s, toneMs: held } : s));
-      // Gọi qua MATLAB thì menu chỉ đi theo phím MATLAB đọc được, không theo
-      // phím vừa bấm: bấm mà MATLAB không nghe ra thì menu đứng yên.
+      // Gọi qua MATLAB thì tổng đài chỉ đọc lại phím MATLAB nghe được, không theo
+      // phím vừa bấm: bấm mà MATLAB không nghe ra thì tổng đài im lặng.
       if (live.current.link !== 'matlab') toIvr(key);
     },
     [player, toIvr],
@@ -125,7 +126,7 @@ export function App() {
     setLink(l);
   };
 
-  /** Tổng đài nhấc máy: menu chính, đồng hồ cuộc gọi bắt đầu chạy. */
+  /** Tổng đài nhấc máy: lời chào, đồng hồ cuộc gọi bắt đầu chạy. */
   const answer = () => {
     clearTimeout(ringTimer.current);
     const s = ivrStart();
@@ -183,7 +184,7 @@ export function App() {
       }
     },
     onStatus: (s) => {
-      if (!s.matlab) lineLost();
+      if (!s.matlab || s.app === 'forensic') lineLost();
     },
     onClose: lineLost,
   };
@@ -215,10 +216,24 @@ export function App() {
 
     // Có cầu nối: hỏi MATLAB. MATLAB đang nối thì nó đổ chuông và tự nhấc máy;
     // không có thì tổng đài trong trang nhấc máy như khi không có đường dây.
+    // Hỏi trạng thái trước khi mở WebSocket: mở là chiếm dây, nếu MATLAB đang
+    // chạy màn giám định thì cuộc gọi sẽ cắt vụ của nó.
     setLinkNow({ mode: 'dialing' });
+    void probeLine().then((pre) => {
+      if (token !== callToken.current) return;
+      if (pre?.matlab && pre.app === 'forensic') {
+        setLinkNow({ mode: 'local', why: 'matlab' });
+        answerLocal(token, Math.max(0, RING_MS - (performance.now() - t0)));
+        return;
+      }
+      void goiMatlab(url, token, t0);
+    });
+  };
+
+  const goiMatlab = (url: string, token: number, t0: number) => {
     void line.open(url, handlers).then((st) => {
       if (token !== callToken.current) return;
-      if (!st?.matlab) {
+      if (!st?.matlab || st.app === 'forensic') {
         line.close();
         setLinkNow({ mode: 'local', why: st ? 'matlab' : 'bridge' });
         answerLocal(token, Math.max(0, RING_MS - (performance.now() - t0)));
@@ -313,8 +328,9 @@ export function App() {
       stopSeq();
       clearTimeout(ringTimer.current);
       line.close();
+      player.close();
     },
-    [stopSeq, line],
+    [stopSeq, line, player],
   );
 
   return (
@@ -355,9 +371,12 @@ export function App() {
               <h1>Tín hiệu DTMF trong miền thời gian và miền tần số</h1>
               <p className="lede">Mỗi phím là tổng của hai sóng sin, nên phổ của nó có đúng hai đỉnh.</p>
             </div>
-            <button type="button" className="btn" aria-haspopup="dialog" onClick={() => setTools(true)}>
-              Công cụ cho MATLAB
-            </button>
+            <div className="intro-acts">
+              <ModeSwitch current="phone" />
+              <button type="button" className="btn" aria-haspopup="dialog" onClick={() => setTools(true)}>
+                Công cụ cho MATLAB
+              </button>
+            </div>
           </header>
 
           <Story
@@ -380,8 +399,8 @@ export function App() {
                 <h2 id="cong-cu-h">Công cụ cho MATLAB</h2>
                 <p>
                   Bấm gọi khi DTMFLive đang mở: trang nối đường dây sang tổng đài MATLAB, gửi đúng tiếng nó phát ra loa, và
-                  menu đi theo phím MATLAB đọc được. Không có MATLAB thì tổng đài chạy ngay trong trang. Số gọi là mô
-                  phỏng, điểm tra cứu là dữ liệu mẫu.
+                  tổng đài đọc lại đúng phím MATLAB nghe được. Không có MATLAB thì tổng đài chạy ngay trong trang. Số gọi là mô
+                  phỏng.
                 </p>
               </div>
               <button type="button" className="icon-btn" aria-label="Đóng" onClick={() => setTools(false)}>

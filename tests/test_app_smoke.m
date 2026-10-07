@@ -323,6 +323,27 @@ end
 testCase.verifyEqual(app.EfKeys.Value, '123456789*0#');
 end
 
+function test_drawnKeypadTilesMapToTheirOwnKey(testCase)
+% Bấm vào bàn phím vẽ (ui_pad): tâm và một điểm sát góc của từng phím phải
+% ra đúng phím đó. Lấy tọa độ từ chính hình đang vẽ, nên bố cục đổi (phím
+% rộng hơn cao, khe, bo góc) mà lệch khỏi phép làm tròn của AxKeypadClicked
+% là test đỏ.
+app = newApp(testCase);
+pad = findobj(app.AxKeypad, 'Type', 'patch', '-not', 'ButtonDownFcn', '');
+testCase.assertNumElements(pad, 1);
+testCase.assertSize(pad.Faces, [12 28]);
+
+for i = 1:12
+    v = pad.Vertices(pad.Faces(i, :), :);
+    tam = mean(v, 1);
+    goc = tam + 0.85 * (min(v, [], 1) - tam);
+    pad.ButtonDownFcn(pad, struct('IntersectionPoint', [tam 0]));
+    pad.ButtonDownFcn(pad, struct('IntersectionPoint', [goc 0]));
+end
+
+testCase.verifyEqual(app.EfKeys.Value, repelem('123456789*0#', 2));
+end
+
 function test_keypadIsSilentWhenHidden(testCase)
 % Giao diện ẩn thì KHÔNG được đụng tới thiết bị âm thanh: sound() trong
 % matlab -batch có thể treo cả phiên chạy test. Và không được ghi nhật ký gì,

@@ -2,14 +2,14 @@
 
 Phỏng theo cấu trúc template báo cáo khoa học AIO, **bỏ logo**, thiết kế lại toàn bộ bố cục theo thể thức báo cáo khoa học tiếng Việt.
 
-Kèm sẵn `main_mau.pdf` — bản biên dịch thử 22 trang để xem trước khi bắt tay viết.
+`main.pdf` là bản biên dịch hiện tại của báo cáo (54 trang), được giữ trong git làm bản nộp.
 
 ## Các file
 
 | File | Nội dung | Ai được sửa |
 |---|---|---|
-| `main.tex` | Khung đề cương chi tiết: Mở đầu, Chương I–V, Tài liệu tham khảo, 3 phụ lục | Người viết chương của mình |
-| `dtmf_report.cls` | Lớp tài liệu: khổ trang, font, đánh số, bảng màu, hộp mã nguồn | **Chỉ Lâm** — khoá sau 16/09 |
+| `main.tex` | Báo cáo hoàn chỉnh: Mở đầu, Chương I–V, Tài liệu tham khảo, 4 phụ lục | Người viết chương của mình |
+| `dtmf_report.cls` | Lớp tài liệu: khổ trang, font, đánh số, bảng màu, hộp mã nguồn | Chỉ sửa khi cần đổi toàn cục (đã sửa sau 16/09: `\phanso`, phông TeX Gyre) |
 | `references.bib` | Tài liệu tham khảo | Lâm + người trích dẫn |
 | `tvietlistings.sty` | Hỗ trợ tiếng Việt trong khối mã | Không sửa |
 | `Figures/` | Toàn bộ hình | Khương quản lý |
@@ -27,7 +27,7 @@ Gọn hơn: `latexmk -xelatex main.tex`
 
 Class tự nhận diện engine — chạy được cả **pdfLaTeX** (babel + vntex) lẫn **XeLaTeX/LuaLaTeX** (fontspec). Trên Overleaf chọn compiler nào cũng được.
 
-Máy Windows có sẵn font Microsoft thì gọi `\documentclass[winfont]{dtmf_report}` để dùng Times New Roman / Arial / Consolas thật. Mặc định dùng bộ **Liberation** — tương thích metric 100% với Times New Roman, có sẵn trên Linux và Overleaf, nên bản in ra giống hệt.
+Máy Windows có sẵn font Microsoft thì gọi `\documentclass[winfont]{dtmf_report}` để dùng Times New Roman / Arial / Consolas thật. Mặc định dùng bộ **TeX Gyre** (Termes, Heros, Cursor) — tương thích metric với Times New Roman, đi kèm bản phân phối TeX nên chạy như nhau trên Windows, Linux và Overleaf.
 
 ---
 
@@ -106,7 +106,7 @@ Ba thiết lập giải quyết vấn đề đặc thù của tiếng Việt —
 - `emergencystretch = 3em` — cho phép nới thêm khi không còn cách nào khác
 - `tolerance = 2000` — nới ngưỡng chấp nhận khoảng trắng
 
-Bản mẫu 22 trang biên dịch ra **0 lỗi, chỉ 1 dòng tràn lề 1,2 pt** (mắt thường không thấy).
+Bản hiện tại (54 trang) biên dịch không cảnh báo nào, không hộp tràn.
 
 Ngoài ra `widowpenalty` và `clubpenalty` đặt 10000 — cấm tuyệt đối dòng lạc đầu và cuối trang.
 
@@ -123,12 +123,12 @@ Ngoài ra `widowpenalty` và `clubpenalty` đặt 10000 — cấm tuyệt đối
 
 ## Chèn hình
 
-Đặt file vào `Figures/`, tên đúng mã hình (`H2.4.pdf`):
+Đặt file vào `Figures/`, tên đúng mã hình, dùng gạch dưới chứ không dấu chấm (`H2_4.pdf`):
 
 ```latex
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.8\linewidth]{Figures/H2.4.pdf}
+  \includegraphics[width=0.8\linewidth]{Figures/H2_4.pdf}
   \caption{Sơ đồ khối bộ lọc Goertzel bậc hai}
   \label{fig:goertzel-block}
 \end{figure}
@@ -163,6 +163,7 @@ Khai báo ở mục XVI của `.cls`. Cả nhóm gõ lệnh, **không ai tự vi
 | `\Qfac` | hệ số phẩm chất |
 | `\SNRdB` | SNR theo dB |
 | `\dB` | đơn vị dB |
+| `\phanso{tử}{mẫu}` | phân số đứng trong dòng văn bản, tự đệm khoảng trên và dưới dòng |
 
 Cần thêm ký hiệu mới thì **báo Lâm thêm vào `.cls`**.
 
@@ -174,6 +175,6 @@ Class tự lùi về phương án dự phòng nếu máy thiếu gói, nên vẫ
 
 - Thiếu `biblatex` → tự bỏ qua danh mục tài liệu, báo một dòng trong PDF
 - Thiếu `dirtree` → thay cây thư mục bằng một dòng ghi chú
-- Thiếu Times New Roman → dùng Liberation Serif (cùng metric)
+- Thiếu Times New Roman → dùng TeX Gyre Termes (cùng metric)
 
 Chỉ có gói tiếng Việt là bắt buộc. Nếu compile bằng **pdfLaTeX** mà báo thiếu `vietnamese.ldf`, cài **vntex** (TeX Live: `tlmgr install vntex`; MiKTeX tự hỏi và cài). Dùng **XeLaTeX** thì không cần vntex.

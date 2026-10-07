@@ -1,9 +1,9 @@
 %% dev_harness.m
-% DEV_HARNESS Kịch bản để coder tự kiểm tra toàn bộ pipeline BẰNG TAY, không
-% cần chờ DTMFApp (Buổi 9) hay coeffs.mat của tổ S3 (Gói #5).
+% DEV_HARNESS Kịch bản để tự kiểm tra toàn bộ pipeline BẰNG TAY, không cần mở
+% DTMFApp.
 %
-% Đây là file duy nhất trong repo ĐƯỢC PHÉP gọi figure/plot/sound - vì nó
-% không thuộc src/ hay app/, chỉ là kịch bản thử nghiệm cá nhân.
+% Cùng run_bench và make_figures, đây là kịch bản ngoài src/ nên được gọi
+% figure/plot/sound.
 %
 % Cách dùng: chạy từng section (Ctrl+Enter) khi các hàm lần lượt được
 % cài đặt xong.
