@@ -27,21 +27,18 @@ export const TEN_PHIM: Record<DtmfKey, string> = {
   '#': 'thăng',
 };
 
-/** Tên tệp thu âm sẽ dùng cho lời chào và câu đọc lại phím. */
+/** Tên tệp thu âm của lời chào và câu đọc lại phím; tệp đã xử lý nằm ở ivr/voice/. */
 export const WAV_CHAO = '01_chao.wav';
 export const WAV_NHAN_PHIM = '02_nhan_phim.wav';
 export function wavPhim(k: DtmfKey): string {
   return `phim_${k === '*' ? 'sao' : k === '#' ? 'thang' : k}.wav`;
 }
 
-/** Tên hiện trên tiêu đề phụ đề. */
-export const TEN_NUT: Record<NodeId, string> = { chao: 'Lời chào', doc: 'Đọc lại phím' };
-
 export interface IvrState {
   nut: NodeId;
   /** Các phím đã nhận, theo thứ tự. */
   dem: string;
-  /** Lời đang hiện ở phụ đề. */
+  /** Câu tổng đài vừa nói. */
   loi: string;
   /** Các bước đã đi, cũ trước mới sau: "phím  →  tên phím". */
   lichSu: string[];

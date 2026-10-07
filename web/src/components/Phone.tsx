@@ -1,6 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { KEYS, type DtmfKey, type KeyInfo } from '../audio/dtmf';
-import { TEN_NUT, type IvrState } from '../ivr/ivr';
 // Bản build gom mọi thứ vào một tệp HTML, nên ảnh này cũng được nhúng thẳng vào đó.
 import logo from '../../images/Logo_hoc_vien_ANND.png';
 
@@ -9,13 +8,12 @@ export type CallState = 'idle' | 'ringing' | 'connected';
 /**
  * Cuộc gọi hiện tại đi qua đâu.
  *   dialing: đang hỏi cầu nối; matlab: tổng đài là MATLAB, đọc lại phím
- *   MATLAB đọc được; local: tổng đài chạy trong trang (why: không có cầu nối,
+ *   MATLAB đọc được; local: tổng đài chạy trong trang (không có cầu nối,
  *   MATLAB chưa nối, hay MATLAB không nhấc máy); lost: mất MATLAB giữa chừng.
  */
 export interface Link {
   mode: 'off' | 'dialing' | 'matlab' | 'local' | 'lost';
   method?: string;
-  why?: 'bridge' | 'matlab' | 'answer';
 }
 
 /** Phím MATLAB vừa đọc được; n tăng mỗi lần để huy hiệu nháy lại cả khi trùng phím. */
@@ -27,7 +25,6 @@ export interface Heard {
 interface Props {
   call: CallState;
   connectedAt: number;
-  ivr: IvrState;
   /** Các phím đã bấm trong cuộc gọi, hiện thay tên khi mở bàn phím. */
   typed: string;
   active: KeyInfo | null;
@@ -82,7 +79,7 @@ const mmss = (ms: number) => {
 /**
  * Điện thoại gọi tổng đài, theo đúng màn hình cuộc gọi của iPhone ở Dark Mode:
  * thẻ danh bạ trước khi gọi, rồi màn gọi với sáu nút tròn, bàn phím mở bằng nút
- * "bàn phím". Lời nhắc của tổng đài hiện như phụ đề trực tiếp, chờ thu âm.
+ * "bàn phím". Lời của tổng đài đọc bằng giọng thu sẵn (ivr/voice.ts), không có phụ đề.
  */
 export function Phone(p: Props) {
   const clock = useTicker(true, 15000);
@@ -226,25 +223,12 @@ function CallScreen(p: Props) {
             <p className="call-status">{connected ? mmss(now - p.connectedAt) : ringingText(p.link)}</p>
           </>
         )}
-      </header>
-
-      {connected && (
-        <div className="glass caption" aria-live="polite">
-          <p className="cap-head">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-              <rect x="1" y="6" width="2" height="4" rx="1" />
-              <rect x="5" y="3" width="2" height="10" rx="1" />
-              <rect x="9" y="5" width="2" height="6" rx="1" />
-              <rect x="13" y="7" width="2" height="2" rx="1" />
-            </svg>
-            <span className="cap-title">Phụ đề trực tiếp · {TEN_NUT[p.ivr.nut]}</span>
+        {connected && (
+          <p className="call-line">
             <LineChip link={p.link} heard={p.heard} />
           </p>
-          <p className="cap-text" key={p.ivr.loi}>
-            {p.ivr.loi}
-          </p>
-        </div>
-      )}
+        )}
+      </header>
 
       {pad ? (
         <div className="pad" role="group" aria-label="Bàn phím">
@@ -310,7 +294,7 @@ function ringingText(link: Link): string {
   return 'đang gọi…';
 }
 
-/** Huy hiệu ở góc ô phụ đề: cuộc gọi đi qua đâu, và phím MATLAB vừa nghe ra. */
+/** Huy hiệu dưới đồng hồ cuộc gọi: cuộc gọi đi qua đâu, và phím MATLAB vừa nghe ra. */
 function LineChip({ link, heard }: { link: Link; heard: Heard | null }) {
   if (link.mode === 'matlab') {
     const tip = `Tổng đài MATLAB${link.method ? ` · ${link.method}` : ''}: tổng đài đọc lại phím MATLAB nghe được`;
@@ -321,7 +305,7 @@ function LineChip({ link, heard }: { link: Link; heard: Heard | null }) {
     ) : (
       <span className="line-chip on" title={tip}>
         <span className="dot" aria-hidden="true" />
-        MATLAB
+        MATLAB đang nghe
       </span>
     );
   }
@@ -330,20 +314,6 @@ function LineChip({ link, heard }: { link: Link; heard: Heard | null }) {
       <span className="line-chip lost" title="Mất đường dây tới MATLAB, tổng đài trong trang làm tiếp">
         <span className="dot" aria-hidden="true" />
         mất MATLAB
-      </span>
-    );
-  }
-  if (link.mode === 'local') {
-    const tip =
-      link.why === 'matlab'
-        ? 'MATLAB chưa nối đường dây'
-        : link.why === 'answer'
-          ? 'MATLAB không nhấc máy'
-          : 'Trang không chạy trên máy chủ có cầu nối';
-    return (
-      <span className="line-chip" title={`${tip}: tổng đài chạy trong trang`}>
-        <span className="dot" aria-hidden="true" />
-        trong trang
       </span>
     );
   }

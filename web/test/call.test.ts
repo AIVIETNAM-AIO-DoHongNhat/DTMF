@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { KEYS } from '../src/audio/dtmf';
 import { reportMs, transmit, type ChannelParams, type PhoneParams } from '../src/dsp/channel';
@@ -30,6 +31,14 @@ describe('tổng đài', () => {
     expect(st.dem).toBe('1*#0');
     expect(st.loi).toBe('Tổng đài nhận được phím không.');
     expect(st.lichSu).toEqual(['1  →  một', '*  →  sao', '#  →  thăng', '0  →  không']);
+  });
+
+  it('mỗi câu trong kịch bản có tệp tiếng đã nén trong ivr/voice', () => {
+    const names = [WAV_CHAO, WAV_NHAN_PHIM, ...KEYS.map(wavPhim)];
+    for (const n of names) {
+      const f = new URL(`../src/ivr/voice/${n}`, import.meta.url);
+      expect(existsSync(f), n).toBe(true);
+    }
   });
 
   it('tên tệp thu âm khớp kịch bản', () => {

@@ -35,8 +35,9 @@ export function dtmfLine(port = MATLAB_PORT): Plugin {
     const cau = new Bridge(httpServer, port, (m) => server.config.logger.info(m, { timestamp: true }));
     httpServer.on('close', () => cau.close());
 
-    // Trang hỏi trạng thái trước khi gọi (thẻ danh bạ hiện "MATLAB sẵn sàng")
-    // mà không phải mở WebSocket - mở WebSocket là một cuộc gọi.
+    // Điện thoại hỏi trạng thái trước khi gọi mà không phải mở WebSocket - mở
+    // WebSocket là chiếm dây. Nhờ vậy MATLAB đang chạy màn giám định thì cuộc
+    // gọi đi trong trang, không cắt vụ đang nghe (App.tsx, probeLine).
     server.middlewares.use(`${LINE_PATH}/status`, (_req, res) => {
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Cache-Control', 'no-store');

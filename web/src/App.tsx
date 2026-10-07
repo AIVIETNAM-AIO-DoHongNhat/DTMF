@@ -12,6 +12,7 @@ import {
 } from './audio/dtmf';
 import { encodeWav } from './audio/wav';
 import { ivrStart, ivrStep, type IvrState } from './ivr/ivr';
+import { VoicePlayer } from './ivr/voice';
 import { LineClient, lineUrl, probeLine, type LineHandlers } from './line/line';
 import { ModeSwitch } from './components/ModeSwitch';
 import { Phone, type CallState, type Heard, type Link } from './components/Phone';
@@ -40,6 +41,8 @@ interface Shown {
 
 export function App() {
   const player = useMemo(() => new DtmfPlayer(), []);
+  // Giọng tổng đài dùng chung AudioContext với tiếng phím nhưng ra thẳng loa.
+  const voice = useMemo(() => new VoicePlayer(() => player.ensure()), [player]);
   const [volume, setVolume] = useState(0.8);
   const [boostDb, setBoostDb] = useState(0);
   const [active, setActive] = useState<KeyInfo | null>(null);
@@ -75,7 +78,8 @@ export function App() {
     const st = ivrStep(live.current.ivr, key).st;
     live.current.ivr = st;
     setIvr(st);
-  }, []);
+    void voice.readBack(key, live.current.volume);
+  }, [voice]);
 
   /** Bắt đầu vẽ một phím mới ở bên phải. */
   const showKey = (key: DtmfKey) => setShown({ key, toneMs: MIN_TONE_MS });
@@ -96,13 +100,15 @@ export function App() {
   const onPress = useCallback(
     (key: DtmfKey) => {
       stopSeq();
+      // Bấm phím là ngắt lời tổng đài, như tổng đài thật.
+      if (live.current.call === 'connected') voice.stop();
       player.startKey(key, { volume: live.current.volume, rowBoostDb: live.current.boostDb });
       holding.current = { key, t0: performance.now() };
       setActive(keyInfo(key));
       typeKey(key);
       showKey(key);
     },
-    [player, stopSeq],
+    [player, stopSeq, voice],
   );
 
   const onRelease = useCallback(
@@ -135,6 +141,7 @@ export function App() {
     setIvr(s);
     setCall('connected');
     setConnectedAt(Date.now());
+    void voice.greet(live.current.volume);
   };
 
   /** Tổng đài trong trang nhấc máy sau ms, nếu cuộc gọi token vẫn đang đổ chuông. */
@@ -157,6 +164,7 @@ export function App() {
     callToken.current++;
     clearTimeout(ringTimer.current);
     stopSeq();
+    voice.stop();
     if (notify) line.send({ t: 'hangup' });
     line.close();
     setLinkNow({ mode: 'off' });
@@ -199,6 +207,7 @@ export function App() {
 
   const onCall = () => {
     player.ensure();
+    voice.preload();
     setTyped('');
     setHeard(null);
     live.current.call = 'ringing';
@@ -222,7 +231,7 @@ export function App() {
     void probeLine().then((pre) => {
       if (token !== callToken.current) return;
       if (pre?.matlab && pre.app === 'forensic') {
-        setLinkNow({ mode: 'local', why: 'matlab' });
+        setLinkNow({ mode: 'local' });
         answerLocal(token, Math.max(0, RING_MS - (performance.now() - t0)));
         return;
       }
@@ -235,7 +244,7 @@ export function App() {
       if (token !== callToken.current) return;
       if (!st?.matlab || st.app === 'forensic') {
         line.close();
-        setLinkNow({ mode: 'local', why: st ? 'matlab' : 'bridge' });
+        setLinkNow({ mode: 'local' });
         answerLocal(token, Math.max(0, RING_MS - (performance.now() - t0)));
         return;
       }
@@ -246,7 +255,7 @@ export function App() {
         if (token !== callToken.current || live.current.call !== 'ringing') return;
         line.send({ t: 'hangup' });
         line.close();
-        setLinkNow({ mode: 'local', why: 'answer' });
+        setLinkNow({ mode: 'local' });
         answer();
       }, ANSWER_TIMEOUT_MS);
     });
@@ -328,9 +337,10 @@ export function App() {
       stopSeq();
       clearTimeout(ringTimer.current);
       line.close();
+      voice.stop();
       player.close();
     },
-    [stopSeq, line, player],
+    [stopSeq, line, player, voice],
   );
 
   return (
@@ -351,7 +361,6 @@ export function App() {
             <Phone
               call={call}
               connectedAt={connectedAt}
-              ivr={ivr}
               typed={typed}
               active={active}
               link={link}
