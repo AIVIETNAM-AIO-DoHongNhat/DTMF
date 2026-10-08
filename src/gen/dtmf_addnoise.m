@@ -30,8 +30,15 @@ function y = dtmf_addnoise(x, opt)
 arguments
     x (1,:) double
     opt.snrDb (1,1) double = 10
-    opt.type (1,:) char {mustBeMember(opt.type, {'awgn','hum50','speech'})} = 'awgn'
+    opt.type (1,:) char = 'awgn'
     opt.fs (1,1) double = 8000
+end
+
+% Chặn trong thân hàm thay cho validator - luật CONTRACTS §2. Đặt TRƯỚC nhánh
+% tín hiệu rỗng để tên nhiễu gõ sai không lọt qua chỉ vì x rỗng.
+if ~ismember(opt.type, {'awgn', 'hum50', 'speech'})
+    error('dtmf_addnoise:badType', ...
+        'type phải là ''awgn'', ''hum50'' hoặc ''speech'', nhận được ''%s''.', opt.type);
 end
 
 N = numel(x);
@@ -47,7 +54,7 @@ switch opt.type
 
     case 'hum50'
         t  = (0:N-1) / opt.fs;
-        v0 = sin(2*pi*50*t);            % ù điện lưới 50 Hz
+        v0 = sin(2*pi*50*t);            % nhiễu điện lưới 50 Hz
 
     case 'speech'
         v0 = local_loadSpeech(N, opt.fs);

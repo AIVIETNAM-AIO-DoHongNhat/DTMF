@@ -150,7 +150,9 @@
 \definecolor{dtmfRule}{RGB}{170,182,190}
 \definecolor{dtmfBoxBg}{RGB}{243,247,250}
 \definecolor{dtmfGray}{RGB}{95,105,112}
-\definecolor{codeBg}{RGB}{250,250,251}
+\definecolor{codeBg}{RGB}{251,252,253}
+\definecolor{codeHead}{RGB}{238,243,247}
+\definecolor{codeFrame}{RGB}{208,216,223}
 \definecolor{codeComment}{RGB}{38,115,66}
 \definecolor{codeKey}{RGB}{20,72,150}
 \definecolor{codeStr}{RGB}{158,52,36}
@@ -199,11 +201,18 @@
   {\thesubsubsection}{0.6em}{}
 
 % Tiêu đề mục lớn (I), mục (1.1) và mục con (1.1.1) thụt vào 1,27cm như dòng
-% đầu đoạn
-\titlespacing{\section}      {1.27cm}{0pt}{22pt}
+% đầu đoạn. Mục lớn viết liền tiếp mục trước, không sang trang mới, nên có
+% khoảng cách phía trên; khoảng này tự mất khi tiêu đề rơi vào đầu trang.
+\titlespacing{\section}      {1.27cm}{30pt plus 6pt minus 4pt}{22pt}
 \titlespacing{\subsection}   {1.27cm}{18pt plus 3pt minus 2pt}{9pt}
 \titlespacing{\subsubsection}{1.27cm}{13pt plus 2pt minus 1pt}{6pt}
 
+% Cuối trang còn chưa tới tám dòng thì tiêu đề mục lớn sang trang sau, để tiêu
+% đề không nằm trơ ở đáy trang với một hai dòng chữ
+\RequirePackage{needspace}
+\RequirePackage{etoolbox}
+\pretocmd{\section}{\Needspace{8\baselineskip}}{}%
+  {\ClassWarning{dtmf_report}{Khong chen duoc Needspace vao section}}
 % Đoạn đầu tiên ngay sau tiêu đề cũng thụt vào cho đều
 \RequirePackage{indentfirst}
 
@@ -229,8 +238,8 @@
 \captionsetup[figure]{name=Hình, position=below}
 \captionsetup[table]{name=Bảng, position=above}
 
-% Bảng dùng dòng đơn (1,15 x cỡ chữ), nên đệm hàng lớn hơn để hàng thoáng
-\renewcommand{\arraystretch}{1.6}
+% Bảng dùng dòng đơn (1,15 x cỡ chữ), nên đệm hàng thêm để hàng thoáng
+\renewcommand{\arraystretch}{1.35}
 \setlength{\tabcolsep}{8pt}
 \setlength{\aboverulesep}{0.5ex}
 \setlength{\belowrulesep}{0.6ex}
@@ -394,17 +403,27 @@
 }
 \lstset{style=matlabstyle}
 
+% Khung mã kiểu phẳng: thanh tiêu đề nền nhạt (tên tệp màu chàm, nhãn ngôn ngữ
+% xám nhỏ bên phải), viền xám mảnh, vạch dọc mảnh tách cột số dòng với mã. Vạch
+% do listings vẽ (frame=l) nên vẫn liền khi khung bị ngắt sang trang sau.
+\newcommand{\codelangtag}[1]{{\mdseries\sffamily\fontsize{7.5}{9}\selectfont
+  \color{dtmfGray}\ifdefined\addfontfeatures\addfontfeatures{LetterSpace=10}\fi
+  \MakeUppercase{#1}}}
 \newtcblisting{matlabbox}[1][]{%
   enhanced, breakable,
   listing engine=listings, listing only,
-  colback=codeBg, colframe=dtmfBlue!85,
-  coltitle=white, colbacktitle=dtmfBlue!85,
-  title={\strut#1}, fonttitle=\bfseries\sffamily\fontsize{10.5}{13}\selectfont,
-  left=5pt, right=5pt, top=6pt, bottom=6pt,
-  toptitle=2pt, bottomtitle=2pt,
-  arc=1.5mm, boxrule=0.6pt,
+  colback=codeBg, colframe=codeFrame,
+  coltitle=dtmfBlue, colbacktitle=codeHead,
+  title={\strut#1\hfill\codelangtag{MATLAB}},
+  fonttitle=\bfseries\sffamily\fontsize{9.5}{12}\selectfont,
+  left=4pt, right=8pt, top=7pt, bottom=7pt,
+  lefttitle=10pt, righttitle=10pt, toptitle=3pt, bottomtitle=3pt,
+  arc=1.2mm, boxrule=0.5pt, titlerule=0.5pt,
+  before skip=10pt, after skip=10pt,
   listing options={style=matlabstyle, aboveskip=0pt, belowskip=0pt,
-                   xleftmargin=1.9em, framexleftmargin=1.9em}
+                   frame=l, framerule=0.4pt, rulecolor=\color{codeFrame},
+                   framesep=9pt, framexleftmargin=0pt,
+                   xleftmargin=2.5em, numbersep=15pt}
 }
 
 % Cây thư mục kiểu lệnh `tree`, lời chú thích viết như comment MATLAB.
@@ -542,10 +561,12 @@
   \renewcommand{\theequation}{PL\arabic{section}.\arabic{equation}}}
 
 % Mục con của phần không đánh số (Mở đầu): không đưa vào mục lục
+% \Needspace và \@afterheading giữ tiêu đề đi cùng ít nhất vài dòng phía sau, kể
+% cả khi ngay sau tiêu đề là một danh sách (danh sách mặc định cho ngắt trang ở đầu).
 \newcommand{\unsubsection}[1]{%
-  \par\vspace{16pt}
+  \par\Needspace{5\baselineskip}\vspace{16pt}
   {\noindent\hspace*{1.27cm}\normalsize\bfseries #1\par}
-  \nobreak\vspace{8pt}}
+  \nobreak\vspace{8pt}\@afterheading}
 
 % Mục lục chỉ liệt kê đến cấp 2 (1.1); mục cấp 3 (1.1.1) vẫn đánh số trong bài
 \setcounter{tocdepth}{2}

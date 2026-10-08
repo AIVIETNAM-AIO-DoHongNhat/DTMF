@@ -161,8 +161,8 @@ testCase.verifyNotEmpty(findobj(app.AxMap, 'Type', 'image'));
 end
 
 function test_noiseTypeReachesTheChannel(testCase)
-% Loại nhiễu chọn ở bước 2 phải đi đúng vào dtmf_addnoise. Ù 50 Hz là tất
-% định nên so được từng mẫu.
+% Loại nhiễu chọn ở bước 2 phải đi đúng vào dtmf_addnoise. Nhiễu điện lưới
+% 50 Hz là tất định nên so được từng mẫu.
 app = newApp(testCase);
 app.EfKeys.Value = '59';
 app.SldSNR.Value = 10;
@@ -173,7 +173,7 @@ app.BtnNoisePushed([]);
 testCase.verifyEqual(app.S.noise, 'hum50');
 testCase.verifyEqual(app.S.y, ...
     dtmf_addnoise(app.S.x, 'snrDb', 10, 'type', 'hum50', 'fs', 8000), 'AbsTol', 1e-12);
-testCase.verifySubstring(app.LblStatus.Text, 'ù 50 Hz');
+testCase.verifySubstring(app.LblStatus.Text, 'điện lưới 50 Hz');
 end
 
 function test_noiseTypeChangeRedoesTheChannel(testCase)

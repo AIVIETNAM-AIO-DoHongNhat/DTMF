@@ -17,7 +17,7 @@ function [keys, info] = dtmf_decode_filterbank(y, opt)
 %          thang với hai bộ giải mã kia - xem CONTRACTS §6(a).
 %       5. dtmf_decide phán quyết từng khung, rồi dtmf_debounce gộp các khung
 %          liên tiếp cùng phím thành MỘT ký tự. Nhánh này PHỤ THUỘC luật
-%          "dải >= 2 khung": dư âm bộ lọc trong khoảng lặng sinh ra dải dài
+%          "dải >= 2 khung": dao động dư của bộ lọc trong khoảng lặng sinh ra dải dài
 %          đúng một khung và luật đó là thứ loại nó - xem CONTRACTS §6(f).
 %
 %   Input:
@@ -107,7 +107,7 @@ for i = 1:n
 end
 
 % Debounce dùng chung cho cả ba bộ giải mã - quyết định (f). Nhánh này PHỤ
-% THUỘC luật "dải >= 2 khung": dư âm bộ lọc trong khoảng lặng sinh ra dải dài
+% THUỘC luật "dải >= 2 khung": dao động dư của bộ lọc trong khoảng lặng sinh ra dải dài
 % đúng một khung, và luật đó là thứ duy nhất loại nó.
 keys = dtmf_debounce(info.rowIdx, info.colIdx);
 

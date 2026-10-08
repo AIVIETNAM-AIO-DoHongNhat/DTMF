@@ -55,9 +55,18 @@ K = numel(keys);
 %% 1. Kiểm tra đầu vào
 % Bắt lỗi ở đây để báo rõ ràng, thay vì lỗi khó hiểu từ containers.Map
 % hoặc tukeywin phía dưới.
-if opt.ampl <= 0 || opt.ampl > 1
+% Viết dạng ~(...) để NaN cũng bị chặn: mọi phép so với NaN đều false.
+if ~(opt.ampl > 0 && opt.ampl <= 1)
     error('dtmf_generate:badAmpl', ...
         'Tham số ampl phải thuộc (0, 1], nhận được %g.', opt.ampl);
+end
+if ~(opt.fs > 0 && isfinite(opt.fs))
+    error('dtmf_generate:badFs', 'fs phải dương, nhận được %g.', opt.fs);
+end
+% pauseMs âm làm các tone chồng lên nhau mà không báo gì.
+if ~(opt.pauseMs >= 0 && isfinite(opt.pauseMs))
+    error('dtmf_generate:badPauseMs', ...
+        'pauseMs phải >= 0, nhận được %g.', opt.pauseMs);
 end
 
 % num2cell('51') -> {'5', '1'}; isKey nhận cell thì trả về mảng logic 1×K.
@@ -72,7 +81,7 @@ end
 nTone  = round(opt.fs * opt.toneMs  / 1000);
 nPause = round(opt.fs * opt.pauseMs / 1000);
 
-if nTone < 1
+if ~(nTone >= 1 && isfinite(nTone))
     error('dtmf_generate:badToneMs', ...
         'toneMs quá ngắn: fs = %g Hz và toneMs = %g ms cho ra 0 mẫu.', ...
         opt.fs, opt.toneMs);
@@ -82,8 +91,10 @@ end
 if K == 0
     x = zeros(1, 0);
     t = zeros(1, 0);
-    meta = struct('keys', keys, 'onsets', [], 'offsets', [], ...
-                  'fRow', [], 'fCol', []);
+    % Rỗng 1×0, không phải [] (0×0) - luật CONTRACTS §2, help ghi các
+    % trường là 1×K.
+    meta = struct('keys', keys, 'onsets', zeros(1, 0), 'offsets', zeros(1, 0), ...
+                  'fRow', zeros(1, 0), 'fCol', zeros(1, 0));
     return
 end
 

@@ -42,6 +42,16 @@ arguments
     opt.hop (1,1) double = 205
 end
 
+% hop hay frameN <= 0 làm nFrame thành Inf hoặc âm rồi repmat báo một lỗi khó
+% hiểu, nên chặn tại đây. Viết dạng ~(...) để NaN cũng bị chặn.
+if ~(opt.frameN >= 1 && opt.frameN == round(opt.frameN))
+    error('dtmf_segment:badFrameN', ...
+        'frameN phải là số nguyên dương, nhận được %g.', opt.frameN);
+end
+if ~(opt.hop >= 1 && opt.hop == round(opt.hop))
+    error('dtmf_segment:badHop', 'hop phải là số nguyên dương, nhận được %g.', opt.hop);
+end
+
 % max(0, ...) chặn nFrame âm khi y ngắn hơn một khung; thiếu nó thì
 % repmat(s, 1, -194) vẫn im lặng trả 1×0 - đúng kết quả nhưng sai lý do.
 nFrame = max(0, floor((numel(y) - opt.frameN) / opt.hop) + 1);

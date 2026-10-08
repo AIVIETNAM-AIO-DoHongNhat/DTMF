@@ -102,7 +102,7 @@ Không đặt `See also` (đã có §8) và `Tham khảo:` (đã có `report/tem
 | Tone / nghỉ | 100 ms / 50 ms (800 / 400 mẫu) |
 | Khung Goertzel | N = 205, hop 205 → Δf ≈ 39,02 Hz; bin 18 20 22 24 / 31 34 38 |
 | Khung FFT | N = 256, hop 128, Hamming → Δf = 31,25 Hz; bin 22 25 27 30 / 39 43 47 |
-| Dung sai tần số | chuẩn: nhận ≤ ±1,5% · từ chối ≥ ±3,5%. Đo được: chỉ nhận chắc ≤ ±0,5%, từ chối ±3,5% đạt (§7.12) |
+| Dung sai tần số | chuẩn: nhận ≤ ±1,5% · từ chối ≥ ±3,5%. Đo được: chỉ nhận chắc ≤ ±0,5%, từ chối ±3,5% đạt với FFT và Goertzel nhưng ngân hàng bộ lọc còn nhận nhầm do dao động dư (§7.12, §7.13) |
 | Twist | thuận ≤ 4 dB · nghịch ≤ 8 dB |
 | Ngưỡng quyết định | đỉnh ≥ 6 dB so với bin nhì cùng nhóm; Σ7 bin ≥ 70% năng lượng khung |
 | Ngân hàng bộ lọc | r = 0,99 → BW ≈ 25 Hz |
@@ -214,8 +214,9 @@ S.thr  = 0.5 * min(max(E(1:4)), max(E(5:7)));       % E = info.E(:, S.iSel)
 
 ### 7.1 Hệ số bù cửa sổ nhánh FFT
 
-21/09/2026, 41 phím, 256/128. Thiếu `cg`, trần lý thuyết của `sum(E(1:7))` là 0,7317 và đo được
-0,6298 < 0,70 nên 0/41 phím đúng. Có `cg` thì 41/41, `rho` nhỏ nhất 0,7079 (Goertzel 0,7080).
+21/09/2026, 41 phím, 256/128. Thiếu `cg`, trần lý thuyết của `sum(E(1:7))` là 0,7317; trên khung DTMF
+thật trung vị đo được 0,6298 và lớn nhất 0,6929 (= 0,9470 × 0,7317, đo lại 07/10/2026), đều < 0,70 nên
+0/41 phím đúng. Có `cg` thì 41/41, `rho` nhỏ nhất 0,7079 (Goertzel 0,7080).
 
 ### 7.2 Độ chính xác theo SNR
 
@@ -243,7 +244,7 @@ có 41, quét bằng chuỗi 41 phím; FFT (hop 128) có 8, quét bằng chuỗi
 
 ### 7.5 Debounce `minRun = 2`
 
-22/09/2026. Với `minRun = 1`, ngân hàng bộ lọc còn dư âm trong khoảng lặng (`rho = 2,297`, khung
+22/09/2026. Với `minRun = 1`, ngân hàng bộ lọc còn dao động dư trong khoảng lặng (`rho = 2,297`, khung
 được nhận) rồi quá độ ở đầu tone kế (`rho = 0,439`, khung bị loại), sinh dải một khung thừa.
 
 | Cấu hình | `"1"×L + "99"`, L = 0..41 | 30 chuỗi 41 phím |
@@ -264,9 +265,10 @@ xen (6 dB: Goertzel 0,862 → 0,754, FFT 0,585 → 0,862). Phím thật ngắn n
   BW −3 dB = 25,59 Hz so với lý thuyết `(1-r)·fs/π` = 25,46 Hz.
 - Quá độ: `τ = 12,44 ms`, `5τ = 62,2 ms` ≈ 2,4 khung đầu mỗi tone. Lọc riêng từng khung mất 57-61%
   năng lượng từ khung 2, nên phải lọc cả tín hiệu một lần rồi mới chia khung.
-- `rho` vượt 1 vì dư âm ở khoảng lặng: tới 3,08, và 6,65e7 sau khi trừ trung bình. Vô hại, quét
+- `rho` vượt 1 vì dao động dư ở khoảng lặng: tới 3,08, và 6,65e7 sau khi trừ trung bình. Vô hại, quét
   60 chuỗi × 3 phương pháp cho 0/180 ca sai cả khi sạch lẫn DC 0,2 + nhiễu 15 dB. Không viết test
-  cận trên của `rho` cho nhánh này.
+  cận trên của `rho` cho nhánh này. Chỉ vô hại với tone đúng tần số, vì dao động dư lặp lại đúng phím vừa
+  bấm. Tone lệch tần và tiếng nói tắt hẳn thì dao động dư sinh phím giả (§7.13).
 - Chịu nhiễu (10 chuỗi 12 phím × 5 lần, `rng(2026)`):
 
 | SNR [dB] | 20 | 15 | 10 | 8 | 6 | 4 | 2 |
@@ -386,8 +388,8 @@ DMTF/
 │  └─ ui/        ui_refresh  ui_plot_{wave,psd,map,bars,spec}  ui_live_draw  ui_pad
 │                ui_theme  ui_play  ui_mic
 ├─ tests/        run_all_tests  test_*.m
-├─ scripts/      dev_harness  make_coeffs  run_bench  make_figures  make_cover  publish_figures
-├─ data/         wav/  mat/ (coeffs.mat sinh tại chỗ, §6(b))
+├─ scripts/      dev_harness  make_coeffs  make_dataset  run_bench  make_figures  make_cover  publish_figures
+├─ data/         wav/ (bộ dữ liệu có nhãn, make_dataset sinh, §7.13)  mat/ (coeffs.mat sinh tại chỗ, §6(b))
 ├─ results/      figures/  bench.mat (sinh lại được, không commit)
 ├─ report/       template/ (LaTeX; Figures/ do publish_figures chép sang)
 ├─ slides/  docs/ (study/KE_HOACH.md, ui_naming.md)
@@ -413,8 +415,48 @@ chuẩn; ô là số phím (trên 12) được nhận đúng.
 | Goertzel | 0 | 1 | 6 | 11 | 12 | 12 | 8 | 6 | 0 |
 | Ngân hàng bộ lọc | 0 | 0 | 0 | 12 | 12 | 12 | 0 | 0 | 0 |
 
-Yêu cầu *từ chối* ±3,5% đạt ở cả ba. Yêu cầu *nhận* ±1,5% của ITU-T Q.24 **không** đạt: ngưỡng
+Yêu cầu *từ chối* ±3,5% đạt ở cả ba khi thử từng phím đứng riêng; trong chuỗi có khoảng nghỉ, ngân hàng
+bộ lọc nhận nhầm từ dao động dư (§7.13). Yêu cầu *nhận* ±1,5% của ITU-T Q.24 **không** đạt: ngưỡng
 `rho ≥ 0,70` làm khung lệch tụt dưới ngưỡng, và bộ lọc băng ≈ 25 Hz hẹp hơn 22 Hz (1,5% của 1477 Hz)
 nên ngân hàng bộ lọc chỉ nhận chắc tới ±0,5%. Con số "≤ 1,4%" ở README là độ lệch của bin gần nhất
-so với tần số chuẩn, không phải dung sai mà bộ giải mã chấp nhận. Chưa có test cho mục này.
+so với tần số chuẩn, không phải dung sai mà bộ giải mã chấp nhận. Chưa có test riêng cho mục này, bộ dữ
+liệu §7.13 có tệp lệch ±0,5%, ±1,5%, ±3,5%.
 
+### 7.13 Bộ dữ liệu `data/wav`
+
+08/10/2026. `scripts/make_dataset.m` sinh 139 tệp kèm nhãn `data/wav/manifest.csv`, `tests/test_dataset.m`
+giải mã từng tệp qua `dtmf_readaudio` rồi `dtmf_run`. Cột `kyVong` là `dung` (cả ba đọc đúng từng phím),
+`rong` (cả ba im lặng) hoặc `thong_ke` (chỉ đo). Cột `ngoaiLe` ghi bộ giải mã đang sai kỳ vọng, và test
+đỏ khi ngoại lệ hết đúng. WAV không có dấu thời gian nên sinh lại ra đúng từng byte, trừ WAV float (khối
+PEAK) nên bộ dữ liệu không có WAV float.
+
+Mọi tệp `dung` (sạch, SNR ≥ 10 dB cả ba loại nhiễu, twist +2/−6 dB, nhịp ≥ 100/50 ms, bấm tay, tám định
+dạng tệp) đúng cả ba. Dưới vách, độ chính xác trung bình:
+
+| Điều kiện | FFT | Goertzel | Ngân hàng bộ lọc |
+|---|:--:|:--:|:--:|
+| AWGN 6 dB | 1,00 | 0,95 | 1,00 |
+| AWGN 4 dB | 0,60 | 0,77 | 1,00 |
+| AWGN 2 dB | 0,02 | 0,17 | 0,77 |
+| AWGN 0 dB | 0,00 | 0,00 | 0,05 |
+| Điện lưới 50 Hz 5 dB | 0,83 | 0,90 | 1,00 |
+| Điện lưới 50 Hz 2,5 dB | 0,00 | 0,06 | 1,00 |
+| Tiếng nói 5 dB | 0,83 | 0,71 | 1,00 |
+| Hiện trường *Ngoài đường* | 0,98 | 1,00 | 0,98 |
+| Hiện trường *Cực khó* | 0,78 | 0,70 | 0,90 |
+
+- Dư âm của ngân hàng bộ lọc sinh phím giả khi âm thanh tắt. Khung ngay sau chỗ tắt có mẫu số
+  `sum(frame.^2)` gần 0 trong khi bộ cộng hưởng còn dao động, nên `rho` vọt lên (567 với giọng nói,
+  646 720 với tone lệch tần) và khung qua điều kiện 4. FFT và Goertzel không có trạng thái nên không bị.
+- Giọng tổng đài thật 18 s: ngân hàng bộ lọc đọc ra một phím 9 ở 9,65 s, ngay sau câu chào tắt về 0.
+  Cộng nền ồn từ −70 dBFS là hết, nên chỉ xảy ra với khoảng lặng số tuyệt đối.
+- Tone lệch ±3,5%: trong tone khung bị loại đúng, nhưng trong khoảng nghỉ bộ lọc còn dao động dư ở đúng tần
+  số chuẩn. Quét 41 cách lệch lưới chuỗi 12 phím, ngân hàng bộ lọc nhận 9 phím ở −3,5% và 2 phím ở +3,5%,
+  FFT và Goertzel 0. Nền ồn −50 dBFS không chữa được. §7.12 thử từng phím không có khoảng nghỉ phía sau
+  nên không thấy.
+- Không có phím giả ở 13 tệp `khong_phim` còn lại: im lặng tuyệt đối, nhiễu, điện lưới 50 Hz, một tone, hai tone
+  cùng nhóm, phím A (697 + 1633 Hz), âm mời quay số 425 Hz và 350 + 440 Hz, âm bận, quét tần 300-3400 Hz,
+  và đoạn giọng nói chứa chỗ đọc nhầm 9 khi cộng nền −60 dBFS.
+- Đọc đúng cả ba nhưng chưa quét lưới nên để `thong_ke`: nghỉ 40 ms với phím lặp, bấm vội 65-110 ms, xén
+  đỉnh. Tone 80/50 ms làm ngân hàng bộ lọc mất phím cuối, tone 40 ms hỏng cả ba (§7.11).
+- Không sửa thuật toán vì sẽ lệch số bench của báo cáo.

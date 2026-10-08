@@ -30,7 +30,7 @@ Ba thẻ bước xếp dọc theo đúng đường tín hiệu đi. Mỗi thẻ 
 | Thẻ | Điều khiển | Trục thời gian | Trục tần số |
 |---|---|---|---|
 | Bước 1 · Tín hiệu gốc x[n] | `PnlKeypad` (tổng hợp) **hoặc** `PnlMic` (micro), chồng lên nhau ở cùng một ô lưới | `AxWaveX` | `AxPsdX` |
-| Bước 2 · Kênh nhiễu y[n] = x[n] + w[n] | `DdNoise`, `SldSNR` + `LblSNR`, `BtnNoise`, `BtnPlay` | `AxWave` | `AxPsd` |
+| Bước 2 · Kênh nhiễu y[n] = x[n] + v[n] | `DdNoise`, `SldSNR` + `LblSNR`, `BtnNoise`, `BtnPlay` | `AxWave` | `AxPsd` |
 | Bước 3 · Giải mã | `DdMethod`, `BtnDecode`, `LblSent`, `LblDecoded` | `AxMap` | `AxBars` |
 
 Trên cùng là dòng tiêu đề với hai nút nguồn `BtnSrcGen` / `BtnSrcMic`; dưới cùng là thanh trạng thái `LblStatus` + `TxtLog`.
@@ -81,7 +81,7 @@ Test đọc dấu hiệu này qua `FontWeight`.
 | `BtnOpen` | Button | "Mở tệp âm thanh…" ở bước 1: chọn tệp, nạp làm x[n] qua `napTep` / `dtmf_readaudio` |
 | `DdNoise` | DropDown | `ItemsData = {'awgn','hum50'}` → `Value` khớp sẵn `S.noise` |
 | `SldSNR` | Slider | `Limits = [-5 30]`, đơn vị dB, áp dụng ở `ValueChanged` (thả chuột) |
-| `BtnNoise` | Button | "Cộng nhiễu": y[n] = x[n] + w[n] qua `dtmf_addnoise` |
+| `BtnNoise` | Button | "Cộng nhiễu": y[n] = x[n] + v[n] qua `dtmf_addnoise` |
 | `BtnPlay` | Button | "Nghe" ở bước 2: phát `S.y` qua `app/ui/ui_play.m` - tín hiệu **đã cộng nhiễu**, hoặc bản ghi micro, tức đúng cái bộ giải mã nghe |
 | `DdMethod` | DropDown | `ItemsData = {'fft','goertzel','filterbank'}` → `Value` khớp sẵn `S.method` |
 | `BtnDecode` | Button | "Giải mã": `dtmf_run` trên `S.y` |

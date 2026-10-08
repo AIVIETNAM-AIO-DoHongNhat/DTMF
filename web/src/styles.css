@@ -1987,7 +1987,7 @@ input[type='range']:focus-visible::-webkit-slider-thumb {
   gap: 8px;
 }
 
-/* Nút gửi: việc duy nhất thầy cần bấm sau khi nhập số. */
+/* Nút gửi: việc duy nhất cần bấm sau khi nhập số. */
 .fx-go {
   flex: 1;
   height: 46px;

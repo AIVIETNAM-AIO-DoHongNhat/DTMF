@@ -1,6 +1,6 @@
 classdef DTMFForensic < handle
 %DTMFFORENSIC Giám định ghi âm: nghe một đoạn ghi âm từ trang web, tìm lại số điện thoại đã bấm chỉ từ âm thanh
-% Màn chiếu lên máy chiếu: thầy nhập số bí mật trên trang web, MATLAB đọc dần từng chữ số, kết luận, rồi mới đối chiếu với số thật
+% Màn chiếu lên máy chiếu: nhập số bí mật trên trang web, MATLAB đọc dần từng chữ số, kết luận, rồi mới đối chiếu với số thật
 %   APP = DTMFFORENSIC() mở cửa sổ rồi tự nối đường dây tới cầu nối của trang
 %   web (npm run dev hoặc npm run dev:lan trong web/). APP = DTMFFORENSIC('off')
 %   dựng cửa sổ ẩn cho test: không nối mạng, không mở micro, không chạy đồng
@@ -19,10 +19,10 @@ classdef DTMFForensic < handle
 %
 %   Nguồn âm thanh:
 %       Đường dây   mẫu trang gửi qua cầu nối (DTMFLine) - đúng các mẫu trang
-%                   phát ra loa. Máy của thầy mở trang qua mạng LAN.
+%                   phát ra loa. Máy nhập số mở trang qua mạng LAN.
 %       Micro       MATLAB thu bằng micro. Đường dây vẫn nối thì các tin case,
 %                   end, reveal của trang vẫn điều khiển vụ việc; không có
-%                   trang (vd. thầy bấm số trên điện thoại thật) thì bấm Bắt
+%                   trang (vd. bấm số trên điện thoại thật) thì bấm Bắt
 %                   đầu nghe, Kết luận, rồi gõ số thật vào ô Số thật.
 %
 %   Bố cục - như DTMFLive, một trang báo cáo LaTeX:
@@ -268,8 +268,12 @@ classdef DTMFForensic < handle
             end
             try
                 if app.Line.DaNoi
-                    nhanTin(app, app.Line.doc());
-                    if ~app.Line.conSong()
+                    % Xét còn sống NGAY sau khi đọc, trước khi xử lý tin: kết luận ba bộ
+                    % giải mã có thể tốn cả giây, tính cả thời gian đó là báo nhầm mất dây.
+                    tin = app.Line.doc();
+                    if app.Line.conSong()
+                        nhanTin(app, tin);
+                    else
                         matDuongDay(app);
                     end
                 end
@@ -653,7 +657,7 @@ classdef DTMFForensic < handle
                 case 'cho'
                     cau = 'Đang chờ đoạn ghi âm';
                     mauCau = M.muc;
-                    goiY = 'Thầy nhập số bí mật trên trang web rồi bấm Gửi cho MATLAB';
+                    goiY = 'Nhập số bí mật trên trang web rồi bấm Gửi cho MATLAB';
                     if strcmp(app.Nguon, 'mic')
                         goiY = 'Bấm Bắt đầu nghe, hoặc gửi đoạn ghi âm từ trang web';
                     end
@@ -664,7 +668,7 @@ classdef DTMFForensic < handle
                 case 'ketluan'
                     cau = 'Đã kết luận';
                     mauCau = M.muc;
-                    goiY = 'Chờ thầy công bố số thật trên trang web';
+                    goiY = 'Chờ công bố số thật trên trang web';
                 otherwise
                     J = app.DoiChieu(chonPP(app));
                     if J.editDist == 0

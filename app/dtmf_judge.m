@@ -7,7 +7,7 @@ function J = dtmf_judge(keysTrue, keysHat)
 %
 %   Đây là lớp trung gian thứ ba giữa giao diện và src/, bên cạnh dtmf_run
 %   (giải mã khối) và dtmf_listen (giải mã luồng) - CONTRACTS §2. Màn giám
-%   định DTMFForensic gọi nó khi thầy công bố số thật.
+%   định DTMFForensic gọi nó khi số thật được công bố.
 %
 %   Các bước hoạt động:
 %       1. Đặt mọi trường đầu ra về giá trị rỗng hợp lệ.

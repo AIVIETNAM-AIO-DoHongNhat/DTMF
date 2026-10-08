@@ -18,7 +18,7 @@ function test_dispatchesAllThreeMethods(testCase)
 % cả ba bộ đều trả '0912345', nên đổi chỗ hai lời gọi trong switch vẫn xanh.
 % Dùng hai dấu vân tay đo được:
 %   nFrame - fft chạy hop 128 nên ra 61 khung, hai bộ kia hop 205 ra 39 (§7.3);
-%   rhoMax - dư âm bộ lọc trong khung lặng làm sum(E(1:7)) của nhánh filterbank
+%   rhoMax - dao động dư của bộ lọc trong khung lặng làm sum(E(1:7)) của nhánh filterbank
 %            vọt lên rất lớn, hai bộ kia luôn <= 1 (§7.6).
 mong = struct('fft', [61 0], 'goertzel', [39 0], 'filterbank', [39 1]);
 for m = {'fft', 'goertzel', 'filterbank'}

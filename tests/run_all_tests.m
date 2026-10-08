@@ -7,8 +7,6 @@ function run_all_tests()
 %       run_all_tests
 %
 %   Yêu cầu: không có test nào FAIL trước khi commit lên nhánh main.
-%
-%   See also runtests, test_generate, test_goertzel.
 
 root = fileparts(fileparts(mfilename('fullpath')));
 addpath(genpath(fullfile(root, 'src')));

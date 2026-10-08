@@ -311,7 +311,7 @@ function LineChip({ link, heard }: { link: Link; heard: Heard | null }) {
   }
   if (link.mode === 'lost') {
     return (
-      <span className="line-chip lost" title="Mất đường dây tới MATLAB, tổng đài trong trang làm tiếp">
+      <span className="line-chip lost" title="Mất đường dây tới MATLAB, tổng đài trên trang tiếp quản cuộc gọi">
         <span className="dot" aria-hidden="true" />
         mất MATLAB
       </span>

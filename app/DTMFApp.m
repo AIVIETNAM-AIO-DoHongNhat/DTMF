@@ -47,7 +47,7 @@ classdef DTMFApp < handle
 %       app = DTMFApp('off');
 %       app.EfKeys.Value = '0912345';
 %       app.BtnGenPushed([]);       % bước 1: x[n]
-%       app.BtnNoisePushed([]);     % bước 2: y[n] = x[n] + w[n]
+%       app.BtnNoisePushed([]);     % bước 2: y[n] = x[n] + v[n]
 %       app.BtnDecodePushed([]);    % bước 3: giải mã y[n]
 %       app.LblDecoded.Text         % '0912345'
 
@@ -301,7 +301,7 @@ classdef DTMFApp < handle
         % --- bước 2
 
         function BtnNoisePushed(app, ~)
-        %BTNNOISEPUSHED Bước 2: y[n] = x[n] + w[n] theo loại nhiễu và SNR đang chọn.
+        %BTNNOISEPUSHED Bước 2: y[n] = x[n] + v[n] theo loại nhiễu và SNR đang chọn.
             docUI(app);
             congNhieu(app);
             veLai(app);
@@ -588,7 +588,7 @@ classdef DTMFApp < handle
                 tieuDe(app.AxWave, 'Dạng sóng y[n] thu từ micro');
                 tieuDe(app.AxPsd,  'Phổ công suất của y[n]');
             elseif coY
-                tieuDe(app.AxWave, 'Dạng sóng y[n] = x[n] + w[n]');
+                tieuDe(app.AxWave, 'Dạng sóng y[n] = x[n] + v[n]');
                 tieuDe(app.AxPsd,  'Phổ công suất của y[n], nét xám là x[n]');
             elseif mic
                 tieuDe(app.AxWave, 'Chưa thu   ·   chọn một cách thu ở bước 1');
@@ -609,7 +609,7 @@ classdef DTMFApp < handle
                 else
                     tieuDe(app.AxMap,  'Chưa có tín hiệu để giải mã');
                 end
-                tieuDe(app.AxBars, 'Chưa có khung quyết định');
+                tieuDe(app.AxBars, 'Chưa có khung nào');
             end
 
             % Đánh số như chú thích hình của LaTeX: "Hình k:" đậm đứng đầu.
@@ -1228,10 +1228,10 @@ classdef DTMFApp < handle
                  ' + <i>A</i> sin(2π<i>f</i><sub>C</sub><i>n</i>/<i>f</i><sub>s</sub>)'], M);
             ke(gb, 2, 1, M.vien);
             [p2, c2, s2, i2] = theBuoc(gb, 3, 2, 'Kênh nhiễu', ...
-                '<i>y</i>[<i>n</i>] = <i>x</i>[<i>n</i>] + <i>w</i>[<i>n</i>]', M);
+                '<i>y</i>[<i>n</i>] = <i>x</i>[<i>n</i>] + <i>v</i>[<i>n</i>]', M);
             ke(gb, 4, 1, M.vien);
             [p3, c3, s3, i3] = theBuoc(gb, 5, 3, 'Giải mã', ...
-                'khung &rarr; <i>E</i><sub><i>j</i></sub> &rarr; luật quyết định &rarr; phím', M);
+                'khung &rarr; <i>E</i><sub><i>j</i></sub> &rarr; chấp nhận khung &rarr; phím', M);
             app.TheBuoc = [p1 p2 p3];
             app.LblSo   = [s1 s2 s3];
             app.LblInfo = [i1 i2 i3];
@@ -1410,11 +1410,11 @@ classdef DTMFApp < handle
 
             nhanTinh(gk, 1, 'Loại nhiễu', M);
             app.DdNoise = uidropdown(gk, ...
-                'Items',     {'Trắng Gauss (AWGN)', 'Ù điện lưới 50 Hz'}, ...
+                'Items',     {'Gauss trắng (AWGN)', 'Điện lưới 50 Hz'}, ...
                 'ItemsData', {'awgn', 'hum50'}, ...
                 'Value',     app.S.noise, 'FontSize', 14, ...
                 'FontColor', M.muc, 'BackgroundColor', M.the, ...
-                'Tooltip', 'Dạng của w[n]; công suất do SNR quyết định', ...
+                'Tooltip', 'Dạng của v[n]; công suất do SNR quyết định', ...
                 'ValueChangedFcn', @(src, evt) app.DdNoiseValueChanged(evt));
             app.DdNoise.Layout.Row = 1;  app.DdNoise.Layout.Column = 2;
 
@@ -1436,7 +1436,7 @@ classdef DTMFApp < handle
                 'MinorTicks',      [], ...
                 'FontSize',        11, ...
                 'FontColor',       M.chuPhu, ...
-                'Tooltip', ['SNR = 10 log10(Px / Pw). Đã cộng nhiễu mà đổi SNR thì nhiễu ' ...
+                'Tooltip', ['SNR = 10 log10(Px / Pv). Đã cộng nhiễu mà đổi SNR thì nhiễu ' ...
                     'được cộng lại vào cùng x[n], các bước sau tự chạy lại.'], ...
                 'ValueChangingFcn', @(src, evt) app.SldSNRValueChanging(evt), ...
                 'ValueChangedFcn',  @(src, evt) app.SldSNRValueChanged(evt));
@@ -1453,7 +1453,7 @@ classdef DTMFApp < handle
             gn.Layout.Row      = 3;
             gn.Layout.Column   = [1 2];
             app.BtnNoise = uibutton(gn, 'Text', 'Cộng nhiễu', 'FontSize', 14, ...
-                'Tooltip', 'y[n] = x[n] + w[n], w[n] theo loại nhiễu và SNR đang chọn', ...
+                'Tooltip', 'y[n] = x[n] + v[n], v[n] theo loại nhiễu và SNR đang chọn', ...
                 'ButtonPushedFcn', @(src, evt) app.BtnNoisePushed(evt));
             app.BtnPlay = uibutton(gn, 'Text', 'Nghe', 'FontSize', 13, ...
                 'FontColor', M.muc, 'BackgroundColor', M.the, ...
@@ -1673,7 +1673,7 @@ switch loai
     case 'awgn'
         s = 'AWGN';
     case 'hum50'
-        s = 'ù 50 Hz';
+        s = 'điện lưới 50 Hz';
     otherwise
         s = char(string(loai));
 end

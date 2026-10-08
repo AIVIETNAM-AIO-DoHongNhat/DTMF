@@ -78,7 +78,7 @@ export function Story({ info, levels, volume, boostDb, toneMs }: Props) {
           <h2 id="hinh-b">
             <span className="fig-tag">(b)</span> Miền thời gian: hai sóng sin và tổng
           </h2>
-          <span className="st-meta">8 ms giữa tone, chưa có nhiễu</span>
+          <span className="st-meta">8 ms ở giữa âm, chưa có nhiễu</span>
         </header>
         <Waves info={info} lv={levels} />
       </section>

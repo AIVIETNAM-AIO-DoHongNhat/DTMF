@@ -38,7 +38,7 @@ Thumbs.db
 data/mat/*.mat
 
 # results/ la thu muc may SINH RA, khong phai thu muc nguon.
-# bench.mat dung lai bang `run_bench` trong ~15 giay; hinh dung lai bang
+# bench.mat dung lai bang `run_bench` trong ~20 giay; hinh dung lai bang
 # `make_figures`. Ban di vao git la ban DA CONG BO o report/template/Figures/,
 # do `publish_figures` chep sang mot chieu - giu ca hai noi trong git la hai
 # blob nhi phan cho moi lan sinh lai, va som muon lech nhau.

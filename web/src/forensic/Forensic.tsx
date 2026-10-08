@@ -1,12 +1,12 @@
-// Màn giám định: thầy nhập một số điện thoại bí mật và chọn một hiện trường,
+// Màn giám định: nhập một số điện thoại bí mật và chọn một hiện trường,
 // trang dựng một đoạn ghi âm có người bấm số đó giữa tiếng ồn, rồi phát ra loa
 // và gửi đúng các mẫu đó sang MATLAB (DTMFForensic). MATLAB chỉ nhận âm thanh.
 // Nó đọc dần từng chữ số, kết luận khi hết đoạn ghi âm, và chỉ SAU đó trang
 // mới cho công bố số thật để đối chiếu.
 //
-// Máy của thầy mở trang này qua mạng LAN (npm run dev:lan trên máy trình
+// Máy nhập số mở trang này qua mạng LAN (npm run dev:lan trên máy trình
 // chiếu, rồi mở http://<địa chỉ máy đó>:5173/#giam-dinh), nên đường dây đi:
-// trang (máy thầy) --WebSocket--> cầu nối (máy trình chiếu) --TCP--> MATLAB.
+// trang (máy nhập số) --WebSocket--> cầu nối (máy trình chiếu) --TCP--> MATLAB.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { isKey, parseKeys } from '../audio/dtmf';

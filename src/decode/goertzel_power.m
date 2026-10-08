@@ -29,8 +29,17 @@ function P = goertzel_power(x, k, N)
 %       goertzel_power(cos(2*pi*3*n/16), 3, 16)   % 64; lý thuyết X[3] = 8
 arguments
     x (1,:) double
-    k (1,1) double {mustBeInteger, mustBeNonnegative}
-    N (1,1) double {mustBeInteger, mustBePositive}
+    k (1,1) double
+    N (1,1) double
+end
+
+% Chặn trong thân hàm thay cho validator - luật CONTRACTS §2. Viết dạng ~(...)
+% để NaN cũng bị chặn: mọi phép so với NaN đều false.
+if ~(k >= 0 && k == round(k))
+    error('goertzel_power:badK', 'k phải là số nguyên không âm, nhận được %g.', k);
+end
+if ~(N >= 1 && N == round(N))
+    error('goertzel_power:badN', 'N phải là số nguyên dương, nhận được %g.', N);
 end
 
 % Help quy định M >= N: thiếu mẫu là lỗi phía gọi, không tự đệm 0.

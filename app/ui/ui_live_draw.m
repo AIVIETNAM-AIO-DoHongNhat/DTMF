@@ -500,9 +500,9 @@ else
         case 'level'
             % dtmf_decide gom ba ca vào 'level': khung im lặng, đỉnh không trội
             % hơn đỉnh nhì cùng nhóm peakDb, hay 7 bin chuẩn dưới energyRatio.
-            s = 'loại: không có cặp tone nào rõ rệt (level)';
+            s = 'loại: không có cặp âm nào rõ rệt (level)';
         case 'twist'
-            s = 'loại: hai tone lệch biên độ quá mức (twist)';
+            s = 'loại: hai âm lệch biên độ quá mức (twist)';
         case 'harmonic'
             s = 'loại: hài bậc 2 quá lớn, giống tiếng nói (harmonic)';
         otherwise

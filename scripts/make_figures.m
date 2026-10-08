@@ -22,7 +22,7 @@
 % KHÔNG vẽ tiêu đề chung cho hình. Theo chuẩn trình bày bài báo khoa học, tên
 % và lời giải thích của hình nằm ở chú thích (caption) trong báo cáo; vẽ lặp lại
 % bên trong hình vừa tốn chỗ vừa sớm muộn lệch với chú thích. Chỉ giữ tên của
-% từng khung con (ví dụ "Nhiễu awgn", "FFT") vì đó là nhãn dữ liệu. Những con
+% từng khung con (ví dụ "Nhiễu AWGN", "FFT") vì đó là nhãn dữ liệu. Những con
 % số trước đây đặt ở phụ đề được in ra cửa sổ lệnh để đối chiếu với báo cáo.
 %
 % Tên file dùng GẠCH DƯỚI (H2_1.png) chứ không dùng dấu chấm (H2.1.png): LaTeX
@@ -107,7 +107,7 @@ try
     app.EfKeys.Value   = '0912345';
     app.DdMethod.Value = 'goertzel';
     app.BtnGenPushed([]);       % bước 1: x[n]
-    app.BtnNoisePushed([]);     % bước 2: y[n] = x[n] + w[n], SNR mặc định 20 dB
+    app.BtnNoisePushed([]);     % bước 2: y[n] = x[n] + v[n], SNR mặc định 20 dB
     app.BtnDecodePushed([]);    % bước 3
 
     % drawnow rồi pause rồi drawnow. Đo 23/09/2026: một lần trong nhiều lần
@@ -405,7 +405,7 @@ for iNoi = 1:numel(B.noises)
     patch(ax, [10 max(B.snrDb) max(B.snrDb) 10], [yl(1) yl(1) yl(2) yl(2)], ...
         [0.75 0.88 0.75], 'FaceAlpha', 0.35, 'EdgeColor', 'none', ...
         'HandleVisibility', 'off');
-    text(ax, 10.6, 0.06, 'dải demo, SNR ≥ 10 dB', 'FontSize', 8, ...
+    text(ax, 10.6, 0.26, 'dải làm việc, SNR ≥ 10 dB', 'FontSize', 8, ...
         'Color', [0.25 0.45 0.25]);
 
     for iMet = 1:numel(B.methods)
@@ -422,7 +422,7 @@ for iNoi = 1:numel(B.noises)
     xticks(ax, min(B.snrDb):5:max(B.snrDb));
     xlabel(ax, 'SNR [dB]');
     ylabel(ax, 'Độ chính xác');
-    title(ax, sprintf('Nhiễu %s', B.noises{iNoi}));
+    title(ax, tenNhieuDep(B.noises{iNoi}));
     if iNoi == 1
         legend(ax, 'Location', 'southeast');
     end
@@ -430,6 +430,18 @@ end
 
 fprintf('  H4_1: %d chuoi %d phim, energyRatio = %.2f\n', ...
     B.meta.nSeq, B.meta.keysLen, B.energyRatios(iEn));
+end
+
+function s = tenNhieuDep(loai)
+%TENNHIEUDEP Tên loại nhiễu in trong hình, khớp cách gọi của báo cáo.
+switch loai
+    case 'awgn'
+        s = 'Nhiễu AWGN';
+    case 'hum50'
+        s = 'Nhiễu điện lưới 50 Hz';
+    otherwise
+        s = sprintf('Nhiễu %s', loai);
+end
 end
 
 

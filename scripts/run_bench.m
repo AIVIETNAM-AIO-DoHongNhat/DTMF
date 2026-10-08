@@ -3,7 +3,8 @@
 %
 % Đây là nơi sinh ra MỌI con số đi vào chương 4 của báo cáo. Script KHÔNG vẽ
 % một hình nào - vẽ là việc của scripts/make_figures.m. Tách đôi như vậy để
-% sửa màu sắc một cái hình không phải chạy lại bốn phút quét.
+% sửa màu sắc một cái hình không phải chạy lại lượt quét (khoảng 20 giây, đo
+% 07/10/2026; bench.mat ghi thời gian thật ở trường runSec).
 %
 % Các bước hoạt động:
 %   1. Sinh nSeq chuỗi keysLen phím và tín hiệu sạch của chúng, rng(seed) cố định.
@@ -83,7 +84,7 @@ for iNoi = 1:nNoi
 
             % Trừ trung bình y như app/dtmf_run.m làm - CONTRACTS §7.7. Bỏ bước
             % này thì nhánh hum50 lệch một chiều và cả ba bộ giải mã cùng sụp,
-            % kết quả đo ra là của độ lệch một chiều chứ không phải của nhiễu ù.
+            % kết quả đo ra là của độ lệch một chiều chứ không phải của nhiễu điện lưới.
             yd = y - mean(y);
 
             for iMet = 1:nMet

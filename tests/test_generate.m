@@ -69,3 +69,58 @@ for targetSnr = [0 10 20]
     testCase.verifyEqual(measuredSnr, targetSnr, 'AbsTol', 0.5);
 end
 end
+
+function test_badInputsThrowNamedErrors(testCase)
+% Mỗi đầu vào sai có định danh lỗi riêng. NaN phải bị chặn: mọi phép so với
+% NaN đều false, nên chốt viết kiểu "ampl <= 0" sẽ để NaN lọt qua và cho ra
+% một tín hiệu toàn NaN.
+testCase.verifyError(@() dtmf_generate('5', 'ampl', NaN), 'dtmf_generate:badAmpl');
+testCase.verifyError(@() dtmf_generate('5', 'ampl', 1.5), 'dtmf_generate:badAmpl');
+testCase.verifyError(@() dtmf_generate('5A'), 'dtmf_generate:unknownKey');
+testCase.verifyError(@() dtmf_generate('5', 'toneMs', 0.01), 'dtmf_generate:badToneMs');
+testCase.verifyError(@() dtmf_generate('5', 'toneMs', NaN), 'dtmf_generate:badToneMs');
+testCase.verifyError(@() dtmf_generate('55', 'pauseMs', -20), 'dtmf_generate:badPauseMs');
+testCase.verifyError(@() dtmf_generate('5', 'fs', 0), 'dtmf_generate:badFs');
+end
+
+function test_emptyKeysGiveOneByZeroMeta(testCase)
+% Chuỗi rỗng hợp lệ; mọi trường rỗng là 1×0 theo CONTRACTS §2, không phải [].
+[x, t, meta] = dtmf_generate('');
+testCase.verifySize(x, [1 0]);
+testCase.verifySize(t, [1 0]);
+for f = {'onsets', 'offsets', 'fRow', 'fCol'}
+    testCase.verifySize(meta.(f{1}), [1 0], f{1});
+end
+end
+
+function test_addnoiseRejectsUnknownType(testCase)
+% Tên nhiễu gõ sai bị chặn kể cả khi x rỗng (nhánh rỗng trả về sớm).
+testCase.verifyError(@() dtmf_addnoise(dtmf_generate('5'), 'type', 'pink'), 'dtmf_addnoise:badType');
+testCase.verifyError(@() dtmf_addnoise(zeros(1, 0), 'type', 'pink'), 'dtmf_addnoise:badType');
+end
+
+function test_addnoiseSpeechNeedsDataFile(testCase)
+% Nhánh 'speech' không tự chuyển sang awgn khi thiếu data/wav/speech_*.wav.
+root = fileparts(fileparts(mfilename('fullpath')));
+testCase.assumeEmpty(dir(fullfile(root, 'data', 'wav', 'speech_*.wav')), ...
+    'Đã có tệp tiếng nói mẫu, ca này chỉ kiểm khi thiếu tệp.');
+testCase.verifyError(@() dtmf_addnoise(dtmf_generate('5'), 'type', 'speech'), ...
+    'dtmf_addnoise:missingSpeech');
+end
+
+function test_addnoiseSpeechHitsTargetSnr(testCase)
+% Ca anh em của ca trên: có data/wav/speech_*.wav (make_dataset dựng từ giọng
+% tổng đài) thì nhánh 'speech' đạt đúng SNR như hai nhánh kia, và tệp lệch fs
+% bị chặn chứ không âm thầm đổi cao độ giọng nói. Hai ca luôn có đúng một ca chạy.
+root = fileparts(fileparts(mfilename('fullpath')));
+testCase.assumeNotEmpty(dir(fullfile(root, 'data', 'wav', 'speech_*.wav')), ...
+    'Chưa có tệp tiếng nói mẫu, chạy make_dataset để có.');
+x = dtmf_generate('0912345');
+for targetSnr = [0 10 20]
+    y = dtmf_addnoise(x, 'snrDb', targetSnr, 'type', 'speech', 'fs', 8000);
+    measuredSnr = 10 * log10(sum(x.^2) / sum((y - x).^2));
+    testCase.verifyEqual(measuredSnr, targetSnr, 'AbsTol', 0.5);
+end
+testCase.verifyError(@() dtmf_addnoise(x, 'type', 'speech', 'fs', 16000), ...
+    'dtmf_addnoise:speechFsMismatch');
+end

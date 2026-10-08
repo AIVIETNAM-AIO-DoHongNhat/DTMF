@@ -5,7 +5,7 @@ function dtmf_setup()
 %   dtmf_generate, dtmf_decode_goertzel, run_all_tests...
 %
 %   Cách dùng:
-%       cd D:\PROJECT\DMTF
+%       cd <thư mục gốc của repo>     % thư mục chứa dtmf_setup.m
 %       dtmf_setup
 %
 %   Ghi chú:

@@ -19,7 +19,7 @@ end
 function test_dropsSingleFrameRun(testCase)
 % GHIM minRun = 2. Dải dài đúng một khung bị bỏ.
 %
-% Với minRun = 1 thì nhánh ngân hàng bộ lọc chèn thêm ký tự: dư âm bộ lọc làm
+% Với minRun = 1 thì nhánh ngân hàng bộ lọc chèn thêm ký tự: dao động dư của bộ lọc làm
 % một khung trong khoảng lặng vẫn được nhận, rồi quá độ ở đầu tone kế tiếp
 % loại khung ngay sau đó, để lại đúng một dải cô lập dài một khung. Đo được
 % 29/42 cách căn lề bị hỏng - xem CONTRACTS §7.5.

@@ -67,3 +67,12 @@ testCase.verifyEqual(size(seg), [1 0]);
 testCase.verifyTrue(isstruct(seg));
 testCase.verifyEqual(sort(fieldnames(seg)), {'idx'; 'tEnd'; 'tStart'});
 end
+
+function test_nonPositiveHopOrFrameThrows(testCase)
+% hop <= 0 từng cho nFrame = Inf rồi một lỗi repmat khó hiểu.
+y = zeros(1, 1000);
+testCase.verifyError(@() dtmf_segment(y, 'hop', 0), 'dtmf_segment:badHop');
+testCase.verifyError(@() dtmf_segment(y, 'hop', -5), 'dtmf_segment:badHop');
+testCase.verifyError(@() dtmf_segment(y, 'frameN', 0), 'dtmf_segment:badFrameN');
+testCase.verifyError(@() dtmf_segment(y, 'frameN', NaN), 'dtmf_segment:badFrameN');
+end

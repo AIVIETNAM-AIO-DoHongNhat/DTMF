@@ -53,7 +53,7 @@ end
 
 function test_accUsesMaxOfBothLengths(testCase)
 % GHIM mẫu số max(K,L). Lấy numel(keysTrue) thì chuỗi thừa phím vẫn được
-% acc = 1, đúng loại lỗi mà nhánh ngân hàng bộ lọc mắc ở Buổi 6 (dư âm bộ lọc
+% acc = 1, đúng loại lỗi mà nhánh ngân hàng bộ lọc mắc ở Buổi 6 (dao động dư của bộ lọc
 % sinh phím thừa) - công thức chấm điểm không được mù trước chính nó.
 m = dtmf_metrics('123', '1123');
 testCase.verifyEqual(m.editDist, 1);

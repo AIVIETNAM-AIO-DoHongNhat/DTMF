@@ -51,8 +51,8 @@ w = hamming(opt.frameN)';
 % Bù độ lợi coherent của cửa sổ - quyết định (a). Nhân cửa sổ làm tụt biên độ
 % vạch phổ nhiều hơn làm tụt năng lượng khung, nên tỉ lệ đo được bị kéo xuống
 % một hằng số. Thiếu cg thì trần lý thuyết của sum(E(1:7)) chỉ còn 0.7317 và
-% khung DTMF thật đo được 0.6298 - cả hai đều dưới ngưỡng 0.70, bộ giải mã loại
-% SẠCH mọi khung và trả chuỗi rỗng ở mọi mức SNR.
+% khung DTMF thật đo được trung vị 0.63, lớn nhất 0.6929 - đều dưới ngưỡng
+% 0.70, bộ giải mã loại SẠCH mọi khung và trả chuỗi rỗng ở mọi mức SNR.
 cg = sum(w)^2 / (opt.frameN * sum(w.^2));
 
 seg = dtmf_segment(y, 'fs', opt.fs, 'frameN', opt.frameN, 'hop', opt.hop);

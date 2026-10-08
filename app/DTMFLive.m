@@ -269,8 +269,12 @@ classdef DTMFLive < handle
             try
                 if strcmp(app.Nguon, 'line')
                     if app.Line.DaNoi
-                        nhanTin(app, app.Line.doc());
-                        if ~app.Line.conSong()
+                        % Xét còn sống NGAY sau khi đọc, trước khi xử lý tin: kết luận ba bộ
+                        % giải mã có thể tốn cả giây, tính cả thời gian đó là báo nhầm mất dây.
+                        tin = app.Line.doc();
+                        if app.Line.conSong()
+                            nhanTin(app, tin);
+                        else
                             matDuongDay(app);
                         end
                     end
@@ -801,7 +805,7 @@ classdef DTMFLive < handle
             app.LnkClear = uihyperlink(gp, 'Text', 'xóa', 'FontSize', 14, ...
                 'FontColor', M.nhan, 'VisitedColor', M.nhan, ...
                 'HorizontalAlignment', 'right', ...
-                'Tooltip', 'Xóa dãy số và nhật ký đang hiện, không đụng cuộc gọi', ...
+                'Tooltip', 'Xóa dãy số và nhật ký đang hiện, cuộc gọi vẫn giữ nguyên', ...
                 'HyperlinkClickedFcn', @(src, evt) app.LnkClearClicked(evt));
             app.LnkClear.Layout.Row = 7;  app.LnkClear.Layout.Column = 2;
             app.LblNumber = uilabel(gp, 'Text', '', 'FontSize', 32, 'FontColor', M.muc);

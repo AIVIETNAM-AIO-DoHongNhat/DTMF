@@ -288,7 +288,7 @@ function test_energyScaleIsNormalized(testCase)
 %
 % Khác hai nhánh kia ở một điểm quan trọng: rho ở đây CÓ THỂ vượt 1 (đo được
 % 3.08). Tử số là năng lượng đầu ra bộ lọc, còn trễ sau đầu vào đúng một thời
-% hằng, nên ở khung khoảng lặng mẫu số sụp mà tử số vẫn còn dư âm. Đừng "sửa"
+% hằng, nên ở khung khoảng lặng mẫu số sụp mà tử số vẫn còn dao động dư. Đừng "sửa"
 % ca này thành rho <= 1.05 như ở test_decode_fft.
 x = dtmf_generate('0912345');
 [~, info] = dtmf_decode_filterbank(x);
@@ -308,7 +308,7 @@ end
 function test_repeatedKeysAcrossAllAlignments(testCase)
 % Quét CẠN 41 cách căn lề của hop = 205, cộng phím lặp ở mọi vị trí.
 %
-% Đây là ca đắt giá nhất cả file. Với minRun = 1 nó hỏng 29/42: dư âm bộ lọc
+% Đây là ca đắt giá nhất cả file. Với minRun = 1 nó hỏng 29/42: dao động dư của bộ lọc
 % làm một khung trong khoảng lặng vẫn được nhận, rồi quá độ ở đầu tone kế tiếp
 % loại khung ngay sau đó, để lại một dải cô lập dài đúng một khung -> thừa một
 % ký tự. Luật "dải >= 2 khung" (§6(f)) là thứ duy nhất chặn được.
