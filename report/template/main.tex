@@ -181,8 +181,8 @@ tổng hợp, phần mềm còn giải mã trực tiếp âm DTMF thu từ micro
 phỏng điện thoại.
 
 \medskip
-\textbf{Từ khoá:} DTMF, thuật toán Goertzel, biến đổi Fourier nhanh, bộ lọc IIR,
-giải mã tín hiệu, nhiễu.
+\textbf{Từ khoá:} DTMF, thuật toán Goertzel, FFT, bộ lọc IIR, giải mã tín hiệu,
+nhiễu.
 
 \medskip
 \textbf{Mã nguồn:} \url{https://github.com/AIVIETNAM-AIO-DoHongNhat/DMTF}
@@ -380,14 +380,14 @@ thể, chúng thoả mãn đồng thời ba điều kiện sau:
     \item \emph{Không tần số nào là bội số nguyên của tần số khác.} Khi đường
     truyền méo, mỗi tần số $f$ sinh thêm hài ở $2f$. Nếu hài này trùng với một
     tần số DTMF khác, bộ thu sẽ nhận nhầm phím. Trường hợp gần trùng nhất là hài của
-    697~Hz và 770~Hz (1394~Hz và 1540~Hz). Hai hài này vẫn lệch $4{,}3\%$ so
-    với tần số chuẩn gần nhất, lớn hơn mức lệch $\pm 3{,}5\%$ mà \mbox{ITU-T}
-    Q.24~\cite{itu_q24} yêu cầu bộ thu phải từ chối, nên bộ thu đạt chuẩn sẽ
+    697~Hz và 770~Hz (1394~Hz và 1540~Hz). Hai hài này lệch $4{,}3\%$ so
+    với tần số chuẩn gần nhất, vượt mức lệch $\pm 3{,}5\%$ mà \mbox{ITU-T}
+    Q.24~\cite{itu_q24} yêu cầu bộ thu từ chối, nên bộ thu đạt chuẩn sẽ
     loại chúng.
 
-    \item \emph{Hai nhóm tách biệt đủ xa.} Khoảng trống giữa hai nhóm (268~Hz)
-    gấp hơn ba lần khoảng cách nhỏ nhất trong một nhóm (73~Hz) nên bộ thu tìm
-    được đỉnh riêng trong từng nhóm.
+    \item \emph{Hai nhóm tách biệt đủ xa.} Hai nhóm cách nhau 268~Hz, gấp hơn
+    ba lần khoảng cách nhỏ nhất trong nhóm (73~Hz), nên bộ thu tách được đỉnh
+    của từng nhóm.
 
     \item \emph{Toàn dải nằm trong băng thoại 300-3400~Hz.} Cả bảy tần số lẫn
     hài bậc hai của nhóm cao (2418-2954~Hz) đều truyền qua được kênh thoại.
@@ -568,8 +568,8 @@ xung tắt nhanh.
 Ba bộ giải mã có chung một trình tự xử lý gồm hai phần
 (Hình~\ref{fig:giai-ma-chung}):
 \begin{itemize}
-  \item \emph{Phần đầu} đo công suất của từng khung tại bảy tần số chuẩn và một tần số hài. Mỗi
-        phương pháp đo theo cách riêng nên mọi chênh lệch kết quả giữa chúng đều
+  \item \emph{Phần đầu} đo công suất mỗi khung tại bảy tần số chuẩn và một tần số hài. Mỗi
+        phương pháp đo theo cách riêng nên chênh lệch kết quả giữa chúng đều
         đến từ phần này.
   \item \emph{Phần sau} gồm ba bước dùng chung cho cả ba phương pháp là chuẩn hoá
         công suất, xét tiêu chí chấp nhận khung và gộp khung thành phím.
@@ -578,8 +578,7 @@ Ba bộ giải mã có chung một trình tự xử lý gồm hai phần
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.6\linewidth]{Figures/SD_giai_ma_chung}
-  \caption{Trình tự xử lý của ba bộ giải mã. Chỉ bước đo công suất khác nhau, ba
-  bước sau dùng chung.}
+  \caption{Trình tự xử lý của ba bộ giải mã, chỉ bước đo công suất khác nhau.}
   \label{fig:giai-ma-chung}
 \end{figure}
 
@@ -682,8 +681,8 @@ Khung bị loại cắt dải nên hai lần bấm cùng một phím vẫn cho h
 một khung bị bỏ vì khung đơn lẻ thường do nhiễu hoặc do dao động dư của bộ lọc (đầu ra còn dao động
 sau khi âm đã tắt) gây ra.
 
-\hinhdrawio[0.85]{SD_gop_khung}{Minh hoạ quy tắc gộp khung. Khung bị loại (ký hiệu
-$\times$) cắt dải, và dải dài một khung bị bỏ.}{fig:gop-khung}
+\hinhdrawio[0.85]{SD_gop_khung}{Quy tắc gộp khung. Khung bị loại (ký hiệu $\times$) cắt dải,
+dải dài một khung bị bỏ.}{fig:gop-khung}
 
 Bỏ các dải dài một khung không làm mất phím thật vì mỗi âm đủ dài để chứa trọn ít
 nhất hai khung. Cụ thể, với khung $N$ mẫu và bước nhảy $h$ mẫu, một âm dài
@@ -695,7 +694,7 @@ lưới khung:
 
 Với âm 800 mẫu, giá trị này là $\biggl\lfloor \phanso{596}{205} \biggr\rfloor = 2$ ở Goertzel và ngân
 hàng bộ lọc ($N = h = 205$), và $\biggl\lfloor \phanso{545}{128} \biggr\rfloor = 4$ ở FFT ($N = 256$,
-$h = 128$). Quy tắc này bắt buộc với ngân hàng bộ lọc vì dao động dư của bộ lọc sinh khung
+$h = 128$). Quy tắc này bắt buộc với ngân hàng bộ lọc vì dao động dư sinh khung
 đơn lẻ, còn FFT và Goertzel không cần đến nó.
 
 \subsection{Phương pháp DFT/FFT}
@@ -992,8 +991,8 @@ Mỗi nhánh cần một bộ lọc thông dải hẹp, băng thông cỡ vài c
 
 \begin{table}[H]
 \centering
-\caption{So sánh bộ lọc FIR và IIR. IIR cần ít hệ số hơn nhưng phải đặt điểm cực
-đúng chỗ để ổn định.}
+\caption{So sánh FIR và IIR. IIR cần ít hệ số hơn nhưng phải đặt điểm cực
+đúng để ổn định.}
 \label{tab:fir-iir}
 \begin{tabular}{l p{5cm} p{5cm}}
 \toprule
@@ -1069,7 +1068,7 @@ nên $\Qfac$ tăng theo tần số (Bảng~\ref{tab:q-factor}).
 
 \begin{table}[H]
 \centering
-\caption{Hệ số phẩm chất của bảy bộ lọc chuẩn, $r = 0{,}99$. Băng thông như nhau
+\caption{Hệ số phẩm chất của bảy bộ lọc, $r = 0{,}99$. Cùng băng thông
 nên $\Qfac$ tăng theo tần số.}
 \label{tab:q-factor}
 \small
@@ -1345,7 +1344,7 @@ có nhiễu thật. Hình~\ref{fig:h33} là giao diện sau một lượt thao t
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.56\linewidth]{Figures/SD_luu_do_ung_dung}
+  \includegraphics[width=\linewidth]{Figures/SD_luu_do_ung_dung}
   \caption{Lưu đồ một lượt thao tác trên \texttt{DTMFApp}.}
   \label{fig:luu-do}
 \end{figure}
@@ -1425,7 +1424,7 @@ nó phát ra loa, đã hạ tần số lấy mẫu về 8~kHz. Trình duyệt kh
 chạy cùng máy chủ phát triển của Vite chuyển âm thanh này sang MATLAB. MATLAB giải mã bằng \texttt{dtmf\_listen}
 rồi gửi phím ngược về để tổng đài trên trang đọc lại nên phím được đọc lại chính là
 phím MATLAB giải mã được. Đường dây này thay cho việc để micro thu tiếng loa, vốn không ổn
-định khi cả hai nằm trên cùng một máy tính xách tay.
+định khi cả hai ở cùng một máy tính xách tay.
 
 \hinhdrawio[0.95]{SD_duong_day}{Đường dây từ điện thoại trên trình duyệt tới tổng
 đài MATLAB.}{fig:duong-day}
@@ -1438,7 +1437,7 @@ gọi đó.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.76\linewidth]{Figures/H3_4}
+  \includegraphics[width=0.66\linewidth]{Figures/H3_4}
   \caption{Giao diện \texttt{DTMFLive} sau khi nhận chuỗi \texttt{0912345*\#} qua đường dây.}
   \label{fig:h34}
 \end{figure}
@@ -1456,14 +1455,14 @@ và Hình~\ref{fig:giam-dinh} là hai phía của cùng một vụ giám định
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.63\linewidth]{Figures/H3_6}
+  \includegraphics[width=0.58\linewidth]{Figures/H3_6}
   \caption{Giao diện giám định trên web sau khi công bố số thật.}
   \label{fig:giam-dinh-web}
 \end{figure}
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.63\linewidth]{Figures/H3_7}
+  \includegraphics[width=0.58\linewidth]{Figures/H3_7}
   \caption{Giao diện \texttt{DTMFForensic} của cùng vụ giám định.}
   \label{fig:giam-dinh}
 \end{figure}
@@ -1763,7 +1762,7 @@ Không phương pháp nào tốt nhất ở mọi mặt nên lựa chọn tuỳ 
 
 \begin{table}[H]
 \centering
-\caption{So sánh tổng hợp ba phương pháp giải mã. Không phương pháp nào tốt nhất ở
+\caption{So sánh ba phương pháp giải mã. Không phương pháp nào tốt nhất ở
 mọi cột.}
 \label{tab:tong-hop}
 \small
@@ -1877,8 +1876,8 @@ Thực nghiệm còn cho thấy ba điều:
         khối tính toán dấu phẩy động, nên bước trừ thành phần một chiều đang nằm ở lớp
         điều phối cần chuyển vào trong bộ giải mã và cũng tính bằng số nguyên.
   \item Thêm cột 1633~Hz cho bốn phím A, B, C, D. Việc này chỉ cần thêm một tần
-        số vào bảng tra, và Goertzel khi đó tính 9 bin, vẫn trong giới hạn 16 bin nên
-        vẫn tốn ít phép nhân hơn FFT.
+        số. Goertzel khi đó tính 9 bin, còn dưới giới hạn 16 bin nên vẫn tốn ít phép
+        nhân hơn FFT.
 \end{itemize}
 
 \clearpage
@@ -1939,7 +1938,7 @@ dCol  = 10*log10(colPeak / colSorted(2));
 twist = 10*log10(colPeak / rowPeak);
 rho   = sum(E(1:7));
 
-% Điều kiện viết dạng khẳng định rồi phủ định: dRow = NaN thì khung bị loại
+% Viết dạng khẳng định rồi phủ định: dRow = NaN thì khung bị loại
 % 1-2. Đỉnh mỗi nhóm nổi hơn đỉnh nhì cùng nhóm ít nhất peakDb
 if ~(dRow >= opt.peakDb && dCol >= opt.peakDb)
     reject = 'level';    return
@@ -2121,7 +2120,7 @@ Nếu mở trang từ một máy khác trong cùng mạng, chạy \texttt{npm ru
 \setlength{\tabcolsep}{4pt}%
 \renewcommand{\tabularxcolumn}[1]{m{#1}}% căn giữa theo chiều dọc
 \begin{tabularx}{\linewidth}{@{}c c c >{\centering\arraybackslash}X
-  >{\centering\arraybackslash}m{1.8cm}@{}}
+  >{\centering\arraybackslash}m{1.65cm}@{}}
 \toprule
 \thd{STT} & \thd{Họ và tên} & \thd{Lớp} & \thd{Vai trò}
 & \thd{Đánh giá} \\

@@ -1,265 +1,125 @@
 # Hệ thống phát và giải mã tín hiệu DTMF
 
-> Đề tài Chủ đề 4 · Xử lý tín hiệu số · MATLAB
+Đề tài Chủ đề 4, môn Xử lý tín hiệu số, viết bằng MATLAB.
 
-DTMF (*Dual-Tone Multi-Frequency*, ITU-T Q.23) mã hóa mỗi phím điện thoại bằng tổng hai
-sóng sin: một tần số nhóm hàng và một tần số nhóm cột. Dự án gồm một bộ phát tín hiệu và
-**ba bộ giải mã** (FFT, thuật toán Goertzel, ngân hàng bộ lọc IIR) dùng chung một cách
-chia khung và một tiêu chí chấp nhận khung, nhờ vậy so sánh được công bằng khi SNR giảm dần. Kết quả
-trình bày qua giao diện `app/DTMFApp.m`.
+Mỗi phím điện thoại được mã hóa bằng tổng hai sóng sin, một tần số nhóm hàng và một tần số nhóm cột
+(chuẩn ITU-T Q.23). Dự án gồm một bộ phát và ba bộ giải mã là FFT, Goertzel và ngân hàng bộ lọc IIR.
+Ba bộ giải mã dùng chung cách chia khung và cùng tiêu chí nhận khung, nên chúng chỉ khác nhau ở bước
+đo phổ. Nhờ vậy phép so sánh giữa chúng là công bằng.
 
 |         | 1209 | 1336 | 1477 |
 |---------|:----:|:----:|:----:|
-| **697** |  1   |  2   |  3   |
-| **770** |  4   |  5   |  6   |
-| **852** |  7   |  8   |  9   |
-| **941** |  \*  |  0   |  #   |
+| *697*   |  1   |  2   |  3   |
+| *770*   |  4   |  5   |  6   |
+| *852*   |  7   |  8   |  9   |
+| *941*   |  \*  |  0   |  #   |
 
 ## Ba bộ giải mã
 
-Tần số lấy mẫu 8000 Hz, âm 100 ms, nghỉ 50 ms.
+Tần số lấy mẫu 8000 Hz, mỗi âm dài 100 ms, nghỉ 50 ms.
 
-| | Nguyên lý | Khung | Δf | Phép nhân / giây âm thanh |
-|---|---|---|:--:|:--:|
-| FFT | Phổ công suất, cửa sổ Hamming | N = 256, hop 128 | 31.25 Hz | 273 000 |
-| Goertzel | IIR bậc 2, tính riêng 8 bin | N = 205, hop 205 | 39.02 Hz | **65 000** |
-| Ngân hàng bộ lọc | 14 bộ cộng hưởng bậc 2 song song | N = 205, hop 205 | BW ≈ 25.5 Hz | 672 000 |
-
-Goertzel chọn N = 205 để bin gần nhất lệch khỏi mọi tần số chuẩn không quá 1.4%, nằm trong
-dung sai ±1.5% của ITU-T Q.24.
-
-Cả ba đi qua **cùng bốn bước**, chỉ khác nhau ở bước đo phổ:
+| | Cách đo phổ | Khung | Phép nhân mỗi giây âm thanh |
+|---|---|---|:--:|
+| FFT | Phổ công suất, cửa sổ Hamming | N = 256, hop 128 | 273 000 |
+| Goertzel | Chỉ tính 8 bin cần dùng | N = 205, hop 205 | 65 000 |
+| Ngân hàng bộ lọc | 14 bộ cộng hưởng bậc 2 | N = 205, hop 205 | 672 000 |
 
 ```
 dtmf_generate → dtmf_addnoise → dtmf_segment → [FFT | Goertzel | ngân hàng bộ lọc]
                                              → dtmf_decide → dtmf_debounce → dtmf_metrics
 ```
 
-`dtmf_decide` (năm điều kiện: đỉnh nổi ≥ 6 dB so với bin nhì cùng nhóm, twist trong giới hạn,
-bảy bin giữ ≥ 70% năng lượng khung, hài bậc 2 đủ nhỏ) và `dtmf_debounce` là hàm **dùng
-chung**, không bộ giải mã nào tự viết lại. Nhờ vậy khác biệt giữa ba phương pháp nằm đúng ở
-chỗ đề tài muốn so sánh.
-
 ## Kết quả
 
-Độ chính xác trung bình, nhiễu AWGN, 20 chuỗi 12 phím mỗi mức, `rng(2026)` cố định:
+Độ chính xác trung bình khi cộng nhiễu trắng, 20 chuỗi 12 phím mỗi mức SNR, `rng(2026)`.
 
 | SNR [dB] | 0 | 2.5 | 5 | ≥ 7.5 |
 |---|:--:|:--:|:--:|:--:|
 | FFT | 0.00 | 0.16 | 0.93 | 1.00 |
 | Goertzel | 0.00 | 0.35 | 0.93 | 1.00 |
-| Ngân hàng bộ lọc | 0.01 | **0.96** | 1.00 | 1.00 |
+| Ngân hàng bộ lọc | 0.01 | 0.96 | 1.00 | 1.00 |
 
-Ngân hàng bộ lọc chịu nhiễu tốt nhất vì 14 bộ cộng hưởng đo đúng tại tần số chuẩn nên giữ trọn
-năng lượng âm. Trên khung không nhiễu, trung vị của `rho` (tỷ lệ năng lượng tại bảy tần số chuẩn)
-là 1.01 với ngân hàng bộ lọc, còn FFT và Goertzel đo tại tâm bin lệch khỏi tần số chuẩn nên chỉ
-đạt 0.87 và 0.91. Mẫu số của cả ba đều là năng lượng của cả khung, gồm cả nhiễu. Nhiễu kéo `rho` xuống, nên phương
-pháp xuất phát cao hơn còn trên ngưỡng 0.70 ở SNR thấp hơn. Với nhiễu điện lưới 50 Hz, ngân hàng bộ
-lọc đạt 1.00 ngay từ 2.5 dB trong khi FFT còn 0.00.
-
-Goertzel cần ít phép nhân nhất, chỉ bằng 1/4 FFT, và chạy nhanh nhất (1.50 ms mỗi giây âm
-thanh, FFT 2.52 ms) dù là vòng lặp MATLAB thông dịch còn `fft` và `filter` là mã biên dịch.
+Ngân hàng bộ lọc chịu nhiễu tốt nhất vì nó đo đúng tại tần số chuẩn. FFT và Goertzel đo tại tâm bin,
+vốn lệch khỏi tần số chuẩn, nên mất một phần năng lượng. Goertzel cần ít phép nhân nhất, bằng một
+phần tư FFT.
 
 ## Chạy thử
 
-Đặt Current Folder là thư mục gốc repo, nạp path một lần cho mỗi phiên:
+Đặt Current Folder là thư mục gốc repo rồi chạy.
 
 ```matlab
-dtmf_setup
-```
+dtmf_setup                                        % nạp path, mỗi phiên một lần
 
-```matlab
-[x, t, meta]    = dtmf_generate('0912345');          % âm 100 ms / nghỉ 50 ms
-y               = dtmf_addnoise(x, 'snrDb', 15);     % AWGN, SNR = 15 dB
-[keysHat, info] = dtmf_decode_goertzel(y);
-m               = dtmf_metrics(meta.keys, keysHat);  % m.acc, m.editDist, m.confusion
+[x, ~, meta] = dtmf_generate('0912345');
+y            = dtmf_addnoise(x, 'snrDb', 15);
+keysHat      = dtmf_decode_goertzel(y);
+m            = dtmf_metrics(meta.keys, keysHat);  % m.acc là độ chính xác
 
-DTMFApp          % giao diện ba bước: Tạo tín hiệu x[n] -> Cộng nhiễu y[n] -> Giải mã,
-                 % mỗi bước kèm dạng sóng và phổ; nguồn Micro thì bước 1 là thu âm.
-                 % Bước 1 còn nút "Mở tệp âm thanh…": tệp wav/flac/mp3 bất kỳ thành x[n].
+DTMFApp          % giao diện tạo tín hiệu, cộng nhiễu, giải mã, mở tệp âm thanh
 run_all_tests    % 266 ca
 ```
 
-Sinh lại số liệu và các hình số liệu cho báo cáo (khoảng một phút):
+Sinh lại số liệu, hình cho báo cáo và bộ dữ liệu.
 
 ```matlab
 addpath('scripts');
-run_bench        % -> results/bench.mat, không vẽ gì
-make_figures     % -> results/figures/H*.png (300 dpi) + H*.pdf (vector)
-publish_figures  % -> report/template/Figures/, chép một chiều
+run_bench        % results/bench.mat
+make_figures     % results/figures/
+publish_figures  % chép hình sang report/template/Figures/
+make_dataset     % data/wav/
 ```
-
-`results/` không nằm trong git vì dựng lại được; bản đi vào git là bản đã công bố ở
-`report/template/Figures/`. Ảnh chụp màn hình (H3_3, H3_4, H3_5), sơ đồ `SD_*` (draw.io) và ảnh bìa
-(`scripts/make_cover.m`) làm riêng, không nằm trong `make_figures`.
 
 ## Bộ dữ liệu
 
-`data/wav/` chứa 139 đoạn âm thanh có đáp án, mở thẳng bằng nút *Mở tệp âm thanh…* của
-`DTMFApp` được. `data/wav/manifest.csv` ghi chuỗi phím thật, kỳ vọng và thông số của từng tệp.
-`tests/test_dataset.m` giải mã mọi tệp bằng cả ba phương pháp, qua đúng đường của app
-(`dtmf_readaudio` rồi `dtmf_run`), rồi đối chiếu với cột `kyVong`: `dung` là cả ba phải đọc đúng
-từng phím, `rong` là cả ba không được đọc ra phím nào, `thong_ke` chỉ dùng để đo.
+`data/wav/` có 139 tệp âm thanh, đáp án ghi trong `manifest.csv`. Các tệp gồm tín hiệu sạch, nhiễu
+trắng, điện lưới 50 Hz, tiếng nói, twist, lệch tần, nhịp bấm khác nhau, nhiều định dạng tệp và các
+tệp không có phím nào. `tests/test_dataset.m` giải mã mọi tệp bằng cả ba phương pháp rồi đối chiếu
+đáp án. Ngân hàng bộ lọc còn đọc nhầm hai tệp, ghi ở cột `ngoaiLe`.
 
-| Nhóm | Tệp | Nội dung |
-|---|:--:|---|
-| `sach` | 9 | Không nhiễu: một phím, đủ 12 phím, phím lặp, sáu số điện thoại |
-| `awgn` | 40 | Năm chuỗi 12 phím × tám mức SNR, 20 xuống 0 dB |
-| `hum50` | 16 | Điện lưới 50 Hz, bốn chuỗi × 10, 5, 2.5, 0 dB |
-| `speech` | 16 | Tiếng nói qua nhánh `'speech'` của `dtmf_addnoise`, 20 xuống 5 dB |
-| `hien_truong` | 16 | Người bấm tay giữa tiếng nói và nhiễu, bốn mức như màn giám định |
-| `twist` | 4 | Twist +2, −6 dB (phải nhận) và +8, −12 dB (phải loại) |
-| `lech_tan` | 6 | Lệch tần ±0.5, ±1.5, ±3.5% |
-| `nhip` | 10 | Giữ phím lâu, âm 150 xuống 40 ms, nghỉ 40 ms, bấm tay, bấm vội |
-| `dinh_dang` | 8 | 44.1 kHz hai kênh, 48 kHz 24 bit, FLAC 16 kHz, 11 025 Hz, 8 bit, lệch DC, −40 dBFS, xén đỉnh |
-| `khong_phim` | 14 | Im lặng, nhiễu nền, nhiễu trắng, điện lưới 50 Hz, một âm, hai âm cùng nhóm, phím A, âm mời quay số, âm bận, âm quét tần số, giọng nói thật |
+## Trình diễn với trang web
 
-`data/wav/speech_tong_dai.wav` là giọng tổng đài trong `data/giong_tong_dai/` đổi về 8 kHz, cũng là
-tệp mà `dtmf_addnoise(..., 'type', 'speech')` đọc. Thư mục này là bản giọng cố định mà số liệu báo cáo dựa vào. Giọng web dùng trong cuộc gọi nằm riêng ở `web/src/ivr/voice/` và thu lại được mà không làm đổi bộ dữ liệu. Sinh lại toàn bộ (khoảng 3 giây, ra đúng từng mẫu):
+Trang web trong `web/` gửi mẫu âm thanh sang MATLAB qua một cầu nối chạy cùng Vite
+(cổng TCP 127.0.0.1:8765). MATLAB chỉ nhận âm thanh, không nhận tên phím.
 
-```matlab
-addpath('scripts');
-make_dataset     % -> data/wav/*, data/wav/manifest.csv
-```
+*Giám định ghi âm.* Trang dựng một đoạn ghi âm có người bấm một số bí mật giữa tiếng ồn.
+`DTMFForensic` đọc ra số, sau đó trang mới công bố số thật để đối chiếu.
 
-Ngân hàng bộ lọc còn đọc nhầm ở hai tệp, ghi trong cột `ngoaiLe`: một phím `9` trong giọng nói
-thật và một phím `1` từ âm lệch −3.5%. Cả hai do dao động dư của bộ cộng hưởng khi âm thanh vừa tắt
-(CONTRACTS §7.13).
+1. `cd web`, `npm install`, `npm run dev:lan`.
+2. Trong MATLAB chạy `dtmf_setup` rồi `DTMFForensic`.
+3. Máy khác cùng mạng mở `http://<địa chỉ Network>:5173/#giam-dinh`, nhập số, bấm *Gửi cho MATLAB*.
 
-## Trình diễn chính: giám định đoạn ghi âm
-
-Trên trang web, nhập một **số điện thoại bí mật**. Trang dựng một đoạn ghi âm có người bấm số
-đó giữa tiếng ồn, phát ra loa và gửi đúng các mẫu đó sang MATLAB. MATLAB chỉ nhận âm thanh. Nó đọc
-dần từng chữ số, kết luận khi hết đoạn ghi âm, và chỉ sau đó trang mới cho công bố số thật để đối
-chiếu. Không ai biết trước đáp án, nên khán giả thấy rõ MATLAB phải nghe mới ra số.
-
-```
-máy nhập số                           máy trình chiếu
-trang #giam-dinh --WebSocket qua LAN--> cầu nối (npm run dev:lan) --TCP 127.0.0.1:8765--> DTMFForensic
-                 <------------------------- key, verdict ------------------------------
-```
-
-- **Trang** (`web/src/forensic/`) chỉ cần nhập số bí mật và kéo thanh *Độ khó* qua bốn mức dựng
-  sẵn. Mỗi mức đặt sẵn nhịp bấm, tiếng người nói (giọng tổng hợp có thanh điệu) và nhiễu đường
-  truyền, dưới thanh ghi rõ ba thông số đó. *Phòng yên tĩnh* và *Quán cà phê* gần như luôn đọc đúng,
-  *Ngoài đường* đúng khoảng một nửa, *Cực khó* hiếm khi đúng (CONTRACTS §7.11).
-- **MATLAB** (`DTMFForensic`) là màn chiếu. Bên trái là số đọc được, bảng ba bộ giải mã kèm thời gian
-  xử lý, rồi phần đối chiếu tô xanh, đỏ từng chữ số. Bên phải là cả đoạn ghi âm và bản đồ 8 bin,
-  trên bản đồ có hai làn *k̂* (số đọc được) và *k* (số thật) để thấy chữ số nào sai, sai ở đâu.
-
-1. Máy trình chiếu: `cd web`, `npm run dev:lan`. Lần đầu Windows hỏi tường lửa cho Node.js thì cho
-   phép mạng *Private*. Vite in ra địa chỉ *Network*, ví dụ `http://192.168.1.20:5173/`.
-2. Máy trình chiếu, trong MATLAB: `dtmf_setup` rồi `DTMFForensic`. Dòng *● Đã nối* hiện màu xanh.
-3. Máy nhập số (cùng mạng Wi-Fi): mở `http://<địa chỉ Network>:5173/#giam-dinh`, hoặc mở trang
-   chính rồi bấm *Giám định* ở công tắc góc phải trên. Huy hiệu trên cùng báo *MATLAB đang nghe*.
-4. Nhập số (hoặc bấm *Ngẫu nhiên*), chọn độ khó, bấm **Gửi cho MATLAB**. Hết đoạn ghi âm,
-   bấm **Công bố số thật**.
-
-Không có mạng thì mở trang ngay trên máy trình chiếu (`http://localhost:5173/#giam-dinh`). Nguồn
-**Micro** của `DTMFForensic` cho MATLAB tự nghe bằng micro: tiếng loa của trang (tin bắt đầu, kết
-thúc, đáp án vẫn đi qua đường dây), hoặc tiếng phím của một điện thoại thật. Khi đó dùng nút *Bắt
-đầu nghe*, *Kết luận* và ô *Số thật* trên màn MATLAB.
-
-## Trình diễn phụ: gọi từ trang web, MATLAB làm tổng đài
-
-Thư mục `web/` là **chiếc điện thoại** trong buổi trình diễn. Bên trái là màn hình cuộc gọi kiểu
-iPhone tới tổng đài Học viện An ninh nhân dân (số mô phỏng): gọi từ thẻ danh bạ, nghe lời chào rồi câu
-"Tổng đài nhận được phím ..." sau mỗi phím, bằng giọng thu sẵn theo kịch bản
-`docs/kich_ban_thu_am_tong_dai.docx` (`web/src/ivr/voice/`, WAV 16 kHz ~500 KB);
-bấm phím mới thì tổng đài ngắt lời. Mở bàn phím để bấm; mỗi phím phát đúng cặp âm ITU-T
-Q.23 (dốc 5 ms hai đầu) ra loa. Bên phải là **tín hiệu của phím vừa bấm trong miền thời gian và
-miền tần số**, vẽ như ba hình của một bài báo: (a) bảng tần số chọn một hàng và một cột, (b) hai
-sóng sin và tổng x(t), (c) phổ biên độ (cửa sổ Hamming) có đúng hai đỉnh tại hai tần số đó. Phần nội
-dung dùng font STIX Two, kiểu chữ của LaTeX.
-
-`DTMFLive` là **tổng đài** ở đầu kia. Bấm gọi trên trang thì MATLAB đổ chuông, 1,5 s sau tự nhấc
-máy, rồi đọc từng phím bằng chính `dtmf_listen` và hiện ngay: bàn phím sáng phím vừa nghe (kèm
-tần số hàng và cột của nó), dãy số đã đọc, dạng sóng 3 s gần nhất, 32 ms
-cuối, bản đồ 8 bin theo khung, và 8 thanh của khung mới nhất kèm lý do nhận hay loại. MATLAB gửi
-phím đọc được về điện thoại, và tổng đài trên trang **chỉ đọc lại phím MATLAB nghe được**: bấm
-mà MATLAB không nghe ra thì tổng đài im lặng. Trang không giải mã gì.
-
-```
-trang web --WebSocket /line--> cầu nối (trong npm run dev) --TCP 127.0.0.1:8765--> DTMFLine --> dtmf_listen --> DTMFLive
-          <------------------------------ answer, key, hangup ------------------------------
-```
-
-Trang gửi đúng các mẫu nó phát ra loa, hạ về 8 kHz, chứ không gửi tên phím. Đường dây thay cho vòng
-loa → micro vì trên cùng một laptop vòng đó không đáng tin (CONTRACTS §7.9). Cầu nối nằm trong máy
-chủ Vite vì trình duyệt không mở được cổng TCP, còn MATLAB gốc chỉ có `tcpclient` (`tcpserver` thuộc
-Instrument Control Toolbox).
+*Tổng đài.* Trang là chiếc điện thoại gọi tới tổng đài. `DTMFLive` giải mã từng phím và gửi lại,
+tổng đài trên trang chỉ đọc lại phím mà MATLAB nghe được.
 
 1. `cd web`, `npm run dev`, mở http://localhost:5173.
-2. Trong MATLAB: `dtmf_setup` rồi `DTMFLive`. Thẻ bên trái báo *● Đã nối*; trên trang, chip ở ô phụ
-   đề ghi *MATLAB* khi gọi đi qua đường dây.
-3. Bấm gọi, mở bàn phím, bấm số bằng chuột hoặc bằng phím 0-9, `*`, `#` của máy tính.
+2. Trong MATLAB chạy `dtmf_setup` rồi `DTMFLive`.
+3. Bấm gọi, mở bàn phím và bấm số.
 
-Mở MATLAB trước `npm run dev` thì bấm **Nối đường dây**. Không có MATLAB, trang vẫn gọi được và tổng
-đài chạy ngay trong trang; khi đó dưới đồng hồ cuộc gọi không có huy hiệu *MATLAB đang nghe*. Nguồn **Micro**
-của `DTMFLive` (hoặc chế độ Giải mã trực tiếp của `DTMFApp`) dùng khi bấm số trên một điện thoại
-thật đặt cách micro 5-10 cm; MATLAB báo `twist` thì tăng *Bù loa nhóm hàng* trên trang.
-
-```bash
-cd web
-npm install
-npm run dev              # trang + cầu nối đường dây sang MATLAB
-npm run dev:lan          # như trên, mở cho máy khác trong mạng LAN (màn giám định)
-npm test                 # vitest: bảng tần số, WAV, phổ, Goertzel, chấp nhận khung, gộp khung, tổng đài,
-                         #         đường dây, hiện trường giám định, đối chiếu chữ số
-npm run build            # dist/index.html - một tệp, mở offline được, có nút Tải WAV 8 kHz, không có đường dây
-npm run build:artifact   # dist-artifact/ban-phim-dtmf.html - bản phát hành, không có nút tải
-```
-
-Tệp WAV tải từ trang đọc lại được bằng `audioread` và giải mã đúng bằng cả ba phương pháp (đã thử
-`0123456789*#`, có và không bù loa 6 dB).
+Lệnh khác trong `web/` là `npm test` (kiểm thử) và `npm run build` (một tệp HTML chạy offline).
 
 ## Cấu trúc
 
 ```
-src/gen/      dtmf_table, dtmf_generate, dtmf_addnoise
-src/decode/   FFT, Goertzel, ngân hàng bộ lọc
-src/util/     chia khung, chấp nhận khung, gộp phím, đánh giá
-app/          DTMFApp (giao diện) · DTMFForensic (giám định ghi âm) · DTMFLive (tổng đài trực tiếp)
-              · DTMFLine (đầu đường dây)
-              · dtmf_run, dtmf_listen, dtmf_judge, dtmf_readaudio (lớp trung gian: khối, luồng,
-                đối chiếu, đọc tệp âm thanh)
-              · ui/ (dạng sóng, phổ Welch, bản đồ khung, thanh quyết định, màn trực tiếp, phát tiếng, micro)
-tests/        unit test (matlab.unittest)
-scripts/      dev_harness · make_coeffs · make_dataset · run_bench · make_figures · publish_figures · make_cover
-data/         wav/ bộ dữ liệu có nhãn (make_dataset) · mat/ coeffs.mat sinh tại chỗ, không nằm trong git
-results/      bench.mat + figures/, máy sinh ra, không nằm trong git
-docs/         đề cương, kịch bản thu âm tổng đài, ghi chú học (study/). Báo cáo ở report/, slide ở slides/
-web/          điện thoại gọi tổng đài và minh họa phím thành phổ, trên trình duyệt (React + Vite)
-              · src/forensic/: màn giám định (#giam-dinh), dựng đoạn ghi âm hiện trường
-              · server/line.ts: cầu nối đường dây sang MATLAB, chạy trong npm run dev
+src/       phát tín hiệu, ba bộ giải mã, chia khung và đánh giá
+app/       DTMFApp, DTMFForensic, DTMFLive và các thành phần giao diện
+tests/     unit test (matlab.unittest)
+scripts/   sinh số liệu, hình, bộ dữ liệu
+data/      bộ dữ liệu wav
+web/       trang web (React + Vite)
+report/    báo cáo LaTeX
+slides/    slide thuyết trình
 ```
 
 ## Yêu cầu
 
-- MATLAB **R2025a** trở lên (đang phát triển trên R2026a; `DTMFApp` đặt `Theme` của `uifigure`, hình số liệu dùng `theme`) và **Signal Processing Toolbox**.
-- Communications Toolbox **không cần**: `dtmf_addnoise` tự tính nhiễu theo công suất mục
-  tiêu thay vì gọi `awgn`, nhờ vậy SNR chính xác và tái lập được với `rng` cố định.
+- MATLAB R2025a trở lên và Signal Processing Toolbox. Không cần Communications Toolbox.
+- Node.js cho phần `web/`.
 
-**Nguyên tắc dùng toolbox:** tự cài đặt phần được chấm, dùng thư viện cho phần phụ trợ.
-`goertzel_power` và ngân hàng bộ lọc cộng hưởng phải tự viết; `goertzel` của toolbox chỉ
-xuất hiện trong `tests/test_goertzel.m` với vai trò phép đối chứng độc lập.
+## Quy ước
 
-## Ghi chú thiết kế
+- Goertzel và ngân hàng bộ lọc tự viết. Hàm `goertzel` của toolbox chỉ dùng để đối chứng trong test.
+- Hàm trong `src/` không vẽ, không phát âm thanh, không in ra màn hình.
+- Giao diện viết bằng `classdef`, không dùng `.mlapp`, để diff được và test được.
+- Chỉ commit khi `run_all_tests` pass hết.
 
-- Giao diện là `classdef` tự dựng `uifigure`, **không** phải `.mlapp`, vì file `.mlapp` là ZIP
-  nhị phân, không diff, không merge và không chạy được trong `matlab -batch`. Nhờ vậy tầng
-  giao diện cũng nằm trong `run_all_tests`: `DTMFApp('off')` dựng cửa sổ ẩn, test gọi thẳng
-  callback rồi đọc `app.LblDecoded.Text`.
-- Hàm trong `src/` không được gọi `figure`, `plot`, `disp`, `sound`, `input`. Vẽ và phát âm
-  thanh chỉ nằm trong `app/ui/*.m` và ba script `dev_harness`, `run_bench`, `make_figures`.
-- Micro mở bằng `audiorecorder` của MATLAB gốc (không cần Audio Toolbox). Chế độ nghe trực
-  tiếp đưa từng đoạn 50 ms qua `dtmf_listen`, hàm này gọi lại đúng bộ giải mã khối nên luồng
-  và khối cho cùng kết quả (`tests/test_listen.m`); phím hiện ra 40-90 ms sau lúc âm bắt đầu
-  (độ trễ thuật toán), 44-134 ms khi tính cả chu kỳ đọc micro 50 ms.
-- Làm việc trực tiếp trên nhánh `main`; chỉ commit khi `run_all_tests` pass hết.
-
-## Tài liệu
-
-- [CONTRACTS.md](CONTRACTS.md) ghi chữ ký hàm, thông số đã chốt, quy ước chú thích, số liệu đo.
-- [docs/study/KE_HOACH.md](docs/study/KE_HOACH.md) là kế hoạch triển khai ban đầu (lưu trữ, dừng cập nhật từ 23/09/2026).
-- [docs/ui_naming.md](docs/ui_naming.md) ghi quy ước tên component của giao diện.
+Chi tiết chữ ký hàm, thông số và số liệu đo nằm trong [CONTRACTS.md](CONTRACTS.md).
