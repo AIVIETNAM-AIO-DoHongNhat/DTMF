@@ -515,7 +515,7 @@ export function Forensic() {
               )}
               {locked && !busy && (
                 <button type="button" className="btn" onClick={newCase}>
-                  Vụ mới
+                  Thử số khác
                 </button>
               )}
             </div>
